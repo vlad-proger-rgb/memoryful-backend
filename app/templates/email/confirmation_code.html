@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Send code</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            background-color: #fff;
+            border-radius: 10px;
+            padding: 20px;
+            max-width: 500px;
+            margin: 0 auto;
+            box-shadow: 0px 0px 10px 0px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            font-family: "Gabriola", sans-serif;
+        }
+        p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .code-container {
+            background-color: #007b;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .code {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #f0f0f0;
+            margin-bottom: 0;
+        }
+        .footer {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="container">{{ title }}</h1>
+        <p>Thank you for choosing our service.</p>
+        <p>{{ message }}</p>
+        <div class="code-container">
+            <p class="code">{{ code }}</p>
+            <p></p>
+        </div>
+
+        <div class="footer">
+            <p>Code is valid for <b>5 minutes</b></p>
+            <p>If you didn't request this, you can safely ignore this email.</p>
+            <p>This email was sent automatically. Please do not reply to this message.</p>
+        </div>
+    </div>
+</body>
+</html>

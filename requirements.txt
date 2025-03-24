@@ -1,0 +1,15 @@
+python-dotenv
+python-jose
+fastapi
+fastapi_mail
+uvicorn
+sqlalchemy
+pydantic
+redis[async]
+asyncpg
+aio_pika
+bcrypt
+openai
+langchain
+celery
+passlib
