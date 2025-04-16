@@ -15,6 +15,8 @@ class City(Base, IDMixin):
 
     country: Mapped["Country"] = relationship(back_populates="cities")
     days: Mapped[list["Day"]] = relationship(back_populates="city")
+    users: Mapped[list["User"]] = relationship(back_populates="city")
 
 from .country import Country
 from .day import Day
+from .user import User

@@ -1,8 +1,8 @@
-from typing import Annotated
+from typing import Annotated, Sequence
 import datetime as dt
 from uuid import UUID
 
-from sqlalchemy import select, update, delete, exists
+from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from jose import jwt, JWTError
 from fastapi import (
@@ -25,7 +25,7 @@ from app.core.deps import get_current_user
 from app.core.security import (
     oauth2_scheme,
     create_and_store_tokens,
-    verify_code,
+    verify_code_form,
     verify_refresh_token,
 )
 from app.core.settings import (
@@ -42,8 +42,9 @@ from app.schemas import (
     Session,
     VerifyCodeForm,
     UserBase,
-    UserInDB as U,
-    Token as T,
+    UserInDB,
+    Token,
+    AuthResponse,
 )
 
 
@@ -53,7 +54,16 @@ router = APIRouter(
 )
 
 
+@router.get("/me", response_model=Msg[UserInDB])
+async def get_me(
+    current_user: Annotated[User, Depends(get_current_user(True))],
+) -> Msg[UserInDB]:
+    return Msg(code=200, msg="Current user retrieved", data=current_user)
+
+
+@router.post("/request-code", response_model=Msg[None])
 async def request_code(email: Email) -> Msg[None]:
+    print(f"AUTH POST /request-code {email.email=}")
     activation_code = generate_activation_code()
 
     await redis.setex(
@@ -74,102 +84,54 @@ async def request_code(email: Email) -> Msg[None]:
     return Msg(code=200, msg="Code was sent")
 
 
-@router.get("/me", response_model=Msg[U])
-async def get_me(
-    current_user: Annotated[User, Depends(get_current_user(True))],
-) -> Msg[U]:
-    return Msg(code=200, msg="Current user retrieved", data=current_user)
-
-
-@router.post("/request-register-code", response_model=Msg[None])
-async def request_register_code(email: Email) -> Msg[None]:
-    return await request_code(email)
-
-
-@router.post("/request-login-code", response_model=Msg[None])
-async def request_login_code(
-    db: Annotated[AsyncSession, Depends(get_db)],
-    email: Email,
-) -> Msg[None]:
-    print(f"AUTH POST /request-login-code {email=}")
-    stmt = select(exists().where(User.email == email.email))
-    result = await db.execute(stmt)
-    if not result.scalar_one():
-        raise HTTPException(400, "User does not exist")
-
-    return await request_code(email)
-
-
-@router.post("/register", response_model=Msg[T])
-async def register_user(
+@router.post("/verify-code", response_model=Msg[AuthResponse])
+async def verify_code(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
-    code_form: VerifyCodeForm,
     response: Response,
-) -> Msg[T]:
-    print(f"AUTH POST /register {code_form=}")
-
-    stmt = select(exists().where(User.email == code_form.email))
-    result = await db.execute(stmt)
-    if result.scalar_one():
-        raise HTTPException(400, "User already exists")
-
-    await verify_code(code_form)
-
-    user = User(email=code_form.email)
-
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-
-    tokens = await create_and_store_tokens(db, user, request)
-    # response.set_cookie(
-    #     key="refresh_token",
-    #     value=tokens.refresh_token,
-    #     httponly=True,
-    #     secure=True,
-    #     samesite="Lax",
-    # )
-
-    return Msg(code=201, msg="User was created", data=tokens)
-
-
-@router.post("/login", response_model=Msg[T])
-async def login(
-    request: Request,
-    db: Annotated[AsyncSession, Depends(get_db)],
     code_form: VerifyCodeForm,
-    response: Response,
-) -> Msg[T]:
-    print(f"AUTH POST /login {code_form=}")
+) -> Msg[AuthResponse]:
+    print(f"AUTH POST /verify-code {code_form=}")
+
+    await verify_code_form(f"{RP_LOGIN_CODE}{code_form.email}", code_form)
+
     stmt = select(User).where(User.email == code_form.email)
     user: User | None = (await db.scalars(stmt)).one_or_none()
+
+    is_new_user = False
     if not user:
-        raise HTTPException(400, "User not found")
+        is_new_user = True
+        user = User(email=code_form.email)
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
 
-    if not user.is_enabled:
-        raise HTTPException(400, "User is disabled")
+    tokens = await create_and_store_tokens(db, user, request)
+    response.set_cookie(
+        key="refresh_token",
+        value=tokens.refresh_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+    )
 
-    await verify_code(code_form)
-
-    result = await create_and_store_tokens(db, user, request)
-    # response.set_cookie(
-    #     key="refresh_token",
-    #     value=result.refresh_token,
-    #     httponly=True,
-    #     secure=True,
-    #     samesite="Lax",
-    # )
-
-    return Msg(code=200, msg="Login was successful", data=result)
+    return Msg(
+        code=201,
+        msg="Authentication was successful",
+        data=AuthResponse(
+            tokens=tokens,
+            is_new_user=is_new_user,
+            user_id=user.id,
+        ),
+    )
 
 
-@router.get("/refresh", response_model=Msg[T])
+@router.get("/refresh", response_model=Msg[Token])
 async def refresh_token(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
     authorization: str = Header(...),
-) -> Msg[T]:
+) -> Msg[Token]:
     scheme, _, refresh_token = authorization.partition(" ")
     print(f"AUTH GET /refresh {scheme=}, {refresh_token=}")
     if scheme.lower() != "bearer":
@@ -284,18 +246,18 @@ async def logout_all(
     return Msg(code=200, msg="All sessions revoked")
 
 
-@router.get("/sessions", response_model=Msg[list[Session]])
+@router.get("/sessions", response_model=Msg[Sequence[Session]])
 async def list_sessions(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
-) -> Msg[list[Session]]:
+) -> Msg[Sequence[Session]]:
     stmt = select(UserToken).where(UserToken.user_id == user_id)
     result = await db.execute(stmt)
-    tokens: list[UserToken] = result.scalars().all()
+    tokens: Sequence[UserToken] = result.scalars().all()
 
     sessions = [
         Session(
-            id=str(token.id),
+            id=token.id,
             ip_address=token.ip_address,
             user_agent=token.user_agent,
             created_at=token.created_at,

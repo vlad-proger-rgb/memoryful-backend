@@ -5,6 +5,8 @@ from pydantic import BaseModel, ConfigDict, EmailStr
 
 
 class UserBase(BaseModel):
+    country_id: UUID | None = None
+    city_id: UUID | None = None
     first_name: str | None = None
     last_name: str | None = None
     age: int | None = None

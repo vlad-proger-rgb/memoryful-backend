@@ -12,8 +12,8 @@ class LearningItem(Base, IDMixin):
 
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
     title: Mapped[str]
-    description: Mapped[str]
-    icon: Mapped[str]
+    description: Mapped[str | None]
+    icon: Mapped[str | None]
 
     user: Mapped["User"] = relationship(back_populates="learning_items")
     learning_progresses: Mapped[list["LearningProgress"]] = relationship(back_populates="learning_item")

@@ -9,7 +9,7 @@ from .email import Email, EmailSchema, VerifyCodeForm
 from .learning_item import LearningItemBase, LearningItemInDB
 from .learning_progress import LearningProgress
 from .month import MonthBase, MonthInDB
-from .security import Token, Session
+from .security import Token, AuthResponse, Session
 from .tag import TagBase, TagInDB
 from .user import UserBase, UserInDB
 
@@ -34,6 +34,7 @@ __all__ = [
     "MonthBase",
     "MonthInDB",
     "Token",
+    "AuthResponse",
     "Session",
     "TagBase",
     "TagInDB",

@@ -15,7 +15,7 @@ class Day(Base, TimestampWithUpdateMixin):
     city_id: Mapped[UUID] = mapped_column(ForeignKey("cities.id"))
     description: Mapped[str]
     content: Mapped[str]
-    steps: Mapped[int]
+    steps: Mapped[int | None]
     starred: Mapped[bool] = mapped_column(default=False)
     main_image: Mapped[str]
     images: Mapped[list[str]] = mapped_column(ARRAY(String))

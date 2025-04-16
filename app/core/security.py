@@ -63,12 +63,11 @@ def create_token(
     return jwt.encode(to_encode, secret_key, ALGORITHM), jti
 
 
-async def verify_code(
+async def verify_code_form(
+    key: str,
     code_form: VerifyCodeForm,
 ) -> None:
-    key = f"{RP_LOGIN_CODE}{code_form.email}"
     code = await redis.get(key)
-    print(f"AUTH verify_code {key=}, {code=}")
 
     if not code:
         raise HTTPException(400, "Code not requested")

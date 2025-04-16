@@ -10,5 +10,7 @@ class Country(Base, IDMixin):
     code: Mapped[str] = mapped_column(unique=True)
 
     cities: Mapped[list["City"]] = relationship(back_populates="country")
+    users: Mapped[list["User"]] = relationship(back_populates="country")
 
 from .city import City
+from .user import User
