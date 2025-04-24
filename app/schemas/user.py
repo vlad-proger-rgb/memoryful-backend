@@ -1,10 +1,10 @@
 from uuid import UUID
 import datetime as dt
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import ConfigDict, EmailStr
+from fastapi_camelcase import CamelModel
 
-
-class UserBase(BaseModel):
+class UserBase(CamelModel):
     country_id: UUID | None = None
     city_id: UUID | None = None
     first_name: str | None = None

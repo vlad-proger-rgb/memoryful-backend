@@ -1,8 +1,9 @@
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
+from fastapi_camelcase import CamelModel
 
 
-class DayBase(BaseModel):
+class DayBase(CamelModel):
     city_id: UUID
     description: str | None = None
     content: str

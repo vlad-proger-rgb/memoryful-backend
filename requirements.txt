@@ -2,6 +2,7 @@ python-dotenv
 python-jose
 fastapi
 fastapi_mail
+fastapi_camelcase
 uvicorn
 sqlalchemy
 pydantic

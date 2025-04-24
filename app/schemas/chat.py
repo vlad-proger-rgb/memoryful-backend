@@ -1,9 +1,10 @@
 from uuid import UUID
 import datetime as dt
-from pydantic import BaseModel, ConfigDict
+from pydantic import ConfigDict
+from fastapi_camelcase import CamelModel
 
 
-class ChatUpdate(BaseModel):
+class ChatUpdate(CamelModel):
     title: str | None = None
     messages: list[dict[str, str]]
 

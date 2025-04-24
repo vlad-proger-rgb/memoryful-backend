@@ -1,11 +1,12 @@
 from uuid import UUID
 import datetime as dt
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
+from fastapi_camelcase import CamelModel
 from dateutil.parser import parse
 
 
-class MonthBase(BaseModel):
+class MonthBase(CamelModel):
     year: int = Field(dt.date.today().year)
     month: int = Field(ge=1, le=12)
     description: str | None = None

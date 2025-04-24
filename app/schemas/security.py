@@ -1,18 +1,18 @@
 from uuid import UUID
 import datetime as dt
-from pydantic import BaseModel
+from fastapi_camelcase import CamelModel
 
-class Token(BaseModel):
+class Token(CamelModel):
     access_token: str
     refresh_token: str = None
     token_type: str
 
-class AuthResponse(BaseModel):
+class AuthResponse(CamelModel):
     tokens: Token
     is_new_user: bool
     user_id: UUID
 
-class Session(BaseModel):
+class Session(CamelModel):
     id: UUID
     ip_address: str | None = None
     user_agent: str | None = None

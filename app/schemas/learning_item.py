@@ -1,8 +1,9 @@
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict
+from pydantic import ConfigDict
+from fastapi_camelcase import CamelModel
 
 
-class LearningItemBase(BaseModel):
+class LearningItemBase(CamelModel):
     title: str
     description: str
     icon: str | None = None

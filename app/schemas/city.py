@@ -1,7 +1,8 @@
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict
+from pydantic import ConfigDict
+from fastapi_camelcase import CamelModel
 
-class CityInDB(BaseModel):
+class CityInDB(CamelModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID

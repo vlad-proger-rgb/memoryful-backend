@@ -1,7 +1,9 @@
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict
+from pydantic import ConfigDict
+from fastapi_camelcase import CamelModel
 
-class TagBase(BaseModel):
+
+class TagBase(CamelModel):
     name: str
     icon: str | None = None
     color: str | None = None
