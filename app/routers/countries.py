@@ -43,7 +43,7 @@ async def get_countries(
     result = await db.execute(stmt)
     countries = result.scalars().unique().all()
 
-    return Msg(code=200, msg="Countries retrieved", data=countries)
+    return Msg(code=200, msg="Countries retrieved", data=[C.model_validate(c) for c in countries])
 
 
 @router.get("/{country_id}", response_model=Msg[C])
@@ -55,5 +55,5 @@ async def get_country_by_id(
     if not country:
         raise HTTPException(status_code=404, detail="Country not found")
 
-    return Msg(code=200, msg="Country retrieved", data=country)
+    return Msg(code=200, msg="Country retrieved", data=C.model_validate(country))
 

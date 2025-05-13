@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import schemas
 from app.schemas import (
     Msg,
-    ChatInDB,
+    ChatDetail,
 )
 from app.core.database import get_db
 from app.models import Insight

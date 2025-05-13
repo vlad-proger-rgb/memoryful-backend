@@ -1,5 +1,5 @@
 import json
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import (
@@ -9,7 +9,7 @@ from fastapi import (
     Query,
 )
 from sqlalchemy import select, update, delete, exists, func
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, load_only
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -17,7 +17,8 @@ from app.models import Day, City, LearningItem, LearningProgress
 from app.core.deps import get_current_user
 from app.schemas import (
     Msg,
-    DayInDB as D,
+    DayListItem,
+    DayDetail,
     DayCreate,
     DayUpdate,
 )
@@ -29,23 +30,17 @@ router = APIRouter(
 )
 
 
-@router.get("/", response_model=Msg[list[D]])
+@router.get("/")
 async def get_days(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
     limit: int = Query(10, ge=1, le=100),
     offset: int = Query(0, ge=0),
     sort_by: str | None = Query(None),
-    fields: list[str] | None = Query(None),
+    view: Literal["list", "detail"] = Query("list", description="View type to return"),
     filters: str | None = Query(None),
-    # origin: str | None = Query(None),  # TODO: from where the request comes? calendar/search/chat - ?
-) -> Msg[list[D]]:
-    selected_columns = [getattr(Day, field) for field in fields] if fields else [Day]
-    stmt = (
-        select(*selected_columns)
-        .where(Day.user_id == user_id)
-        .options(selectinload(Day.learning_progresses))
-    )
+) -> Msg[list[DayListItem | DayDetail]]:
+    stmt = select(Day).where(Day.user_id == user_id)
 
     if filters:
         try:
@@ -63,48 +58,84 @@ async def get_days(
                 order_by_column = getattr(Day, field)
                 stmt = stmt.order_by(order_by_column.asc() if order == "asc" else order_by_column.desc())
 
-    stmt = stmt.limit(limit).offset(offset)
-    result = await db.execute(stmt)
-
-    if fields:
-        days = result.fetchall()
+    if view == "list":
+        stmt = stmt.options(
+            load_only(
+                Day.timestamp,
+                Day.description,
+                Day.steps,
+                Day.starred,
+                Day.main_image,
+            ),
+            selectinload(Day.city),
+            selectinload(Day.learning_progresses).selectinload(LearningProgress.learning_item),
+        )
     else:
-        days: list[Day] = list(result.scalars())
+        stmt = stmt.options(
+            selectinload(Day.learning_progresses),
+            selectinload(Day.city),
+        )
 
-    return Msg(code=200, msg="Days retrieved", data=days)
+    stmt = stmt.limit(limit).offset(offset)
+
+    result = await db.execute(stmt)
+    days = list(result.scalars().unique())
+
+    response_model = DayDetail if view == "detail" else DayListItem
+    return Msg(
+        code=200,
+        msg="Days retrieved",
+        data=[response_model.model_validate(day) for day in days]
+    )
 
 
-@router.get("/{timestamp}", response_model=Msg[D])
+@router.get("/{timestamp}", response_model=Msg[DayDetail])
 async def get_day(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
     timestamp: int,
-    fields: str | None = Query(None),
-) -> Msg[D]:
-    selected_columns = [getattr(Day, field) for field in fields] if fields else [Day]
+) -> Msg[DayDetail]:
     stmt = (
-        select(*selected_columns)
+        select(Day)
         .where(Day.user_id == user_id, Day.timestamp == timestamp)
         .options(selectinload(Day.learning_progresses))
     )
 
     result = await db.execute(stmt)
-    day: Day = result.scalar_one_or_none()
+    day = result.scalar_one_or_none()
+    
     if not day:
         raise HTTPException(status_code=404, detail="Day not found")
 
-    return Msg(code=200, msg="Day retrieved", data=day)
+    return Msg(code=200, msg="Day retrieved", data=DayDetail.model_validate(day))
 
 
-@router.get("/random/{timestamp}", response_model=Msg[D])
+@router.get("/random/{timestamp}", response_model=Msg[DayDetail])
 async def get_random_day(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
     timestamp_start: int,
     timestamp_end: int,
-    fields: str | None = Query(None),
-) -> Msg[D]:
-    pass
+) -> Msg[DayDetail]:
+    stmt = (
+        select(Day)
+        .where(
+            Day.user_id == user_id,
+            Day.timestamp >= timestamp_start,
+            Day.timestamp <= timestamp_end
+        )
+        .options(selectinload(Day.learning_progresses))
+        .order_by(func.random())
+        .limit(1)
+    )
+
+    result = await db.execute(stmt)
+    day = result.scalar_one_or_none()
+    
+    if not day:
+        raise HTTPException(status_code=404, detail="No days found in the given time range")
+
+    return Msg(code=200, msg="Random day retrieved", data=DayDetail.model_validate(day))
 
 
 @router.post("/{timestamp}", response_model=Msg[None])
@@ -113,9 +144,14 @@ async def create_day(
     user_id: Annotated[UUID, Depends(get_current_user())],
     data: DayCreate,
 ) -> Msg[None]:
-    stmt = select(exists().where(City.id == data.city_id))
-    result = await db.execute(stmt)
-    if not result.scalar():
+    exists_stmt = select(exists().where(Day.timestamp == data.timestamp, Day.user_id == user_id))
+    exists_result = await db.execute(exists_stmt)
+    exists_day = exists_result.scalar_one_or_none()
+    if exists_day:
+        raise HTTPException(status_code=404, detail="Day already exists")
+
+    city_exists = await db.scalar(select(exists().where(City.id == data.city_id)))
+    if not city_exists:
         raise HTTPException(status_code=404, detail="City not found")
 
     learning_item_ids = {progress.learning_item_id for progress in data.learning_progresses}
@@ -157,6 +193,10 @@ async def update_day(
     timestamp: int,
     data: DayUpdate,
 ) -> Msg[None]:
+    day: Day | None = await db.get(Day, (timestamp, user_id))
+    if not day:
+        raise HTTPException(status_code=404, detail="Day not found")
+
     update_data = data.model_dump(exclude_unset=True)
     learning_progresses = update_data.pop('learning_progresses', None)
 
@@ -169,15 +209,12 @@ async def update_day(
         await db.execute(stmt)
 
     if learning_progresses:
-        day = await db.get(Day, (timestamp, user_id))
-        if not day:
-            raise HTTPException(status_code=404, detail="Day not found")
-
-        stmt = delete(LearningProgress).where(
-            LearningProgress.user_id == user_id,
-            LearningProgress.timestamp == timestamp,
+        await db.execute(
+            delete(LearningProgress).where(
+                LearningProgress.user_id == user_id,
+                LearningProgress.timestamp == timestamp,
+            )
         )
-        await db.execute(stmt)
 
         for progress in learning_progresses:
             new_progress = LearningProgress(

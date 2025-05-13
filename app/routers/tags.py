@@ -33,7 +33,7 @@ async def get_tags(
     stmt = select(Tag).where(Tag.user_id == user_id)
     tags = await db.scalars(stmt)
 
-    return Msg(code=200, msg="Tags retrieved", data=tags)
+    return Msg(code=200, msg="Tags retrieved", data=[T.model_validate(t) for t in tags])
 
 
 # ???
@@ -48,7 +48,7 @@ async def get_tag(
     if not tag:
         raise HTTPException(404, "Tag not found")
 
-    return Msg(code=200, msg="Tag retrieved", data=tag)
+    return Msg(code=200, msg="Tag retrieved", data=T.model_validate(tag))
 
 
 @router.post("/", response_model=Msg[UUID])

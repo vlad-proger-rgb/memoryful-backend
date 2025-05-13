@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import (
@@ -9,13 +9,15 @@ from fastapi import (
 )
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload, load_only
 
 from app.core.database import get_db
 from app.models import Chat, ChatModel
 from app.core.deps import get_current_user
 from app.schemas import (
     Msg,
-    ChatInDB as C,
+    ChatListItem,
+    ChatDetail,
     ChatCreate,
     ChatUpdate,
 )
@@ -27,20 +29,19 @@ router = APIRouter(
 )
 
 
-@router.get("/", response_model=Msg[list[C]])
+@router.get("/")
 async def get_chats(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
     limit: int = Query(10, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    fields: list[str] | None = Query(None),
     query: str | None = Query(None, description="Substring to search for in chat title"),
-) -> Msg[list[C]]:
-    selected_columns = [getattr(Chat, field) for field in fields] if fields else [Chat]
+    view: Literal["list", "detail"] = Query("list", description="View type to return"),
+) -> Msg[list[ChatListItem | ChatDetail]]:
     stmt = (
-        select(*selected_columns)
-        .order_by(Chat.created_at.desc())
+        select(Chat)
         .where(Chat.user_id == user_id, Chat.is_deleted == False)
+        .order_by(Chat.created_at.desc())
         .limit(limit)
         .offset(offset)
     )
@@ -48,30 +49,42 @@ async def get_chats(
     if query:
         stmt = stmt.where(Chat.title.ilike(f"%{query}%"))
 
-    result = await db.execute(stmt)
-
-    if fields:
-        chats = result.fetchall()
+    if view == "list":
+        stmt = stmt.options(
+            load_only(Chat.id, Chat.title, Chat.created_at)
+        )
     else:
-        chats = list(result.scalars())
+        stmt = stmt.options(selectinload(Chat.chat_model))
 
-    return Msg(code=200, msg="Chats retrieved", data=chats)
+    result = await db.execute(stmt)
+    chats = list(result.scalars().unique())
+
+    response_model = ChatDetail if view == "detail" else ChatListItem
+    return Msg(
+        code=200,
+        msg="Chats retrieved",
+        data=[response_model.model_validate(chat) for chat in chats]
+    )
 
 
-@router.get("/{id}", response_model=Msg[C])
+@router.get("/{id}", response_model=Msg[ChatDetail])
 async def get_chat(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
     id: UUID,
-) -> Msg[C]:
-    stmt = select(Chat).where(Chat.id == id, Chat.user_id == user_id, Chat.is_deleted == False)
-    result = await db.scalars(stmt)
-    chat = result.one_or_none()
+) -> Msg[ChatDetail]:
+    stmt = (
+        select(Chat)
+        .options(selectinload(Chat.chat_model))
+        .where(Chat.id == id, Chat.user_id == user_id, Chat.is_deleted == False)
+    )
+    result = await db.execute(stmt)
+    chat = result.scalar_one_or_none()
 
     if not chat:
         raise HTTPException(404, "Chat not found")
 
-    return Msg(code=200, msg="Chat retrieved", data=chat)
+    return Msg(code=200, msg="Chat retrieved", data=ChatDetail.model_validate(chat))
 
 
 @router.post("/", response_model=Msg[UUID])

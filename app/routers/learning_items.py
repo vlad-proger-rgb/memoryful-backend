@@ -15,7 +15,7 @@ from app.core.deps import get_current_user
 from app.schemas import (
     Msg,
     LearningItemInDB as L,
-    LearningItemBase,
+    LearningItemCreate,
 )
 
 
@@ -33,7 +33,7 @@ async def get_learning_items(
     stmt = select(LearningItem).where(LearningItem.user_id == user_id)
     learning_items = await db.scalars(stmt)
 
-    return Msg(code=200, msg="Learning Items retrieved", data=learning_items)
+    return Msg(code=200, msg="Learning Items retrieved", data=[L.model_validate(li) for li in learning_items])
 
 
 @router.get("/{id}", response_model=Msg[L])
@@ -47,14 +47,14 @@ async def get_learning_item(
     if not learning_item:
         raise HTTPException(404, "Learning Item not found")
 
-    return Msg(code=200, msg="Learning Item retrieved", data=learning_item)
+    return Msg(code=200, msg="Learning Item retrieved", data=L.model_validate(learning_item))
 
 
 @router.post("/", response_model=Msg[UUID])
 async def create_learning_item(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
-    data: LearningItemBase,
+    data: LearningItemCreate,
 ) -> Msg[UUID]:
     learning_item = LearningItem(**data.model_dump(), user_id=user_id)
     db.add(learning_item)
@@ -68,7 +68,7 @@ async def create_learning_item(
 async def update_learning_item(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
-    data: LearningItemBase,
+    data: LearningItemCreate,
     id: UUID,
 ) -> Msg[None]:
     stmt = select(exists().where(LearningItem.id == id, LearningItem.user_id == user_id))
@@ -76,12 +76,11 @@ async def update_learning_item(
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Learning Item not found")
 
-    stmt = (
+    await db.execute(
         update(LearningItem)
         .where(LearningItem.id == id)
         .values(**data.model_dump(exclude_unset=True))
     )
-    await db.execute(stmt)
     await db.commit()
 
     return Msg(code=200, msg="Learning Item updated")

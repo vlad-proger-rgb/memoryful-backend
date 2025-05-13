@@ -4,7 +4,7 @@ from fastapi_camelcase import CamelModel
 
 class Token(CamelModel):
     access_token: str
-    refresh_token: str = None
+    refresh_token: str | None = None
     token_type: str
 
 class AuthResponse(CamelModel):

@@ -49,7 +49,7 @@ async def get_cities_by_country_id(
     result = await db.execute(stmt)
     cities = result.scalars().unique().all()
 
-    return Msg(code=200, msg="Cities retrieved", data=cities)
+    return Msg(code=200, msg="Cities retrieved", data=[C.model_validate(c) for c in cities])
 
 
 @router.get("/{city_id}", response_model=Msg[C])
@@ -61,5 +61,5 @@ async def get_city_by_id(
     if not city:
         raise HTTPException(status_code=404, detail="City not found")
 
-    return Msg(code=200, msg="City retrieved", data=city)
+    return Msg(code=200, msg="City retrieved", data=C.model_validate(city))
 

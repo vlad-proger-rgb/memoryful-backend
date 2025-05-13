@@ -4,10 +4,12 @@ from fastapi_camelcase import CamelModel
 
 
 class LearningItemBase(CamelModel):
+    model_config = ConfigDict(from_attributes=True)
     title: str
-    description: str
+
+class LearningItemCreate(LearningItemBase):
+    description: str | None = None
     icon: str | None = None
 
-class LearningItemInDB(LearningItemBase):
-    model_config = ConfigDict(from_attributes=True)
+class LearningItemInDB(LearningItemCreate):
     id: UUID

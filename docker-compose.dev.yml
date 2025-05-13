@@ -1,0 +1,116 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: app-dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - redis
+      - rabbitmq
+      - celery
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      RABBITMQ_HOST: ${RABBITMQ_HOST}
+      RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
+      ENVIRONMENT: development
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  db:
+    image: postgres
+    container_name: db-dev
+    restart: always
+    ports:
+      - "5433:${POSTGRES_PORT}"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 1s
+      retries: 5
+
+  redis:
+    image: redis:6.0.7
+    container_name: redis-dev
+    restart: always
+    volumes:
+      - redis_data_dev:/data
+    ports:
+      - "${REDIS_PORT}:${REDIS_PORT}"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 1s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq-dev
+    restart: always
+    ports:
+      - "${RABBITMQ_PORT}:${RABBITMQ_PORT}"
+      - "${RABBITMQ_WEB_PORT}:${RABBITMQ_WEB_PORT}"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 3s
+      timeout: 1s
+      retries: 5
+
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: celery-dev
+    volumes:
+      - .:/app
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: always
+    environment:
+      CELERY_BROKER_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@${RABBITMQ_HOST}:${RABBITMQ_PORT}//
+      CELERY_RESULT_BACKEND: redis://${REDIS_HOST}:${REDIS_PORT}/${REDIS_DB}
+      ENVIRONMENT: development
+    command: >
+      sh -c "
+        celery -A app.core.celery_app worker -Q ai_queue --loglevel=debug --hostname=celery@ai_worker &
+        celery -A app.core.celery_app worker -Q apps_queue --loglevel=debug --hostname=celery@apps_worker &
+        celery -A app.core.celery_app worker -Q email_queue --loglevel=debug --hostname=celery@email_worker &
+        celery -A app.core.celery_app worker -Q notifications_queue --loglevel=debug --hostname=celery@notifications_worker &
+        celery -A app.core.celery_app worker -Q system_queue --loglevel=debug --hostname=celery@system_worker &
+        wait"
+
+  flower:
+    image: mher/flower
+    container_name: flower-dev
+    restart: on-failure
+    command: celery --broker=amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@${RABBITMQ_HOST}:${RABBITMQ_PORT}// flower
+    ports:
+      - "${FLOWER_PORT}:${FLOWER_PORT}"
+    depends_on:
+      - celery
+
+volumes:
+  redis_data_dev:
+  postgres_data_dev:

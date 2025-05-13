@@ -14,7 +14,7 @@ from fastapi import (
     Request,
 )
 
-from app.models import User, UserToken
+from app.models import User, UserToken, Country, City
 from app.tasks import send_email_task
 from app.core.database import get_db
 from app.core.enums import EmailTemplate
@@ -58,7 +58,7 @@ router = APIRouter(
 async def get_me(
     current_user: Annotated[User, Depends(get_current_user(True))],
 ) -> Msg[UserInDB]:
-    return Msg(code=200, msg="Current user retrieved", data=current_user)
+    return Msg(code=200, msg="Current user retrieved", data=UserInDB.model_validate(current_user))
 
 
 @router.post("/request-code", response_model=Msg[None])
@@ -107,13 +107,14 @@ async def verify_code(
         await db.refresh(user)
 
     tokens = await create_and_store_tokens(db, user, request)
-    response.set_cookie(
-        key="refresh_token",
-        value=tokens.refresh_token,
-        httponly=True,
-        secure=True,
-        samesite="lax",
-    )
+    if tokens.refresh_token:
+        response.set_cookie(
+            key="refresh_token",
+            value=tokens.refresh_token,
+            httponly=True,
+            secure=True,
+            samesite="lax",
+        )
 
     return Msg(
         code=201,
@@ -194,6 +195,16 @@ async def update_me(
     user_id: Annotated[UUID, Depends(get_current_user())],
     new_user: UserBase,
 ) -> Msg[None]:
+    if new_user.country_id:
+        country = await db.get(Country, new_user.country_id)
+        if not country:
+            raise HTTPException(404, "Country not found")
+
+    if new_user.city_id:
+        city = await db.get(City, new_user.city_id)
+        if not city:
+            raise HTTPException(404, "City not found")
+
     stmt = (
         update(User)
         .where(User.id == user_id)

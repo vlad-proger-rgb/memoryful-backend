@@ -31,7 +31,7 @@ async def get_chat_models(
     result = await db.execute(stmt)
     chat_models = result.scalars().all()
 
-    return Msg(code=200, msg="Chat Models retrieved", data=chat_models)
+    return Msg(code=200, msg="Chat Models retrieved", data=[C.model_validate(m) for m in chat_models])
 
 
 @router.get("/{id}", response_model=Msg[C])
@@ -44,4 +44,4 @@ async def get_chat_model(
     if not chat_model:
         raise HTTPException(404, "Chat Model not found")
 
-    return Msg(code=200, msg="Chat Model retrieved", data=chat_model)
+    return Msg(code=200, msg="Chat Model retrieved", data=C.model_validate(chat_model))

@@ -10,7 +10,7 @@ from app.core.enums import EmailTemplate
 
 
 @celery.task(queue="email_queue")
-def send_email_task(email_type: EmailTemplate, recipients: list[EmailStr], body: dict):
+def send_email_task(email_type: EmailTemplate, recipients: list[EmailStr], body: dict) -> None:
     """Send an email based on the provided email_type (Enum)."""
     print(f"EMAIL TASK {email_type=}, {recipients=}, {body=}")
     template_name = EMAIL_TEMPLATES.get(email_type, "default.html")  # Fallback
@@ -22,5 +22,5 @@ def send_email_task(email_type: EmailTemplate, recipients: list[EmailStr], body:
         subtype=MessageType.html,
     )
 
-    # fm = FastMail(conf)
-    # asyncio.run(fm.send_message(message, template_name=template_name))
+    fm = FastMail(conf)
+    asyncio.run(fm.send_message(message, template_name=template_name))

@@ -11,8 +11,11 @@ router = APIRouter(
 
 @router.post("/send-email", response_model=Msg[None])
 async def send_email(data: EmailSchema) -> Msg[None]:
+    email_type_str = data.body.get("type")
+    if not email_type_str:
+        raise HTTPException(400, "Missing email type")
     try:
-        email_type = EmailTemplate(data.body.get("type"))
+        email_type = EmailTemplate(email_type_str)
     except ValueError:
         raise HTTPException(400, "Invalid email type")
 

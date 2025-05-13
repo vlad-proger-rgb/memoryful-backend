@@ -1,0 +1,11 @@
+pytest
+pytest-asyncio
+pytest-cov
+black
+isort
+flake8
+mypy
+httpx
+aioresponses
+faker
+factory-boy

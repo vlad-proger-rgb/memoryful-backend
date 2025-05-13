@@ -5,7 +5,6 @@ from fastapi import (
     APIRouter,
     HTTPException,
     Depends,
-    Query,
 )
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,13 +30,12 @@ async def get_months(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
     year: int,
-    fields: list[str] | None = Query(None),
 ) -> Msg[list[M]]:
-    selected_columns = [getattr(Month, field) for field in fields] if fields else [Month]
-    stmt = select(*selected_columns).where(Month.user_id == user_id, Month.year == year)
-    months = await db.scalars(stmt)
+    stmt = select(Month).where(Month.user_id == user_id, Month.year == year)
+    months_result = await db.execute(stmt)
+    months = months_result.scalars()
 
-    return Msg(code=200, msg="Months retrieved", data=months)
+    return Msg(code=200, msg="Months retrieved", data=[M.model_validate(month) for month in months])
 
 
 @router.get("/{year}/{month_number}", response_model=Msg[M])
@@ -57,7 +55,7 @@ async def get_month(
     if not month:
         raise HTTPException(status_code=404, detail="Month not found")
 
-    return Msg(code=200, msg="Month retrieved", data=month)
+    return Msg(code=200, msg="Month retrieved", data=M.model_validate(month))
 
 
 @router.post("/", response_model=Msg[None])

@@ -1,12 +1,12 @@
 from pydantic import BaseModel
 
 from .chat_model import ChatModelInDB
-from .chat import ChatCreate, ChatInDB, ChatUpdate
+from .chat import ChatCreate, ChatUpdate, ChatListItem, ChatDetail
 from .city import CityInDB
 from .country import CountryInDB
-from .day import DayCreate, DayUpdate, DayInDB
+from .day import DayCreate, DayUpdate, DayListItem, DayDetail
 from .email import Email, EmailSchema, VerifyCodeForm
-from .learning_item import LearningItemBase, LearningItemInDB
+from .learning_item import LearningItemCreate, LearningItemInDB
 from .learning_progress import LearningProgress
 from .month import MonthBase, MonthInDB
 from .security import Token, AuthResponse, Session
@@ -18,17 +18,19 @@ __all__ = [
     "Msg",
     "ChatModelInDB",
     "ChatCreate",
-    "ChatInDB",
     "ChatUpdate",
+    "ChatListItem",
+    "ChatDetail",
     "CityInDB",
     "CountryInDB",
     "DayCreate",
     "DayUpdate",
-    "DayInDB",
+    "DayListItem",
+    "DayDetail",
     "Email",
     "EmailSchema",
     "VerifyCodeForm",
-    "LearningItemBase",
+    "LearningItemCreate",
     "LearningItemInDB",
     "LearningProgress",
     "MonthBase",

@@ -1,4 +1,4 @@
-from typing import Annotated, Callable
+from typing import Annotated, Callable, Awaitable
 from uuid import UUID
 
 from fastapi import HTTPException, Depends
@@ -14,7 +14,7 @@ from app.core.settings import ALGORITHM, ACCESS_SECRET_KEY, RP_BLACKLISTED_TOKEN
 from app.models import User
 
 
-def get_current_user(load_user: bool = False, *load_options: type[Load]) -> Callable:
+def get_current_user(load_user: bool = False, *load_options: type[Load]) -> Callable[[AsyncSession, str], Awaitable[User | UUID]]:
     print(f"UTILS get_current_user {load_user=} {load_options=}")
     async def dependency(
         db: Annotated[AsyncSession, Depends(get_db)],
@@ -25,26 +25,29 @@ def get_current_user(load_user: bool = False, *load_options: type[Load]) -> Call
         credentials_exception = HTTPException(401, "Could not validate credentials",
                                                 {"WWW-Authenticate": "Bearer"})
 
+        user_id: UUID | None = None
         try:
             payload = jwt.decode(token, ACCESS_SECRET_KEY, algorithms=ALGORITHM)
             if (jti := payload.get("jti")) and await redis.get(f"{RP_BLACKLISTED_TOKEN}{jti}"):
                 print(f"UTILS get_current_user {jti=} is blacklisted")
                 raise credentials_exception
 
-            if not (user_id := payload.get("sub")):
-                print(f"UTILS get_current_user {user_id=}")
+            if not (sub := payload.get("sub")):
+                print(f"UTILS get_current_user {sub=}")
                 raise credentials_exception
 
-            user_id = UUID(user_id)
+            if isinstance(sub, str):
+                user_id = UUID(sub)
 
         except (JWTError, ValidationError) as e:
             print(f"UTILS get_current_user Token validation failed: {e}")
             raise credentials_exception
 
-        if not load_user:
+        if not load_user and user_id:
             return user_id
 
-        user = await db.get(User, user_id, options=load_options)
+        options: tuple[Load, ...] = tuple(opt(User) for opt in load_options)
+        user = await db.get(User, user_id, options=options)
         if not user:
             raise credentials_exception
 

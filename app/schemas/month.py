@@ -14,7 +14,7 @@ class MonthBase(CamelModel):
     top_day_timestamp: int | None = None
 
     @field_validator("top_day_timestamp")
-    def parse_value(cls, value):
+    def parse_value(cls, value: int | float | str | None) -> float | None:
         if isinstance(value, (int, float)):
             dt_ = dt.datetime.fromtimestamp(value)
             return dt_.replace(hour=0, minute=0, second=0).timestamp()
@@ -25,7 +25,9 @@ class MonthBase(CamelModel):
             except ValueError:
                 pass
 
-        return value
+        if value is None:
+            return None
+        return float(value)
 
 class MonthInDB(MonthBase):
     model_config = ConfigDict(from_attributes=True)

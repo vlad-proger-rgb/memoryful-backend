@@ -8,7 +8,7 @@ from app.models import (
 )
 
 
-async def init_db(db: AsyncSession):
+async def init_db(db: AsyncSession) -> None:
 
     # countries and cities
     if not (await db.scalar(select(Country.id).limit(1))):
