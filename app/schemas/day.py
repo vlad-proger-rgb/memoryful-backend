@@ -1,4 +1,5 @@
 from uuid import UUID
+import datetime as dt
 from pydantic import ConfigDict, Field
 from fastapi_camelcase import CamelModel
 
@@ -14,7 +15,7 @@ class DayListItem(DayBase):
     starred: bool = False
     main_image: str | None = None
     city: "CityBase"
-    learning_items: list["LearningItemBase"] = Field(default_factory=list)
+    learning_progresses: list["LearningProgress"] = Field(default_factory=list)
 
 
 class DayDetail(DayBase):
@@ -24,31 +25,31 @@ class DayDetail(DayBase):
     steps: int = 0
     starred: bool = False
     main_image: str | None = None
+    created_at: dt.datetime
+    updated_at: dt.datetime
     images: list[str] = Field(default_factory=list)
     learning_progresses: list["LearningProgress"] = Field(default_factory=list)
 
 
 class DayCreate(CamelModel):
-    timestamp: int
     city_id: UUID
     description: str | None = None
     content: str
     steps: int = 0
     main_image: str | None = None
     images: list[str] = Field(default_factory=list)
-    learning_progresses: list["LearningProgress"] = Field(default_factory=list)
+    learning_progresses: list["LearningProgressUpdate"] = Field(default_factory=list)
 
 
 class DayUpdate(CamelModel):
     city_id: UUID | None = None
-    content: str | None = None
     description: str | None = None
+    content: str | None = None
     steps: int | None = None
     starred: bool | None = None
     main_image: str | None = None
     images: list[str] | None = None
-    learning_progresses: list["LearningProgress"] | None = None
+    learning_progresses: list["LearningProgressUpdate"] | None = None
 
-from .learning_progress import LearningProgress
-from .learning_item import LearningItemBase
+from .learning_progress import LearningProgress, LearningProgressUpdate
 from .city import CityBase

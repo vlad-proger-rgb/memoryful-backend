@@ -89,6 +89,36 @@ async def get_days(
     )
 
 
+@router.get("/random", response_model=Msg[DayDetail])
+async def get_random_day(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: Annotated[UUID, Depends(get_current_user())],
+    timestamp_start: int | None = Query(None, alias="timestampStart"),
+    timestamp_end: int | None = Query(None, alias="timestampEnd"),
+) -> Msg[DayDetail]:
+    print(f"timestamp_start: {timestamp_start}, timestamp_end: {timestamp_end}")
+    stmt = (
+        select(Day)
+        .where(Day.user_id == user_id)
+        .options(selectinload(Day.learning_progresses).selectinload(LearningProgress.learning_item))
+        .order_by(func.random())
+        .limit(1)
+    )
+
+    if timestamp_start:
+        stmt = stmt.where(Day.timestamp >= timestamp_start)
+    if timestamp_end:
+        stmt = stmt.where(Day.timestamp <= timestamp_end)
+
+    result = await db.execute(stmt)
+    day = result.scalar_one_or_none()
+
+    if not day:
+        raise HTTPException(status_code=404, detail="No days found in the given time range")
+
+    return Msg(code=200, msg="Random day retrieved", data=DayDetail.model_validate(day))
+
+
 @router.get("/{timestamp}", response_model=Msg[DayDetail])
 async def get_day(
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -98,53 +128,26 @@ async def get_day(
     stmt = (
         select(Day)
         .where(Day.user_id == user_id, Day.timestamp == timestamp)
-        .options(selectinload(Day.learning_progresses))
+        .options(selectinload(Day.learning_progresses).selectinload(LearningProgress.learning_item))
     )
 
     result = await db.execute(stmt)
     day = result.scalar_one_or_none()
-    
+
     if not day:
         raise HTTPException(status_code=404, detail="Day not found")
 
     return Msg(code=200, msg="Day retrieved", data=DayDetail.model_validate(day))
 
 
-@router.get("/random/{timestamp}", response_model=Msg[DayDetail])
-async def get_random_day(
-    db: Annotated[AsyncSession, Depends(get_db)],
-    user_id: Annotated[UUID, Depends(get_current_user())],
-    timestamp_start: int,
-    timestamp_end: int,
-) -> Msg[DayDetail]:
-    stmt = (
-        select(Day)
-        .where(
-            Day.user_id == user_id,
-            Day.timestamp >= timestamp_start,
-            Day.timestamp <= timestamp_end
-        )
-        .options(selectinload(Day.learning_progresses))
-        .order_by(func.random())
-        .limit(1)
-    )
-
-    result = await db.execute(stmt)
-    day = result.scalar_one_or_none()
-    
-    if not day:
-        raise HTTPException(status_code=404, detail="No days found in the given time range")
-
-    return Msg(code=200, msg="Random day retrieved", data=DayDetail.model_validate(day))
-
-
 @router.post("/{timestamp}", response_model=Msg[None])
 async def create_day(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
+    timestamp: int,
     data: DayCreate,
 ) -> Msg[None]:
-    exists_stmt = select(exists().where(Day.timestamp == data.timestamp, Day.user_id == user_id))
+    exists_stmt = select(exists().where(Day.timestamp == timestamp, Day.user_id == user_id))
     exists_result = await db.execute(exists_stmt)
     exists_day = exists_result.scalar_one_or_none()
     if exists_day:
@@ -164,7 +167,7 @@ async def create_day(
             raise HTTPException(status_code=404, detail="One or more learning items not found")
 
     db.add(Day(
-        timestamp=data.timestamp,
+        timestamp=timestamp,
         user_id=user_id,
         city_id=data.city_id,
         description=data.description,
@@ -175,7 +178,7 @@ async def create_day(
         learning_progresses=[
             LearningProgress(
                 user_id=user_id,
-                timestamp=data.timestamp,
+                timestamp=timestamp,
                 learning_item_id=progress.learning_item_id,
                 time_involved=progress.time_involved,
             ) for progress in data.learning_progresses
@@ -184,6 +187,21 @@ async def create_day(
     await db.commit()
 
     return Msg(code=201, msg="Day created")
+
+
+@router.patch("/{timestamp}/toggle-starred", response_model=Msg[None])
+async def toggle_starred(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: Annotated[UUID, Depends(get_current_user())],
+    timestamp: int,
+) -> Msg[None]:
+    day: Day | None = await db.get(Day, (timestamp, user_id))
+    if not day:
+        raise HTTPException(status_code=404, detail="Day not found")
+
+    day.starred = not day.starred
+    await db.commit()
+    return Msg(code=200, msg="Day updated")
 
 
 @router.put("/{timestamp}", response_model=Msg[None])

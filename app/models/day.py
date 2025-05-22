@@ -13,12 +13,12 @@ class Day(Base, TimestampWithUpdateMixin):
     timestamp: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
     city_id: Mapped[UUID] = mapped_column(ForeignKey("cities.id"))
-    description: Mapped[str]
+    description: Mapped[str | None]
     content: Mapped[str]
     steps: Mapped[int | None]
     starred: Mapped[bool] = mapped_column(default=False)
-    main_image: Mapped[str]
-    images: Mapped[list[str]] = mapped_column(ARRAY(String))
+    main_image: Mapped[str | None]
+    images: Mapped[list[str] | None] = mapped_column(ARRAY(String))
 
     user: Mapped["User"] = relationship(back_populates="days")
     city: Mapped["City"] = relationship(back_populates="days")
