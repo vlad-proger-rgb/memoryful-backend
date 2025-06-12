@@ -10,4 +10,8 @@ class CityBase(CamelModel):
 
 class CityInDB(CityBase):
     id: UUID
-    country_id: UUID
+
+class CityDetail(CityInDB):
+    country: "CountryInDB"
+
+from .country import CountryInDB

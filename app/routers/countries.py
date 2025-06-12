@@ -53,7 +53,7 @@ async def get_country_by_id(
 ) -> Msg[C]:
     country = await db.get(Country, country_id)
     if not country:
-        raise HTTPException(status_code=404, detail="Country not found")
+        raise HTTPException(404, "Country not found")
 
     return Msg(code=200, msg="Country retrieved", data=C.model_validate(country))
 

@@ -9,10 +9,11 @@ from fastapi import (
 )
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from sqlalchemy.orm import selectinload
 from app.schemas import (
     Msg,
-    CityInDB as C,
+    CityInDB,
+    CityDetail,
 )
 from app.core.database import get_db
 from app.models import Country, City
@@ -24,17 +25,17 @@ router = APIRouter(
 )
 
 
-@router.get("/by-country/{country_id}", response_model=Msg[list[C]])
+@router.get("/by-country/{country_id}", response_model=Msg[list[CityInDB]])
 async def get_cities_by_country_id(
     db: Annotated[AsyncSession, Depends(get_db)],
     country_id: UUID,
     query: str | None = Query(None, description="Substring to search for in city name"),
     limit: int = Query(10, ge=1, le=100),
     offset: int = Query(0, ge=0),
-) -> Msg[list[C]]:
+) -> Msg[list[CityInDB]]:
     country = await db.get(Country, country_id)
     if not country:
-        raise HTTPException(status_code=404, detail="Country not found")
+        raise HTTPException(404, "Country not found")
 
     stmt = (
         select(City)
@@ -49,17 +50,17 @@ async def get_cities_by_country_id(
     result = await db.execute(stmt)
     cities = result.scalars().unique().all()
 
-    return Msg(code=200, msg="Cities retrieved", data=[C.model_validate(c) for c in cities])
+    return Msg(code=200, msg="Cities retrieved", data=[CityInDB.model_validate(c) for c in cities])
 
 
-@router.get("/{city_id}", response_model=Msg[C])
+@router.get("/{city_id}", response_model=Msg[CityDetail])
 async def get_city_by_id(
     db: Annotated[AsyncSession, Depends(get_db)],
     city_id: UUID,
-) -> Msg[C]:
-    city = await db.get(City, city_id)
+) -> Msg[CityDetail]:
+    city = await db.get(City, city_id, options=[selectinload(City.country)])
     if not city:
-        raise HTTPException(status_code=404, detail="City not found")
+        raise HTTPException(404, "City not found")
 
-    return Msg(code=200, msg="City retrieved", data=C.model_validate(city))
+    return Msg(code=200, msg="City retrieved", data=CityDetail.model_validate(city))
 

@@ -11,4 +11,3 @@ class TagBase(CamelModel):
 class TagInDB(TagBase):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
-    user_id: UUID

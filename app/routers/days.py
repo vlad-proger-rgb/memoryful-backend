@@ -1,4 +1,4 @@
-import json
+from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -8,20 +8,27 @@ from fastapi import (
     Depends,
     Query,
 )
-from sqlalchemy import select, update, delete, exists, func
+from pydantic import ValidationError
+from sqlalchemy import select, update, delete, exists, func, and_
+from sqlalchemy.sql import Select
 from sqlalchemy.orm import selectinload, load_only
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.models import Day, City, LearningItem, LearningProgress
+from app.models import Day, City, Tag, TrackableItem, TrackableProgress
 from app.core.deps import get_current_user
+from app.enums.sorting import SortOrder, DaySortField
 from app.schemas import (
     Msg,
     DayListItem,
     DayDetail,
     DayCreate,
     DayUpdate,
+    DayFilters,
+    DayTrackableProgress,
+    TrackableTypeWithProgress,
 )
+from app.schemas.trackable_type import TrackableTypeInDB
 
 
 router = APIRouter(
@@ -30,33 +37,126 @@ router = APIRouter(
 )
 
 
-@router.get("/")
+def _apply_filters(stmt: Select, filters: DayFilters | None, tag_names: list[str] | None = None) -> Select:
+    if tag_names:
+        stmt = stmt.join(Day.tags).where(Tag.name.in_(tag_names))
+
+    if not filters:
+        return stmt
+
+    conditions = []
+
+    if filters.starred is not None:
+        conditions.append(Day.starred == filters.starred)
+    if filters.city_id is not None:
+        conditions.append(Day.city_id == filters.city_id)
+    if filters.created_after is not None:
+        conditions.append(Day.created_at >= datetime.fromtimestamp(filters.created_after))
+    if filters.created_before is not None:
+        conditions.append(Day.created_at <= datetime.fromtimestamp(filters.created_before))
+
+    if filters.steps:
+        for op, steps in filters.steps.items():
+            if op == 'gt':
+                conditions.append(Day.steps > steps)
+            elif op == 'lt':
+                conditions.append(Day.steps < steps)
+            elif op == 'gte':
+                conditions.append(Day.steps >= steps)
+            elif op == 'lte':
+                conditions.append(Day.steps <= steps)
+            elif op == 'eq':
+                conditions.append(Day.steps == steps)
+            elif op == 'ne':
+                conditions.append(Day.steps != steps)
+
+    if filters.description:
+        for op, description in filters.description.items():
+            if op == 'like':
+                conditions.append(Day.description.ilike(f'%{description}%'))
+            elif op == 'eq':
+                conditions.append(Day.description == description)
+            elif op == 'ne':
+                conditions.append(Day.description != description)
+
+    if conditions:
+        stmt = stmt.where(and_(*conditions))
+
+    return stmt
+
+
+def _apply_sorting(stmt: Select, sort_field: DaySortField | None, sort_order: SortOrder = SortOrder.DESC) -> Select:
+    if not sort_field:
+        return stmt.order_by(Day.timestamp.desc())
+
+    field = getattr(Day, sort_field.value, None)
+    if not field:
+        return stmt
+
+    if sort_order == SortOrder.ASC:
+        return stmt.order_by(field.asc())
+    return stmt.order_by(field.desc())
+
+
+@router.get("/", response_model=Msg[list[DayListItem | DayDetail]])
 async def get_days(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
-    limit: int = Query(10, ge=1, le=100),
-    offset: int = Query(0, ge=0),
-    sort_by: str | None = Query(None),
-    view: Literal["list", "detail"] = Query("list", description="View type to return"),
-    filters: str | None = Query(None),
+    limit: int = Query(10, ge=1, le=100, description="Number of items to return"),
+    offset: int = Query(0, ge=0, description="Number of items to skip"),
+    sort_field: DaySortField | None = Query(
+        None,
+        description="Field to sort by",
+        alias="sortField",
+    ),
+    sort_order: SortOrder = Query(
+        SortOrder.DESC,
+        description="Sort order (asc/desc)",
+        alias="sortOrder",
+    ),
+    view: Literal["list", "detail"] = Query(
+        "list",
+        description="View type to return. 'list' returns minimal data, 'detail' includes all relationships",
+        alias="view",
+    ),
+    tag_names: str | None = Query(
+        None,
+        description="Comma-separated list of tag names to filter by",
+        alias="tagNames",
+    ),
+    filters: str | None = Query(
+        None,
+        description=DayFilters.__doc__,
+        alias="filters",
+    ),
 ) -> Msg[list[DayListItem | DayDetail]]:
+    """
+    Get a list of days with optional filtering and sorting.
+
+    Examples:
+    - Basic usage: /days/
+    - With filters: /days/?filters={"starred":true,"steps":{"gt":5000}}
+    - With tags: /days/?tag_names=work,travel
+    - With sorting: /days/?sort_field=timestamp&sort_order=desc
+    """
+
+    try:
+        filter_params = DayFilters.model_validate_json(filters) if filters else None
+    except ValidationError as e:
+        raise HTTPException(400, f"Invalid filters: {str(e)}")
+
+    tag_name_list = [
+        name.strip() 
+        for name in (tag_names.split(",") if tag_names else []) 
+        if name.strip()
+    ]
+
     stmt = select(Day).where(Day.user_id == user_id)
 
-    if filters:
-        try:
-            filters_dict: dict = json.loads(filters)
-            for key, value in filters_dict.items():
-                if hasattr(Day, key):
-                    stmt = stmt.where(getattr(Day, key) == value)
-        except json.JSONDecodeError:
-            raise HTTPException(400, "Invalid JSON format for filters")
+    stmt = _apply_filters(stmt, filter_params, tag_name_list if tag_name_list else None)
+    stmt = _apply_sorting(stmt, sort_field, sort_order)
 
-    if sort_by:
-        for sort_item in sort_by.split(","):
-            field, order = sort_item.split(":")
-            if hasattr(Day, field):
-                order_by_column = getattr(Day, field)
-                stmt = stmt.order_by(order_by_column.asc() if order == "asc" else order_by_column.desc())
+    stmt = stmt.limit(limit).offset(offset)
 
     if view == "list":
         stmt = stmt.options(
@@ -68,15 +168,19 @@ async def get_days(
                 Day.main_image,
             ),
             selectinload(Day.city),
-            selectinload(Day.learning_progresses).selectinload(LearningProgress.learning_item),
+            selectinload(Day.trackable_progresses)
+                .selectinload(TrackableProgress.trackable_item)
+                .selectinload(TrackableItem.type),
         )
     else:
         stmt = stmt.options(
-            selectinload(Day.learning_progresses),
-            selectinload(Day.city),
+            selectinload(Day.tags),
+            selectinload(Day.city)
+                .selectinload(City.country),
+            selectinload(Day.trackable_progresses)
+                .selectinload(TrackableProgress.trackable_item)
+                .selectinload(TrackableItem.type),
         )
-
-    stmt = stmt.limit(limit).offset(offset)
 
     result = await db.execute(stmt)
     days = list(result.scalars().unique())
@@ -96,11 +200,17 @@ async def get_random_day(
     timestamp_start: int | None = Query(None, alias="timestampStart"),
     timestamp_end: int | None = Query(None, alias="timestampEnd"),
 ) -> Msg[DayDetail]:
-    print(f"timestamp_start: {timestamp_start}, timestamp_end: {timestamp_end}")
     stmt = (
         select(Day)
         .where(Day.user_id == user_id)
-        .options(selectinload(Day.learning_progresses).selectinload(LearningProgress.learning_item))
+        .options(
+            selectinload(Day.tags),
+            selectinload(Day.city)
+                .selectinload(City.country),
+            selectinload(Day.trackable_progresses)
+                .selectinload(TrackableProgress.trackable_item)
+                .selectinload(TrackableItem.type),
+        )
         .order_by(func.random())
         .limit(1)
     )
@@ -114,7 +224,7 @@ async def get_random_day(
     day = result.scalar_one_or_none()
 
     if not day:
-        raise HTTPException(status_code=404, detail="No days found in the given time range")
+        raise HTTPException(404, "No days found in the given time range")
 
     return Msg(code=200, msg="Random day retrieved", data=DayDetail.model_validate(day))
 
@@ -127,17 +237,47 @@ async def get_day(
 ) -> Msg[DayDetail]:
     stmt = (
         select(Day)
-        .where(Day.user_id == user_id, Day.timestamp == timestamp)
-        .options(selectinload(Day.learning_progresses).selectinload(LearningProgress.learning_item))
+        .options(
+            selectinload(Day.tags),
+            selectinload(Day.city)
+                .selectinload(City.country),
+            selectinload(Day.trackable_progresses)
+                .selectinload(TrackableProgress.trackable_item)
+                .selectinload(TrackableItem.type),
+        )
+        .where(Day.timestamp == timestamp, Day.user_id == user_id)
     )
-
-    result = await db.execute(stmt)
-    day = result.scalar_one_or_none()
-
+    day = await db.scalar(stmt)
     if not day:
-        raise HTTPException(status_code=404, detail="Day not found")
+        raise HTTPException(404, "Day not found")
 
-    return Msg(code=200, msg="Day retrieved", data=DayDetail.model_validate(day))
+    from collections import defaultdict
+
+    progresses_by_type = defaultdict(list)
+    type_objects = {}
+
+    for progress in day.trackable_progresses:
+        trackable_type = progress.trackable_item.type
+        type_objects[trackable_type.id] = TrackableTypeInDB.model_validate(trackable_type)
+        progresses_by_type[trackable_type.id].append(DayTrackableProgress.model_validate(progress))
+
+    trackable_progresses = [
+        TrackableTypeWithProgress(
+            type=type_objects[type_id],
+            progresses=progresses
+        )
+        for type_id, progresses in progresses_by_type.items()
+    ]
+
+    day_data = {
+        **{k: v for k, v in day.__dict__.items() if not k.startswith('_')},
+        "trackable_progresses": trackable_progresses,
+    }
+    print(f"DAYS {day_data=}")
+
+    day_schema = DayDetail.model_validate(day_data)
+
+    return Msg(code=200, msg="Day retrieved", data=day_schema)
 
 
 @router.post("/{timestamp}", response_model=Msg[None])
@@ -151,20 +291,23 @@ async def create_day(
     exists_result = await db.execute(exists_stmt)
     exists_day = exists_result.scalar_one_or_none()
     if exists_day:
-        raise HTTPException(status_code=404, detail="Day already exists")
+        raise HTTPException(404, "Day already exists")
 
     city_exists = await db.scalar(select(exists().where(City.id == data.city_id)))
     if not city_exists:
-        raise HTTPException(status_code=404, detail="City not found")
+        raise HTTPException(404, "City not found")
 
-    learning_item_ids = {progress.learning_item_id for progress in data.learning_progresses}
-    if learning_item_ids:
-        stmt = select(func.count()).where(LearningItem.id.in_(learning_item_ids))
+    if data.trackable_progresses:
+        trackable_item_ids = {progress.trackable_item_id for progress in data.trackable_progresses}
+        stmt = select(func.count()).where(
+            TrackableItem.id.in_(trackable_item_ids),
+            TrackableItem.user_id == user_id,
+        )
         result = await db.execute(stmt)
         found_count = result.scalar()
 
-        if found_count != len(learning_item_ids):
-            raise HTTPException(status_code=404, detail="One or more learning items not found")
+        if found_count != len(trackable_item_ids):
+            raise HTTPException(404, "One or more trackable items not found")
 
     db.add(Day(
         timestamp=timestamp,
@@ -175,13 +318,13 @@ async def create_day(
         steps=data.steps,
         main_image=data.main_image,
         images=data.images,
-        learning_progresses=[
-            LearningProgress(
+        trackable_progresses=[
+            TrackableProgress(
                 user_id=user_id,
                 timestamp=timestamp,
-                learning_item_id=progress.learning_item_id,
-                time_involved=progress.time_involved,
-            ) for progress in data.learning_progresses
+                trackable_item_id=progress.trackable_item_id,
+                value=progress.value,
+            ) for progress in data.trackable_progresses
         ],
     ))
     await db.commit()
@@ -197,7 +340,7 @@ async def toggle_starred(
 ) -> Msg[None]:
     day: Day | None = await db.get(Day, (timestamp, user_id))
     if not day:
-        raise HTTPException(status_code=404, detail="Day not found")
+        raise HTTPException(404, "Day not found")
 
     day.starred = not day.starred
     await db.commit()
@@ -213,10 +356,10 @@ async def update_day(
 ) -> Msg[None]:
     day: Day | None = await db.get(Day, (timestamp, user_id))
     if not day:
-        raise HTTPException(status_code=404, detail="Day not found")
+        raise HTTPException(404, "Day not found")
 
     update_data = data.model_dump(exclude_unset=True)
-    learning_progresses = update_data.pop('learning_progresses', None)
+    trackable_progresses = update_data.pop('trackable_progresses', None)
 
     if update_data:
         stmt = (
@@ -226,20 +369,20 @@ async def update_day(
         )
         await db.execute(stmt)
 
-    if learning_progresses:
+    if trackable_progresses is not None:
         await db.execute(
-            delete(LearningProgress).where(
-                LearningProgress.user_id == user_id,
-                LearningProgress.timestamp == timestamp,
+            delete(TrackableProgress).where(
+                TrackableProgress.user_id == user_id,
+                TrackableProgress.timestamp == timestamp,
             )
         )
 
-        for progress in learning_progresses:
-            new_progress = LearningProgress(
+        for progress in trackable_progresses:
+            new_progress = TrackableProgress(
                 user_id=user_id,
                 timestamp=timestamp,
-                learning_item_id=progress["learning_item_id"],
-                time_involved=progress["time_involved"]
+                trackable_item_id=progress["trackable_item_id"],
+                value=progress["value"],
             )
             db.add(new_progress)
 

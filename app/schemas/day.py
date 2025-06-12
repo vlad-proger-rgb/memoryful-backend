@@ -14,21 +14,22 @@ class DayListItem(DayBase):
     steps: int = 0
     starred: bool = False
     main_image: str | None = None
-    city: "CityBase"
-    learning_progresses: list["LearningProgress"] = Field(default_factory=list)
+    city: "CityInDB"
+    trackable_progresses: list["DayTrackableProgress"] = Field(default_factory=list)
 
 
 class DayDetail(DayBase):
     content: str
-    city_id: UUID
+    city: "CityDetail"
     description: str | None = None
     steps: int = 0
     starred: bool = False
     main_image: str | None = None
     created_at: dt.datetime
     updated_at: dt.datetime
-    images: list[str] = Field(default_factory=list)
-    learning_progresses: list["LearningProgress"] = Field(default_factory=list)
+    images: list[str] | None = Field(default_factory=list)
+    trackable_progresses: list["TrackableTypeWithProgress"] = Field(default_factory=list, description="List of trackable types with their associated progresses")
+    tags: list["TagInDB"] | None = Field(default_factory=list)
 
 
 class DayCreate(CamelModel):
@@ -37,8 +38,9 @@ class DayCreate(CamelModel):
     content: str
     steps: int = 0
     main_image: str | None = None
-    images: list[str] = Field(default_factory=list)
-    learning_progresses: list["LearningProgressUpdate"] = Field(default_factory=list)
+    images: list[str] | None = Field(default_factory=list)
+    trackable_progresses: list["DayTrackableProgressUpdate"] = Field(default_factory=list)
+    tags: list[UUID] = Field(default_factory=list)
 
 
 class DayUpdate(CamelModel):
@@ -49,7 +51,38 @@ class DayUpdate(CamelModel):
     starred: bool | None = None
     main_image: str | None = None
     images: list[str] | None = None
-    learning_progresses: list["LearningProgressUpdate"] | None = None
+    trackable_progresses: list["DayTrackableProgressUpdate"] | None = None
+    tags: list[UUID] | None = None
 
-from .learning_progress import LearningProgress, LearningProgressUpdate
-from .city import CityBase
+
+class DayFilters(CamelModel):
+    """Advanced filters for days querying."""
+    model_config = ConfigDict(
+        populate_by_name=True,
+        from_attributes=True,
+    )
+    steps: dict[str, int] | None = Field(
+        None,
+        description="Filter by steps. Operators: gt, lt, gte, lte, eq, ne. Example: {'gt': 5000}",
+    )
+    description: dict[str, str] | None = Field(
+        None,
+        description="Filter by description. Operators: like, eq, ne. Example: {'like': 'park'}",
+    )
+    starred: bool | None = Field(
+        None, description="Filter by starred status"
+    )
+    city_id: UUID | None = Field(
+        None, description="Filter by city ID", alias="cityId"
+    )
+    created_after: int | None = Field(
+        None, description="Filter by creation timestamp (after)", alias="createdAfter"
+    )
+    created_before: int | None = Field(
+        None, description="Filter by creation timestamp (before)", alias="createdBefore"
+    )
+
+
+from .city import CityInDB, CityDetail
+from .tag import TagInDB
+from .day_trackable_progress import DayTrackableProgress, DayTrackableProgressUpdate, TrackableTypeWithProgress

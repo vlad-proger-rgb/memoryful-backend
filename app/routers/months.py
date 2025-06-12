@@ -53,7 +53,7 @@ async def get_month(
     result = await db.scalars(stmt)
     month = result.first()
     if not month:
-        raise HTTPException(status_code=404, detail="Month not found")
+        raise HTTPException(404, "Month not found")
 
     return Msg(code=200, msg="Month retrieved", data=M.model_validate(month))
 

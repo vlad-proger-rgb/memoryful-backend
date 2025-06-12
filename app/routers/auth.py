@@ -4,6 +4,7 @@ from uuid import UUID
 
 from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from jose import jwt, JWTError
 from fastapi import (
     APIRouter,
@@ -56,7 +57,7 @@ router = APIRouter(
 
 @router.get("/me", response_model=Msg[UserInDB])
 async def get_me(
-    current_user: Annotated[User, Depends(get_current_user(True))],
+    current_user: Annotated[User, Depends(get_current_user(True, selectinload(User.country), selectinload(User.city)))],
 ) -> Msg[UserInDB]:
     return Msg(code=200, msg="Current user retrieved", data=UserInDB.model_validate(current_user))
 

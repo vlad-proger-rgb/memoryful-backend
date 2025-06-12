@@ -4,9 +4,12 @@ import datetime as dt
 from pydantic import ConfigDict, EmailStr
 from fastapi_camelcase import CamelModel
 
+from app.schemas.country import CountryInDB
+from app.schemas.city import CityInDB
+
 class UserBase(CamelModel):
-    country_id: UUID | None = None
-    city_id: UUID | None = None
+    country: CountryInDB | None = None
+    city: CityInDB | None = None
     first_name: str | None = None
     last_name: str | None = None
     age: int | None = None

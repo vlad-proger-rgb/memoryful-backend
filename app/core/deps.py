@@ -46,8 +46,7 @@ def get_current_user(load_user: bool = False, *load_options: type[Load]) -> Call
         if not load_user and user_id:
             return user_id
 
-        options: tuple[Load, ...] = tuple(opt(User) for opt in load_options)
-        user = await db.get(User, user_id, options=options)
+        user = await db.get(User, user_id, options=load_options)
         if not user:
             raise credentials_exception
 

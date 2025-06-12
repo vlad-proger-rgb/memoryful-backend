@@ -5,14 +5,15 @@ from .country import Country
 from .day import Day
 from .insight_type import InsightType
 from .insight import Insight
-from .learning_item import LearningItem
-from .learning_progress import LearningProgress
 from .month import Month
 from .search_history import SearchHistory
 from .suggestion import Suggestion
 from .tag import Tag
 from .user import User
 from .user_token import UserToken
+from .trackable_type import TrackableType
+from .trackable_item import TrackableItem
+from .trackable_progress import TrackableProgress
 
 
 __all__ = [
@@ -23,12 +24,13 @@ __all__ = [
     "Day",
     "InsightType",
     "Insight",
-    "LearningItem",
-    "LearningProgress",
     "Month",
     "SearchHistory",
     "Suggestion",
     "Tag",
     "User",
     "UserToken",
+    "TrackableType",
+    "TrackableItem",
+    "TrackableProgress",
 ]

@@ -27,13 +27,14 @@ class User(Base, IDMixin, TimestampWithUpdateMixin):
     months: Mapped[list["Month"]] = relationship(back_populates="user")
     days: Mapped[list["Day"]] = relationship(back_populates="user")
     tags: Mapped[list["Tag"]] = relationship(back_populates="user")
-    learning_items: Mapped[list["LearningItem"]] = relationship(back_populates="user")
     search_history: Mapped[list["SearchHistory"]] = relationship(back_populates="user")
     chats: Mapped[list["Chat"]] = relationship(back_populates="user")
     insights: Mapped[list["Insight"]] = relationship(back_populates="user")
     suggestions: Mapped[list["Suggestion"]] = relationship(back_populates="user")
-    learning_progresses: Mapped[list["LearningProgress"]] = relationship(
-        back_populates="user", overlaps="learning_progresses",
+    trackable_items: Mapped[list["TrackableItem"]] = relationship(back_populates="user")
+    trackable_progresses: Mapped[list["TrackableProgress"]] = relationship(
+        back_populates="user", 
+        overlaps="day,trackable_progresses"
     )
 
 
@@ -41,11 +42,11 @@ from .user_token import UserToken
 from .month import Month
 from .day import Day
 from .tag import Tag
-from .learning_item import LearningItem
-from .learning_progress import LearningProgress
 from .search_history import SearchHistory
 from .chat import Chat
 from .insight import Insight
 from .suggestion import Suggestion
 from .country import Country
 from .city import City
+from .trackable_item import TrackableItem
+from .trackable_progress import TrackableProgress

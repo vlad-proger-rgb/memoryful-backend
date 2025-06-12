@@ -1,10 +1,28 @@
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, ARRAY, String
+from sqlalchemy import ForeignKey, ARRAY, String, Table, Column, Integer, ForeignKeyConstraint
+from sqlalchemy.dialects.postgresql import UUID as SQLAlchemyUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models._mixins import TimestampWithUpdateMixin
+
+
+days_tags = Table(
+    "days_tags",
+    Base.metadata,
+    Column("day_timestamp", Integer, primary_key=True),
+    Column("user_id", SQLAlchemyUUID(as_uuid=True), primary_key=True),
+    Column("tag_id", SQLAlchemyUUID(as_uuid=True), primary_key=True),
+    ForeignKeyConstraint(
+        ['day_timestamp', 'user_id'],
+        ['days.timestamp', 'days.user_id']
+    ),
+    ForeignKeyConstraint(
+        ['tag_id'],
+        ['tags.id']
+    )
+)
 
 
 class Day(Base, TimestampWithUpdateMixin):
@@ -22,10 +40,18 @@ class Day(Base, TimestampWithUpdateMixin):
 
     user: Mapped["User"] = relationship(back_populates="days")
     city: Mapped["City"] = relationship(back_populates="days")
-    learning_progresses: Mapped[list["LearningProgress"]] = relationship(
-        back_populates="day", overlaps="learning_progresses",
+    tags: Mapped[list["Tag"]] = relationship(
+        secondary=days_tags,
+        primaryjoin="and_(Day.timestamp==days_tags.c.day_timestamp, Day.user_id==days_tags.c.user_id)",
+        secondaryjoin="Tag.id==days_tags.c.tag_id",
+        back_populates="days"
+    )
+    trackable_progresses: Mapped[list["TrackableProgress"]] = relationship(
+        back_populates="day", 
+        overlaps="user,trackable_progresses"
     )
 
 from .user import User
 from .city import City
-from .learning_progress import LearningProgress
+from .trackable_progress import TrackableProgress
+from .tag import Tag
