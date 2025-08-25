@@ -6,7 +6,7 @@ from pydantic import EmailStr
 from app.core.config import conf
 from app.core.celery_app import celery
 from app.core.email_templates import EMAIL_TEMPLATES
-from app.core.enums import EmailTemplate
+from app.enums import EmailTemplate
 
 
 @celery.task(queue="email_queue")

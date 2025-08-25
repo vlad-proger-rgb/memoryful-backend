@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.tasks.email_tasks import send_email_task
 from app.schemas import Msg, EmailSchema
-from app.core.enums import EmailTemplate
+from app.enums import EmailTemplate
 
 router = APIRouter(
     prefix="/email-sender",

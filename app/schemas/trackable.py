@@ -8,7 +8,7 @@ class TrackableBase(CamelModel):
     model_config = ConfigDict(from_attributes=True)
     title: str
     description: str | None = None
-    icon: str | None = None
+    icon: "FAIcon | None" = None
 
 class TrackableInDB(TrackableBase):
     id: UUID
@@ -25,3 +25,5 @@ class TrackableUpdate(CamelModel):
     description: str | None = None
     icon: str | None = None
     meta: dict | None = None
+
+from .font_awesome import FAIcon

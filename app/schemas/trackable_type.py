@@ -8,5 +8,7 @@ class TrackableTypeInDB(CamelModel):
     name: str
     description: str | None = None
     value_type: str
-    icon: str | None = None
+    icon: "FAIcon | None" = None
     meta: dict | None = None
+
+from app.schemas.font_awesome import FAIcon

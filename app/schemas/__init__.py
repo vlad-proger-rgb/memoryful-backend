@@ -17,6 +17,7 @@ from .trackable import (
 )
 from .day_trackable_progress import DayTrackableProgress, DayTrackableProgressUpdate, TrackableTypeWithProgress
 from .user import UserBase, UserInDB
+from .font_awesome import FAIcon
 
 
 __all__ = [
@@ -36,6 +37,7 @@ __all__ = [
     "DayFilters",
     "Email",
     "EmailSchema",
+    "FAIcon",
     "VerifyCodeForm",
     "MonthBase",
     "MonthInDB",

@@ -1,6 +1,10 @@
-from .sorting import SortOrder, DaySortField
+from .font_awesome import IconStyle
+from .sorting import DaySortField, SortOrder
+from .emails import EmailTemplate
 
 __all__ = [
-    "SortOrder",
     "DaySortField",
+    "IconStyle",
+    "SortOrder",
+    "EmailTemplate",
 ]

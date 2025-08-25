@@ -51,9 +51,9 @@ def _apply_filters(stmt: Select, filters: DayFilters | None, tag_names: list[str
     if filters.city_id is not None:
         conditions.append(Day.city_id == filters.city_id)
     if filters.created_after is not None:
-        conditions.append(Day.created_at >= datetime.fromtimestamp(filters.created_after))
+        conditions.append(Day.timestamp >= filters.created_after)
     if filters.created_before is not None:
-        conditions.append(Day.created_at <= datetime.fromtimestamp(filters.created_before))
+        conditions.append(Day.timestamp <= filters.created_before)
 
     if filters.steps:
         for op, steps in filters.steps.items():
@@ -102,8 +102,8 @@ def _apply_sorting(stmt: Select, sort_field: DaySortField | None, sort_order: So
 async def get_days(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
-    limit: int = Query(10, ge=1, le=100, description="Number of items to return"),
-    offset: int = Query(0, ge=0, description="Number of items to skip"),
+    limit: int = Query(None, ge=1, le=100, description="Number of items to return"),
+    offset: int = Query(None, ge=0, description="Number of items to skip"),
     sort_field: DaySortField | None = Query(
         None,
         description="Field to sort by",
@@ -156,7 +156,11 @@ async def get_days(
     stmt = _apply_filters(stmt, filter_params, tag_name_list if tag_name_list else None)
     stmt = _apply_sorting(stmt, sort_field, sort_order)
 
-    stmt = stmt.limit(limit).offset(offset)
+    if limit is not None:
+        stmt = stmt.limit(limit)
+
+    if offset is not None:
+        stmt = stmt.offset(offset)
 
     if view == "list":
         stmt = stmt.options(

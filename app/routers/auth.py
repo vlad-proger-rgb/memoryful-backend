@@ -17,8 +17,8 @@ from fastapi import (
 
 from app.models import User, UserToken, Country, City
 from app.tasks import send_email_task
+from app.enums import EmailTemplate
 from app.core.database import get_db
-from app.core.enums import EmailTemplate
 from app.core.config import redis
 from app.core.utils import generate_activation_code
 from app.core.deps import get_current_user

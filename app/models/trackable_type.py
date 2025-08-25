@@ -1,7 +1,10 @@
-from app.core.database import Base
-from app.models._mixins import IDMixin
 from sqlalchemy import JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.core.database import Base
+from app.models.custom_types import PydanticType
+from app.models._mixins import IDMixin
+from app.schemas.font_awesome import FAIcon
 
 
 class TrackableType(Base, IDMixin):
@@ -10,7 +13,7 @@ class TrackableType(Base, IDMixin):
     name: Mapped[str] = mapped_column(unique=True)
     description: Mapped[str | None]
     value_type: Mapped[str]
-    icon: Mapped[str | None]
+    icon: Mapped[FAIcon | None] = mapped_column(PydanticType(FAIcon), default=None)
     meta_schema: Mapped[dict | None] = mapped_column(JSON, default=None)
 
     trackable_items: Mapped[list["TrackableItem"]] = relationship(back_populates="type")

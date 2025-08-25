@@ -1,4 +1,4 @@
-from app.core.enums import EmailTemplate
+from app.enums import EmailTemplate
 
 EMAIL_TEMPLATES = {
     EmailTemplate.CONFIRMATION_CODE: "confirmation_code.html",

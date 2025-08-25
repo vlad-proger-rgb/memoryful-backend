@@ -6,6 +6,8 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.settings import MAIL_FROM
+from app.enums.font_awesome import IconStyle
+from app.schemas.font_awesome import FAIcon
 from app.models import (
     Country,
     City,
@@ -84,8 +86,8 @@ async def init_db(db: AsyncSession) -> None:
     # trackable types
     if not (await db.scalar(select(TrackableType.id).limit(1))):
         db.add_all([
-            TrackableType(name="learning", description="Learning", value_type="minutes", icon="book"),
-            TrackableType(name="activity", description="Activity", value_type="km", icon="person-walking"),
+            TrackableType(name="learning", description="Learning", value_type="minutes", icon=FAIcon(name="book").model_dump()),
+            TrackableType(name="activity", description="Activity", value_type="km", icon=FAIcon(name="person-walking").model_dump()),
         ])
         await db.commit()
 
@@ -95,23 +97,23 @@ async def init_db(db: AsyncSession) -> None:
         trackable_types = (await db.scalars(select(TrackableType))).all()
         db.add_all([
             TrackableItem(
-                title="Python", 
-                description="Python programming language", 
-                icon="python", 
+                title="Python",
+                description="Python programming language",
+                icon=FAIcon(name="python", style=IconStyle.fab).model_dump(),
                 user_id=user_id,
                 type=trackable_types[0],
             ),
             TrackableItem(
                 title="JavaScript",
-                description="JavaScript programming language", 
-                icon="js", 
+                description="JavaScript programming language",
+                icon=FAIcon(name="js", style=IconStyle.fab).model_dump(),
                 user_id=user_id,
                 type=trackable_types[0],
             ),
             TrackableItem(
-                title="Running", 
-                description="Morning run", 
-                icon="person-walking", 
+                title="Running",
+                description="Morning run",
+                icon=FAIcon(name="person-walking", style=IconStyle.fas).model_dump(),
                 user_id=user_id,
                 type=trackable_types[1],
             ),
@@ -240,10 +242,7 @@ async def init_db(db: AsyncSession) -> None:
             ]
 
             # Create day content with more details
-            day_content = f"""
-            <h2>Day Summary - {current_date.strftime('%A, %B %d, %Y')}</h2>
-            <p>Today was a {'great' if random.random() > 0.3 else 'good'} day.</p>
-            """
+            day_content = f"""**Day Summary - {current_date.strftime('%A, %B %d, %Y')}**. Today was a {'great' if random.random() > 0.3 else 'good'} day."""
 
             if day_trackable_items:
                 day_content += "I made progress on "
@@ -280,7 +279,7 @@ async def init_db(db: AsyncSession) -> None:
                 "Implemented this random days generator.",
             ]
 
-            day_content += f"<p>{random.choice(notes)}</p>"
+            day_content += f"{random.choice(notes)}"
 
             # Create the day
             day = Day(
