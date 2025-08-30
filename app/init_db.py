@@ -176,8 +176,9 @@ async def init_db(db: AsyncSession) -> None:
 
         days = []
         day_images = [
-            "day1.jpg", "day2.jpg", "day3.jpg", "day4.jpg", "day5.jpg",
+            "animal1.jpg", "animal2.jpg", "animal3.jpg", "animal4.jpg",
             "krakow.jpg", "kyiv.jpg", "kyiv2.jpg",
+            "car1.jpg", "car2.jpg", "car3.jpg", "car4.jpg",
         ]
 
         # Generate days for the 3-month period
@@ -293,6 +294,7 @@ async def init_db(db: AsyncSession) -> None:
                 main_image=random.choice(day_images) if random.random() > 0.3 else None,  # 70% chance to have an image
                 tags=day_tags,
                 trackable_progresses=trackable_progresses,
+                images=[random.choice(day_images) for _ in range(random.randint(0, 3))]
             )
 
             days.append(day)
