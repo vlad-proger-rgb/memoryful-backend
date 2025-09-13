@@ -196,20 +196,28 @@ async def update_me(
     user_id: Annotated[UUID, Depends(get_current_user())],
     new_user: UserBase,
 ) -> Msg[None]:
-    if new_user.country_id:
-        country = await db.get(Country, new_user.country_id)
+    if new_user.country and new_user.country.id:
+        country = await db.get(Country, new_user.country.id)
         if not country:
             raise HTTPException(404, "Country not found")
 
-    if new_user.city_id:
-        city = await db.get(City, new_user.city_id)
+    if new_user.city and new_user.city.id:
+        city = await db.get(City, new_user.city.id)
         if not city:
             raise HTTPException(404, "City not found")
 
+    update_data = new_user.model_dump(exclude_unset=True)
+    # Remove nested country/city objects
+    update_data.pop("country", None)
+    update_data.pop("city", None)
+    if new_user.country and new_user.country.id:
+        update_data["country_id"] = new_user.country.id
+    if new_user.city and new_user.city.id:
+        update_data["city_id"] = new_user.city.id
     stmt = (
         update(User)
         .where(User.id == user_id)
-        .values(**new_user.model_dump(exclude_unset=True))
+        .values(**update_data)
     )
     await db.execute(stmt)
     await db.commit()

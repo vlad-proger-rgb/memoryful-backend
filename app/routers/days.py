@@ -358,12 +358,18 @@ async def update_day(
     timestamp: int,
     data: DayUpdate,
 ) -> Msg[None]:
-    day: Day | None = await db.get(Day, (timestamp, user_id))
+    print(f"UPDATE DAY {data=}")
+
+    day_result = await db.execute(
+        select(Day).options(selectinload(Day.tags)).where(Day.timestamp == timestamp, Day.user_id == user_id)
+    )
+    day: Day | None = day_result.scalar_one_or_none()
     if not day:
         raise HTTPException(404, "Day not found")
 
     update_data = data.model_dump(exclude_unset=True)
     trackable_progresses = update_data.pop('trackable_progresses', None)
+    tag_uuids = update_data.pop('tags', None)
 
     if update_data:
         stmt = (
@@ -372,6 +378,16 @@ async def update_day(
             .values(**update_data)
         )
         await db.execute(stmt)
+
+    if tag_uuids is not None:
+        tags = []
+        if tag_uuids:
+            tags_result = await db.execute(select(Tag).where(Tag.id.in_(tag_uuids)))
+            tags = list(tags_result.scalars().unique())
+            if len(tags) != len(tag_uuids):
+                raise HTTPException(404, "One or more tags not found")
+        day.tags.clear()
+        day.tags.extend(tags)
 
     if trackable_progresses is not None:
         await db.execute(
