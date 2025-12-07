@@ -25,7 +25,7 @@ services:
       RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
 
   db:
-    image: postgres
+    image: postgres:16
     container_name: db
     restart: always
     ports:

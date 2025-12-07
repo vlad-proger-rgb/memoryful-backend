@@ -80,6 +80,8 @@ async def init_db(db: AsyncSession) -> None:
             Tag(name="Work", icon=FAIcon(name="briefcase"), color="red", user_id=user_id),
             Tag(name="Travel", icon=FAIcon(name="plane"), color="blue", user_id=user_id),
             Tag(name="Study", icon=FAIcon(name="book"), color="green", user_id=user_id),
+            Tag(name="Nature", icon=FAIcon(name="tree"), color="yellow", user_id=user_id),
+            Tag(name="Architecture", icon=FAIcon(name="archway"), color="orange", user_id=user_id),
         ])
         await db.commit()
 
@@ -117,6 +119,13 @@ async def init_db(db: AsyncSession) -> None:
                 user_id=user_id,
                 type=trackable_types[1],
             ),
+            TrackableItem(
+                title="Photography",
+                description="Photography",
+                icon=FAIcon(name="camera", style=IconStyle.fas).model_dump(),
+                user_id=user_id,
+                type=trackable_types[1],
+            ),
         ])
         await db.commit()
 
@@ -143,11 +152,11 @@ async def init_db(db: AsyncSession) -> None:
             ),
             Month(
                 user_id=user_id,
-                month=today.month + 1,
-                year=today.year,
+                month=today.month % 12 + 1,
+                year=today.year if today.month < 12 else today.year + 1,
                 description="The next month",
                 background_image="month3.jpg",
-                top_day_timestamp=int(dt.datetime(today.year, today.month + 1, 3).timestamp())
+                top_day_timestamp=int(dt.datetime(today.year if today.month < 12 else today.year + 1, today.month % 12 + 1, 3).timestamp())
             ),
         ])
         await db.commit()
@@ -302,4 +311,66 @@ async def init_db(db: AsyncSession) -> None:
 
         db.add_all(days)
         await db.commit()
+
+
+    # for demo
+    try:
+        timestamp = int(dt.datetime(2024, 8, 17).timestamp())
+        user_id = (await db.scalars(select(User.id).limit(1))).one()
+        city_id = (await db.scalars(select(City.id).where(City.name == "Kyiv"))).one()
+        description = "Evening walk around Natalka Park and Obolonskyi Island — warm air, golden sunlight on the Dnipro, and that calm Kyiv energy when everyone just slows down for a while"
+
+        content = """The weather couldn’t have been better — around **+26°C**, clear skies, and a gentle breeze from the river.
+I spent the evening walking through **Natalka Park**, which was full of life: people with ice cream, kids on scooters, and quiet music drifting from the cafes.
+
+Crossed the **modern wavy bridge** to **Obolonskyi Island**, where it suddenly felt more peaceful — fewer people, just the sound of water and laughter echoing from the shore. A few people were **fishing** near the sand, while others sat in small groups enjoying the view.
+
+From the middle of the bridge, the **Obolon skyline** looked beautiful — tall residential buildings glowing in the sunset. On the island side, the **trees and the beach** made it feel like a short escape from the city without ever leaving it.
+
+As the sun began to set, I stopped for a few minutes just to take in the view — the reflections on the river, the slow rhythm of Kyiv, and that quiet feeling that everything is okay for a moment."""
+
+        steps = 20403
+        starred = True
+        main_image = "demo_kyiv1.jpg"
+        images = ["demo_kyiv2.jpg", "demo_kyiv3.jpg", "demo_kyiv4.jpg", "demo_kyiv5.jpg"]
+        tags = [
+            (await db.scalars(select(Tag).where(Tag.name == "Nature"))).one(),
+            (await db.scalars(select(Tag).where(Tag.name == "Travel"))).one(),
+            (await db.scalars(select(Tag).where(Tag.name == "Architecture"))).one(),
+        ]
+
+        trackable_progresses = [
+            TrackableProgress(
+                user_id=user_id,
+                trackable_item_id=(await db.scalars(select(TrackableItem.id).where(TrackableItem.title == "Running"))).one(),
+                timestamp=timestamp,
+                value=120,
+            ),
+            TrackableProgress(
+                user_id=user_id,
+                trackable_item_id=(await db.scalars(select(TrackableItem.id).where(TrackableItem.title == "Photography"))).one(),
+                timestamp=timestamp,
+                value=60,
+            ),
+        ]
+
+        day = Day(
+            timestamp=timestamp,
+            user_id=user_id,
+            city_id=city_id,
+            description=description,
+            content=content,
+            steps=steps,
+            starred=starred,
+            main_image=main_image,
+            images=images,
+            tags=tags,
+            trackable_progresses=trackable_progresses,
+        )
+
+        db.add(day)
+        await db.commit()
+
+    except Exception as e:
+        print(f"Error initializing demo data: {e}")
 

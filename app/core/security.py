@@ -1,5 +1,7 @@
 import datetime as dt
 from uuid import uuid4
+import hashlib
+import hmac
 
 from fastapi import HTTPException, Request
 from fastapi.security import OAuth2PasswordBearer
@@ -16,11 +18,8 @@ from app.core.settings import (
     REFRESH_SECRET_KEY,
     ACCESS_TOKEN_EXPIRE_MINUTES,
     REFRESH_TOKEN_EXPIRE_MINUTES,
-    RP_LOGIN_CODE,
 )
 
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl = "/auth/login",
@@ -32,10 +31,11 @@ TOKEN_SETTINGS = {
 }
 
 def hash_refresh_token(token: str) -> str:
-    return pwd_context.hash(token)
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 def verify_refresh_token(token: str, hashed_token: str) -> bool:
-    return pwd_context.verify(token, hashed_token)
+    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    return hmac.compare_digest(digest, hashed_token)
 
 
 def create_token(

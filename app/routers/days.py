@@ -37,9 +37,28 @@ router = APIRouter(
 )
 
 
-def _apply_filters(stmt: Select, filters: DayFilters | None, tag_names: list[str] | None = None) -> Select:
+def _apply_filters(stmt: Select, filters: DayFilters | None, tag_names: list[str] | None = None, user_id: UUID | None = None) -> Select:
     if tag_names:
-        stmt = stmt.join(Day.tags).where(Tag.name.in_(tag_names))
+        # Subquery: find days that have ALL the specified tags
+        tag_subquery = (
+            select(Day.timestamp, Day.user_id)
+            .join(Day.tags)
+            .where(Tag.name.in_(tag_names))
+        )
+        if user_id:
+            tag_subquery = tag_subquery.where(Tag.user_id == user_id)
+        tag_subquery = (
+            tag_subquery
+            .group_by(Day.timestamp, Day.user_id)
+            .having(func.count(Tag.id) == len(tag_names))
+            .subquery()
+        )
+        stmt = stmt.where(
+            and_(
+                Day.timestamp == tag_subquery.c.timestamp,
+                Day.user_id == tag_subquery.c.user_id
+            )
+        )
 
     if not filters:
         return stmt
@@ -50,6 +69,8 @@ def _apply_filters(stmt: Select, filters: DayFilters | None, tag_names: list[str
         conditions.append(Day.starred == filters.starred)
     if filters.city_id is not None:
         conditions.append(Day.city_id == filters.city_id)
+    if filters.country_id is not None:
+        conditions.append(Day.city.has(City.country_id == filters.country_id))
     if filters.created_after is not None:
         conditions.append(Day.timestamp >= filters.created_after)
     if filters.created_before is not None:
@@ -153,7 +174,7 @@ async def get_days(
 
     stmt = select(Day).where(Day.user_id == user_id)
 
-    stmt = _apply_filters(stmt, filter_params, tag_name_list if tag_name_list else None)
+    stmt = _apply_filters(stmt, filter_params, tag_name_list if tag_name_list else None, user_id)
     stmt = _apply_sorting(stmt, sort_field, sort_order)
 
     if limit is not None:

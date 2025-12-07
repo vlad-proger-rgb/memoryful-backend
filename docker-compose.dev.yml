@@ -28,11 +28,11 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   db:
-    image: postgres
+    image: postgres:16
     container_name: db-dev
     restart: always
     ports:
-      - "5433:${POSTGRES_PORT}"
+      - "5444:${POSTGRES_PORT}"
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}

@@ -75,6 +75,9 @@ class DayFilters(CamelModel):
     city_id: UUID | None = Field(
         None, description="Filter by city ID", alias="cityId"
     )
+    country_id: str | None = Field(
+        None, description="Filter by country ID", alias="countryId"
+    )
     created_after: int | None = Field(
         None, description="Filter by creation timestamp (after)", alias="createdAfter"
     )
