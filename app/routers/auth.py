@@ -31,6 +31,7 @@ from app.core.security import (
 )
 from app.core.settings import (
     ACCESS_SECRET_KEY,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
     ALGORITHM,
     VERIFICATION_CODE_EXPIRE_MINUTES,
     RP_LOGIN_CODE,
@@ -196,6 +197,9 @@ async def update_me(
     user_id: Annotated[UUID, Depends(get_current_user())],
     new_user: UserBase,
 ) -> Msg[None]:
+    country = None
+    city = None
+
     if new_user.country and new_user.country.id:
         country = await db.get(Country, new_user.country.id)
         if not country:
@@ -206,14 +210,23 @@ async def update_me(
         if not city:
             raise HTTPException(404, "City not found")
 
+    if city and country and city.country_id != country.id:
+        raise HTTPException(400, "Selected city does not belong to selected country")
+
     update_data = new_user.model_dump(exclude_unset=True)
     # Remove nested country/city objects
     update_data.pop("country", None)
     update_data.pop("city", None)
-    if new_user.country and new_user.country.id:
-        update_data["country_id"] = new_user.country.id
-    if new_user.city and new_user.city.id:
-        update_data["city_id"] = new_user.city.id
+
+    if city:
+        update_data["city_id"] = city.id
+        if country:
+            update_data["country_id"] = country.id
+        else:
+            update_data["country_id"] = city.country_id
+    elif country:
+        update_data["country_id"] = country.id
+
     stmt = (
         update(User)
         .where(User.id == user_id)
@@ -260,8 +273,16 @@ async def logout_all(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
 ) -> Msg[None]:
-    stmt = delete(UserToken).where(UserToken.user_id == user_id)
-    await db.execute(stmt)
+    stmt = select(UserToken).where(UserToken.user_id == user_id)
+    result = await db.execute(stmt)
+    tokens: Sequence[UserToken] = result.scalars().all()
+
+    ttl = ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    for t in tokens:
+        await redis.setex(f"{RP_BLACKLISTED_TOKEN}{t.id}", ttl, "true")
+
+    delete_stmt = delete(UserToken).where(UserToken.user_id == user_id)
+    await db.execute(delete_stmt)
     await db.commit()
     return Msg(code=200, msg="All sessions revoked")
 
@@ -270,10 +291,22 @@ async def logout_all(
 async def list_sessions(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
+    request: Request,
+    token: Annotated[str, Depends(oauth2_scheme)],
 ) -> Msg[Sequence[Session]]:
     stmt = select(UserToken).where(UserToken.user_id == user_id)
     result = await db.execute(stmt)
     tokens: Sequence[UserToken] = result.scalars().all()
+
+    current_jti: str | None = None
+    try:
+        payload = jwt.decode(token, ACCESS_SECRET_KEY, algorithms=ALGORITHM)
+        current_jti = payload.get("jti")
+    except JWTError:
+        current_jti = None
+
+    current_ua = request.headers.get("user-agent")
+    current_ip = request.client.host if request.client else None
 
     sessions = [
         Session(
@@ -282,6 +315,14 @@ async def list_sessions(
             user_agent=token.user_agent,
             created_at=token.created_at,
             expires_at=token.expires_at,
+            is_current=(
+                (str(token.id) == str(current_jti))
+                if current_jti
+                else (
+                    (token.user_agent or None) == (current_ua or None)
+                    and (token.ip_address or None) == (current_ip or None)
+                )
+            ),
         )
         for token in tokens
     ]
@@ -304,6 +345,9 @@ async def revoke_session(
 
     if not token:
         raise HTTPException(404, "Session not found")
+
+    ttl = ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    await redis.setex(f"{RP_BLACKLISTED_TOKEN}{token.id}", ttl, "true")
 
     await db.delete(token)
     await db.commit()

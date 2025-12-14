@@ -18,3 +18,4 @@ class Session(CamelModel):
     user_agent: str | None = None
     created_at: dt.datetime
     expires_at: dt.datetime
+    is_current: bool = False

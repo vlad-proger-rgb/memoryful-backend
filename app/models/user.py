@@ -18,7 +18,6 @@ class User(Base, IDMixin, TimestampWithUpdateMixin):
     last_name: Mapped[str | None]
     age: Mapped[int | None]
     bio: Mapped[str | None]
-    job_title: Mapped[str | None]
     photo: Mapped[str | None]
 
     country: Mapped["Country"] = relationship(back_populates="users")

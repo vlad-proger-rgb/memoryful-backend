@@ -57,7 +57,14 @@ async def init_db(db: AsyncSession) -> None:
     # user
     if not (await db.scalar(select(User.id).limit(1))):
         country = (await db.scalars(select(Country).where(Country.name == "United States"))).one()
-        city = (await db.scalars(select(City).where(City.name == "New York"))).one()
+        city = (
+            await db.scalars(
+                select(City).where(
+                    City.name == "New York",
+                    City.country_id == country.id,
+                )
+            )
+        ).one()
         user = User(
             country_id=country.id,
             city_id=city.id,
@@ -67,7 +74,6 @@ async def init_db(db: AsyncSession) -> None:
             last_name="Doe",
             age=30,
             bio="Some bio",
-            job_title="Python developer",
             photo="me.jpg",
         )
         db.add(user)

@@ -42,6 +42,7 @@ def create_token(
     data: dict,
     token_type: str = "access",
     expires_delta: dt.timedelta | None = None,
+    jti: str | None = None,
 ) -> tuple[str, str]:
     if token_type not in TOKEN_SETTINGS:
         raise ValueError("Invalid token type. Choose 'access' or 'refresh'")
@@ -53,7 +54,7 @@ def create_token(
         else dt.datetime.now(dt.UTC) + dt.timedelta(minutes=expire_minutes)
     )
 
-    jti = str(uuid4())
+    jti = jti or str(uuid4())
     to_encode = {
         **data,
         "jti": jti,
@@ -87,11 +88,12 @@ async def create_and_store_tokens(
     request: Request | None = None,
 ) -> Token:
     data = {"sub": str(user.id)}
-    access_token, _ = create_token(data=data, token_type="access")
-    refresh_token, jti = create_token(data=data, token_type="refresh")
+    session_id = str(uuid4())
+    access_token, _ = create_token(data=data, token_type="access", jti=session_id)
+    refresh_token, _ = create_token(data=data, token_type="refresh", jti=session_id)
 
     token_db = UserToken(
-        id=jti,
+        id=session_id,
         user_id=user.id,
         refresh_token_hash=hash_refresh_token(refresh_token),
         expires_at=dt.datetime.now(dt.UTC) + dt.timedelta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES),
