@@ -7,6 +7,7 @@ from .country import CountryInDB
 from .day import DayCreate, DayUpdate, DayListItem, DayDetail, DayFilters
 from .email import Email, EmailSchema, VerifyCodeForm
 from .month import MonthBase, MonthInDB
+from .storage import PresignGetRequest, PresignGetResponse, PresignPutRequest, PresignPutResponse
 from .security import Token, AuthResponse, Session
 from .tag import TagBase, TagInDB
 from .trackable import (
@@ -41,6 +42,10 @@ __all__ = [
     "VerifyCodeForm",
     "MonthBase",
     "MonthInDB",
+    "PresignGetRequest",
+    "PresignGetResponse",
+    "PresignPutRequest",
+    "PresignPutResponse",
     "Token",
     "AuthResponse",
     "Session",

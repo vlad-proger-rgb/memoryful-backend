@@ -14,3 +14,4 @@ openai
 langchain
 celery
 passlib
+boto3

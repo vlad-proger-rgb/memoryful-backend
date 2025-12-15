@@ -28,6 +28,7 @@ from app.routers import (
     email,
     insights,
     months,
+    storage,
     suggestions,
     tags,
     trackables,
@@ -69,6 +70,7 @@ app.include_router(days.router)
 app.include_router(email.router)
 app.include_router(insights.router)
 app.include_router(months.router)
+app.include_router(storage.router)
 app.include_router(trackables.router)
 app.include_router(trackable_types.router)
 app.include_router(suggestions.router)

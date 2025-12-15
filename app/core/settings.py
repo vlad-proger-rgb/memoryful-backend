@@ -51,6 +51,14 @@ ALLOW_CREDENTIALS = os.getenv('ALLOW_CREDENTIALS', 'False').lower() == 'true'
 ALLOWED_METHODS = os.getenv('ALLOWED_METHODS', '*').split(',')
 ALLOWED_HEADERS = os.getenv('ALLOWED_HEADERS', '*').split(',')
 
+# S3 / MinIO
+S3_ENDPOINT_URL = os.getenv("S3_ENDPOINT_URL", "http://localhost:9000")
+S3_ACCESS_KEY_ID = os.getenv("S3_ACCESS_KEY_ID", "minioadmin")
+S3_SECRET_ACCESS_KEY = os.getenv("S3_SECRET_ACCESS_KEY", "minioadmin")
+S3_REGION = os.getenv("S3_REGION", "us-east-1")
+S3_BUCKET = os.getenv("S3_BUCKET", "memoryful")
+S3_PUBLIC_BASE_URL = os.getenv("S3_PUBLIC_BASE_URL", "http://localhost:9000")
+
 # Redis prefixes
 # RP short for Redis Prefix
 RP_LOGIN_CODE = "login_code:"
