@@ -4,6 +4,7 @@ import sys
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import select
 
 sys.path.append("..")
 
@@ -16,7 +17,10 @@ from app.core.settings import (
     ALLOW_CREDENTIALS,
     ALLOWED_HEADERS,
     ALLOWED_METHODS,
+    ENVIRONMENT,
+    SEED_DB_ON_EMPTY,
 )
+from app.models import User
 
 from app.routers import (
     auth,
@@ -39,10 +43,11 @@ from app.routers import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
     async with AsyncSessionLocal() as session:
-        await init_db(session)
+        if ENVIRONMENT == "development" and SEED_DB_ON_EMPTY:
+            has_any_user = await session.scalar(select(User.id).limit(1))
+            if not has_any_user:
+                await init_db(session)
     yield
 
 

@@ -3,6 +3,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Environment
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+SEED_DB_ON_EMPTY = os.getenv("SEED_DB_ON_EMPTY", "false").lower() == "true"
+
 # Postgres
 MAIN_DATABASE_URL: str = (
     f"postgresql+asyncpg://{os.getenv("POSTGRES_USER")}:{os.getenv("POSTGRES_PASSWORD")}"
