@@ -14,8 +14,8 @@ MAIN_DATABASE_URL: str = (
 )
 
 # Token
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-REFRESH_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+REFRESH_TOKEN_EXPIRE_MINUTES = int(os.getenv("REFRESH_TOKEN_EXPIRE_MINUTES", str(60 * 24 * 7)))
 ACCESS_SECRET_KEY = str(os.getenv("ACCESS_SECRET_KEY"))
 REFRESH_SECRET_KEY = str(os.getenv("REFRESH_SECRET_KEY"))
 ALGORITHM = "HS256"
@@ -57,8 +57,21 @@ TRUSTED_EMAILS = {
 }
 
 # CORS
-ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', '').split(',')
-ALLOW_CREDENTIALS = os.getenv('ALLOW_CREDENTIALS', 'False').lower() == 'true'
+_allowed_origins_raw = os.getenv('ALLOWED_ORIGINS', '')
+ALLOWED_ORIGINS = [o.strip() for o in _allowed_origins_raw.split(',') if o.strip()]
+if not ALLOWED_ORIGINS and ENVIRONMENT == "development":
+    ALLOWED_ORIGINS = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+
+_allow_credentials_raw = os.getenv('ALLOW_CREDENTIALS')
+if _allow_credentials_raw is None:
+    ALLOW_CREDENTIALS = ENVIRONMENT == "development"
+else:
+    ALLOW_CREDENTIALS = _allow_credentials_raw.lower() == 'true'
 ALLOWED_METHODS = os.getenv('ALLOWED_METHODS', '*').split(',')
 ALLOWED_HEADERS = os.getenv('ALLOWED_HEADERS', '*').split(',')
 

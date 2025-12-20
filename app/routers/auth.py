@@ -13,6 +13,7 @@ from fastapi import (
     Header,
     Depends,
     Request,
+    Cookie,
 )
 
 from app.models import User, UserToken, Country, City
@@ -38,6 +39,8 @@ from app.core.settings import (
     RP_LOGIN_CODE,
     RP_BLACKLISTED_TOKEN,
     REFRESH_SECRET_KEY,
+    REFRESH_TOKEN_EXPIRE_MINUTES,
+    ENVIRONMENT,
 )
 from app.schemas import (
     Msg,
@@ -113,13 +116,18 @@ async def verify_code(
 
     tokens = await create_and_store_tokens(db, user, request)
     if tokens.refresh_token:
+        is_secure_cookie = ENVIRONMENT != "development"
         response.set_cookie(
             key="refresh_token",
             value=tokens.refresh_token,
             httponly=True,
-            secure=True,
+            secure=is_secure_cookie,
             samesite="lax",
+            max_age=REFRESH_TOKEN_EXPIRE_MINUTES * 60,
+            path="/",
         )
+
+    tokens.refresh_token = None
 
     return Msg(
         code=201,
@@ -136,13 +144,18 @@ async def verify_code(
 async def refresh_token(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
-    authorization: str = Header(...),
+    response: Response,
+    refresh_token_cookie: str | None = Cookie(default=None, alias="refresh_token"),
+    authorization: str | None = Header(default=None),
 ) -> Msg[Token]:
-    scheme, _, refresh_token = authorization.partition(" ")
-    print(f"AUTH GET /refresh {scheme=}, {refresh_token=}")
-    if scheme.lower() != "bearer":
-        raise HTTPException(401, "Could not validate credentials (scheme not bearer)", {"WWW-Authenticate": "Bearer"})
+    refresh_token: str | None = refresh_token_cookie
+    scheme = ""
+    if not refresh_token and authorization:
+        scheme, _, candidate = authorization.partition(" ")
+        if scheme.lower() == "bearer" and candidate:
+            refresh_token = candidate
 
+    print(f"AUTH GET /refresh {scheme=}, {bool(refresh_token)=}")
     if not refresh_token:
         raise HTTPException(401, "No refresh token provided", {"WWW-Authenticate": "Bearer"})
 
@@ -190,6 +203,20 @@ async def refresh_token(
     await db.commit()
 
     new_tokens = await create_and_store_tokens(db, user, request)
+
+    if new_tokens.refresh_token:
+        is_secure_cookie = ENVIRONMENT != "development"
+        response.set_cookie(
+            key="refresh_token",
+            value=new_tokens.refresh_token,
+            httponly=True,
+            secure=is_secure_cookie,
+            samesite="lax",
+            max_age=REFRESH_TOKEN_EXPIRE_MINUTES * 60,
+            path="/",
+        )
+
+    new_tokens.refresh_token = None
 
     return Msg(code=200, msg="Token refreshed", data=new_tokens)
 
@@ -245,6 +272,7 @@ async def logout(
     db: Annotated[AsyncSession, Depends(get_db)],
     token: Annotated[str, Depends(oauth2_scheme)],
     request: Request,
+    response: Response,
 ) -> Msg[None]:
     try:
         payload = jwt.decode(token, ACCESS_SECRET_KEY, algorithms=ALGORITHM)
@@ -267,6 +295,8 @@ async def logout(
 
     except Exception as e:
         print(f"UTILS Error during logout: {e}")
+
+    response.delete_cookie(key="refresh_token", path="/")
 
     return Msg(code=200, msg="Logout was successful")
 
