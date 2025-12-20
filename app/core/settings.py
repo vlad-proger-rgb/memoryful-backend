@@ -49,6 +49,13 @@ MAIL_PORT = os.getenv("MAIL_PORT")
 MAIL_SERVER = os.getenv("MAIL_SERVER")
 MAIL_FROM_NAME = os.getenv("MAIL_FROM_NAME")
 
+# Auth
+TRUSTED_EMAILS = {
+    e.strip().lower()
+    for e in os.getenv("TRUSTED_EMAILS", "").split(",")
+    if e.strip()
+}
+
 # CORS
 ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', '').split(',')
 ALLOW_CREDENTIALS = os.getenv('ALLOW_CREDENTIALS', 'False').lower() == 'true'

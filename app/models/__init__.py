@@ -10,7 +10,6 @@ from .search_history import SearchHistory
 from .suggestion import Suggestion
 from .tag import Tag
 from .user import User
-from .user_preference import UserPreference
 from .user_token import UserToken
 from .trackable_type import TrackableType
 from .trackable_item import TrackableItem

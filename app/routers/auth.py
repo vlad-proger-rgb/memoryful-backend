@@ -33,6 +33,7 @@ from app.core.settings import (
     ACCESS_SECRET_KEY,
     ACCESS_TOKEN_EXPIRE_MINUTES,
     ALGORITHM,
+    TRUSTED_EMAILS,
     VERIFICATION_CODE_EXPIRE_MINUTES,
     RP_LOGIN_CODE,
     RP_BLACKLISTED_TOKEN,
@@ -68,20 +69,21 @@ async def request_code(email: Email) -> Msg[None]:
     print(f"AUTH POST /request-code {email.email=}")
     activation_code = generate_activation_code()
 
-    await redis.setex(
-        f"{RP_LOGIN_CODE}{email.email}",
-        VERIFICATION_CODE_EXPIRE_MINUTES * 60,
-        activation_code,
-    )
+    if email.email not in TRUSTED_EMAILS:
+        await redis.setex(
+            f"{RP_LOGIN_CODE}{email.email}",
+            VERIFICATION_CODE_EXPIRE_MINUTES * 60,
+            activation_code,
+        )
 
-    send_email_task.delay(
-        email_type=EmailTemplate.CONFIRMATION_CODE,
-        recipients=[email.email],
-        body={
-            "subject": "Login Code",
-            "code": activation_code,
-        },
-    )
+        send_email_task.delay(
+            email_type=EmailTemplate.CONFIRMATION_CODE,
+            recipients=[email.email],
+            body={
+                "subject": "Login Code",
+                "code": activation_code,
+            },
+        )
 
     return Msg(code=200, msg="Code was sent")
 
@@ -95,7 +97,8 @@ async def verify_code(
 ) -> Msg[AuthResponse]:
     print(f"AUTH POST /verify-code {code_form=}")
 
-    await verify_code_form(f"{RP_LOGIN_CODE}{code_form.email}", code_form)
+    if code_form.email not in TRUSTED_EMAILS:
+        await verify_code_form(f"{RP_LOGIN_CODE}{code_form.email}", code_form)
 
     stmt = select(User).where(User.email == code_form.email)
     user: User | None = (await db.scalars(stmt)).one_or_none()
