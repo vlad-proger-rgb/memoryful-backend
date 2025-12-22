@@ -12,6 +12,7 @@ class TrackableBase(CamelModel):
 
 class TrackableInDB(TrackableBase):
     id: UUID
+    type_id: UUID
 
 class TrackableDetail(TrackableInDB):
     meta: dict | None = None
@@ -25,5 +26,6 @@ class TrackableUpdate(CamelModel):
     description: str | None = None
     icon: str | None = None
     meta: dict | None = None
+    type_id: UUID | None = None
 
 from .font_awesome import FAIcon

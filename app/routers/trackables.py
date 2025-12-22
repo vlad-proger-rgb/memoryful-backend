@@ -77,7 +77,10 @@ async def create_trackable(
     user_id: Annotated[UUID, Depends(get_current_user())],
     data: TrackableCreate,
 ) -> Msg[UUID]:
-    type_stmt = select(TrackableType).where(TrackableType.id == data.type_id)
+    type_stmt = select(TrackableType).where(
+        TrackableType.id == data.type_id,
+        TrackableType.user_id == user_id,
+    )
     type_result = await db.scalar(type_stmt)
     if not type_result:
         raise HTTPException(404, "Trackable type not found")
@@ -116,6 +119,15 @@ async def update_trackable(
     update_data = data.model_dump(exclude_unset=True)
     if not update_data:
         return Msg(code=200, msg="No changes detected")
+
+    if "type_id" in update_data:
+        type_stmt = select(TrackableType).where(
+            TrackableType.id == update_data["type_id"],
+            TrackableType.user_id == user_id,
+        )
+        type_result = await db.scalar(type_stmt)
+        if not type_result:
+            raise HTTPException(404, "Trackable type not found")
 
     await db.execute(
         update(TrackableItem)

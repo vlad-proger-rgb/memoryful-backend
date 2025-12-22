@@ -83,19 +83,20 @@ async def init_db(db: AsyncSession) -> None:
     if not (await db.scalar(select(Tag.id).limit(1))):
         user_id = (await db.scalars(select(User.id).limit(1))).one()
         db.add_all([
-            Tag(name="Work", icon=FAIcon(name="briefcase"), color="red", user_id=user_id),
-            Tag(name="Travel", icon=FAIcon(name="plane"), color="blue", user_id=user_id),
-            Tag(name="Study", icon=FAIcon(name="book"), color="green", user_id=user_id),
-            Tag(name="Nature", icon=FAIcon(name="tree"), color="yellow", user_id=user_id),
-            Tag(name="Architecture", icon=FAIcon(name="archway"), color="orange", user_id=user_id),
+            Tag(name="Work", icon=FAIcon(name="briefcase"), color="#ff0000", user_id=user_id),
+            Tag(name="Travel", icon=FAIcon(name="plane"), color="#0000ff", user_id=user_id),
+            Tag(name="Study", icon=FAIcon(name="book"), color="#008000", user_id=user_id),
+            Tag(name="Nature", icon=FAIcon(name="tree"), color="#ffff00", user_id=user_id),
+            Tag(name="Architecture", icon=FAIcon(name="archway"), color="#ffa500", user_id=user_id),
         ])
         await db.commit()
 
     # trackable types
     if not (await db.scalar(select(TrackableType.id).limit(1))):
+        user_id = (await db.scalars(select(User.id).limit(1))).one()
         db.add_all([
-            TrackableType(name="learning", description="Learning", value_type="minutes", icon=FAIcon(name="book").model_dump()),
-            TrackableType(name="activity", description="Activity", value_type="km", icon=FAIcon(name="person-walking").model_dump()),
+            TrackableType(user_id=user_id, name="learning", description="Learning", value_type="minutes", icon=FAIcon(name="book").model_dump()),
+            TrackableType(user_id=user_id, name="activity", description="Activity", value_type="km", icon=FAIcon(name="person-walking").model_dump()),
         ])
         await db.commit()
 

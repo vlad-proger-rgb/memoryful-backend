@@ -30,6 +30,7 @@ class User(Base, IDMixin, TimestampWithUpdateMixin):
     chats: Mapped[list["Chat"]] = relationship(back_populates="user")
     insights: Mapped[list["Insight"]] = relationship(back_populates="user")
     suggestions: Mapped[list["Suggestion"]] = relationship(back_populates="user")
+    trackable_types: Mapped[list["TrackableType"]] = relationship(back_populates="user")
     trackable_items: Mapped[list["TrackableItem"]] = relationship(back_populates="user")
     trackable_progresses: Mapped[list["TrackableProgress"]] = relationship(
         back_populates="user", 
@@ -47,5 +48,6 @@ from .insight import Insight
 from .suggestion import Suggestion
 from .country import Country
 from .city import City
+from .trackable_type import TrackableType
 from .trackable_item import TrackableItem
 from .trackable_progress import TrackableProgress
