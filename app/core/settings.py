@@ -83,6 +83,12 @@ S3_REGION = os.getenv("S3_REGION", "us-east-1")
 S3_BUCKET = os.getenv("S3_BUCKET", "memoryful")
 S3_PUBLIC_BASE_URL = os.getenv("S3_PUBLIC_BASE_URL", "http://localhost:9000")
 
+# S3 / MinIO defaults
+DEFAULT_DASHBOARD_BACKGROUND = "users/defaults/workspace/dashboard_bg.jpg"
+DEFAULT_DAY_BACKGROUND = "users/defaults/workspace/day_bg.jpg"
+DEFAULT_SEARCH_BACKGROUND = "users/defaults/workspace/search_bg.mp4"
+DEFAULT_SETTINGS_BACKGROUND = "users/defaults/workspace/settings_bg.jpg"
+
 # Redis prefixes
 # RP short for Redis Prefix
 RP_LOGIN_CODE = "login_code:"

@@ -179,7 +179,10 @@ async def presign_get(
     body: PresignGetRequest,
     user_id: Annotated[UUID, Depends(get_current_user())],
 ) -> Msg[PresignGetResponse]:
-    if not body.object_key.startswith(f"users/{user_id}/"):
+    if not (
+        body.object_key.startswith(f"users/{user_id}/")
+        or body.object_key.startswith("users/defaults/")
+    ):
         raise HTTPException(403, "Access denied")
 
     s3 = _s3_client()

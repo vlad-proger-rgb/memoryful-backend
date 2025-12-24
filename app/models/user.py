@@ -1,4 +1,5 @@
 from uuid import UUID
+from typing import Optional
 
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -37,6 +38,8 @@ class User(Base, IDMixin, TimestampWithUpdateMixin):
         overlaps="day,trackable_progresses"
     )
 
+    workspace: Mapped[Optional["Workspace"]] = relationship(back_populates="user", uselist=False)
+
 
 from .user_token import UserToken
 from .month import Month
@@ -51,3 +54,4 @@ from .city import City
 from .trackable_type import TrackableType
 from .trackable_item import TrackableItem
 from .trackable_progress import TrackableProgress
+from .workspace import Workspace

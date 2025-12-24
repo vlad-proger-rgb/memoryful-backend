@@ -18,6 +18,7 @@ from .trackable import (
 )
 from .day_trackable_progress import DayTrackableProgress, DayTrackableProgressUpdate, TrackableTypeWithProgress
 from .user import UserBase, UserInDB
+from .workspace import WorkspaceBase, WorkspaceInDB
 from .font_awesome import FAIcon
 
 
@@ -60,6 +61,8 @@ __all__ = [
     "TrackableTypeWithProgress",
     "UserBase",
     "UserInDB",
+    "WorkspaceBase",
+    "WorkspaceInDB",
 ]
 
 class Msg[T](BaseModel):
