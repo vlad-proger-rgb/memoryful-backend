@@ -27,6 +27,8 @@ class DayDetail(DayBase):
     main_image: str | None = None
     created_at: dt.datetime
     updated_at: dt.datetime
+    completed_at: dt.datetime | None = None
+    ai_generated_at: dt.datetime | None = None
     images: list[str] | None = Field(default_factory=list)
     trackable_progresses: list["TrackableTypeWithProgress"] = Field(default_factory=list, description="List of trackable types with their associated progresses")
     tags: list["TagInDB"] | None = Field(default_factory=list)

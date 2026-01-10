@@ -1,7 +1,15 @@
 from pydantic import BaseModel
 
 from .chat_model import ChatModelInDB
-from .chat import ChatCreate, ChatUpdate, ChatListItem, ChatDetail
+from .chat import (
+    ChatCreate,
+    ChatUpdate,
+    ChatListItem,
+    ChatDetail,
+    MessageSchema,
+)
+from .insight import InsightInDB
+from .suggestion import SuggestionInDB
 from .city import CityInDB, CityDetail
 from .country import CountryInDB
 from .day import DayCreate, DayUpdate, DayListItem, DayDetail, DayFilters
@@ -29,6 +37,9 @@ __all__ = [
     "ChatUpdate",
     "ChatListItem",
     "ChatDetail",
+    "MessageSchema",
+    "InsightInDB",
+    "SuggestionInDB",
     "CityInDB",
     "CityDetail",
     "CountryInDB",

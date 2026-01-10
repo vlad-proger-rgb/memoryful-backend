@@ -1,4 +1,5 @@
 from typing import AsyncIterator
+import logging
 import sys
 
 from contextlib import asynccontextmanager
@@ -7,6 +8,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
 sys.path.append("..")
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
+# Set specific logger for AI operations to be more verbose
+ai_logger = logging.getLogger('app.ai')
+ai_logger.setLevel(logging.DEBUG)
 
 from app.init_db import init_db
 from app.schemas import Msg

@@ -13,6 +13,9 @@ aio_pika
 bcrypt
 openai
 langchain
+langchain-openai
+langchain-anthropic
+langchain-ollama
 celery
 passlib
 boto3

@@ -1,5 +1,6 @@
 from typing import Annotated, Callable, Awaitable
 from uuid import UUID
+import logging
 
 from fastapi import HTTPException, Depends
 from sqlalchemy.orm import Load
@@ -14,13 +15,15 @@ from app.core.settings import ALGORITHM, ACCESS_SECRET_KEY, RP_BLACKLISTED_TOKEN
 from app.models import User
 
 
+logger = logging.getLogger(__name__)
+
 def get_current_user(load_user: bool = False, *load_options: type[Load]) -> Callable[[AsyncSession, str], Awaitable[User | UUID]]:
-    print(f"UTILS get_current_user {load_user=} {load_options=}")
+
     async def dependency(
         db: Annotated[AsyncSession, Depends(get_db)],
         token: Annotated[str, Depends(oauth2_scheme)],
     ) -> User | UUID:
-        print(f"UTILS get_current_user dependency {token=}")
+        logger.debug(f"get_current_user dependency {token=}")
 
         credentials_exception = HTTPException(401, "Could not validate credentials",
                                                 {"WWW-Authenticate": "Bearer"})
@@ -29,18 +32,18 @@ def get_current_user(load_user: bool = False, *load_options: type[Load]) -> Call
         try:
             payload = jwt.decode(token, ACCESS_SECRET_KEY, algorithms=ALGORITHM)
             if (jti := payload.get("jti")) and await redis.get(f"{RP_BLACKLISTED_TOKEN}{jti}"):
-                print(f"UTILS get_current_user {jti=} is blacklisted")
+                logger.debug(f"get_current_user {jti=} is blacklisted")
                 raise credentials_exception
 
             if not (sub := payload.get("sub")):
-                print(f"UTILS get_current_user {sub=}")
+                logger.debug(f"get_current_user {sub=}")
                 raise credentials_exception
 
             if isinstance(sub, str):
                 user_id = UUID(sub)
 
         except (JWTError, ValidationError) as e:
-            print(f"UTILS get_current_user Token validation failed: {e}")
+            logger.debug(f"get_current_user Token validation failed: {e}")
             raise credentials_exception
 
         if not load_user and user_id:
@@ -48,6 +51,7 @@ def get_current_user(load_user: bool = False, *load_options: type[Load]) -> Call
 
         user = await db.get(User, user_id, options=load_options)
         if not user:
+            logger.debug(f"get_current_user User not found {user_id=}")
             raise credentials_exception
 
         return user

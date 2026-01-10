@@ -1,5 +1,5 @@
-from datetime import datetime
 from typing import Annotated, Literal
+import datetime as dt
 from uuid import UUID
 
 from fastapi import (
@@ -18,6 +18,7 @@ from app.core.database import get_db
 from app.models import Day, City, Tag, TrackableItem, TrackableProgress
 from app.core.deps import get_current_user
 from app.enums.sorting import SortOrder, DaySortField
+from app.tasks.ai_tasks import generate_day_ai
 from app.schemas import (
     Msg,
     DayListItem,
@@ -40,15 +41,15 @@ router = APIRouter(
 def _apply_filters(stmt: Select, filters: DayFilters | None, tag_names: list[str] | None = None, user_id: UUID | None = None) -> Select:
     if tag_names:
         # Subquery: find days that have ALL the specified tags
-        tag_subquery = (
+        tag_select = (
             select(Day.timestamp, Day.user_id)
             .join(Day.tags)
             .where(Tag.name.in_(tag_names))
         )
         if user_id:
-            tag_subquery = tag_subquery.where(Tag.user_id == user_id)
+            tag_select = tag_select.where(Tag.user_id == user_id)
         tag_subquery = (
-            tag_subquery
+            tag_select
             .group_by(Day.timestamp, Day.user_id)
             .having(func.count(Tag.id) == len(tag_names))
             .subquery()
@@ -355,6 +356,24 @@ async def create_day(
     await db.commit()
 
     return Msg(code=201, msg="Day created")
+
+
+@router.post("/{timestamp}/complete", response_model=Msg[None])
+async def complete_day(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: Annotated[UUID, Depends(get_current_user())],
+    timestamp: int,
+) -> Msg[None]:
+    day: Day | None = await db.get(Day, (timestamp, user_id))
+    if not day:
+        raise HTTPException(404, "Day not found")
+
+    if day.completed_at is None:
+        day.completed_at = dt.datetime.now(dt.UTC)
+        await db.commit()
+
+    generate_day_ai.delay(str(user_id), timestamp)
+    return Msg(code=200, msg="Day marked as complete")
 
 
 @router.patch("/{timestamp}/toggle-starred", response_model=Msg[None])

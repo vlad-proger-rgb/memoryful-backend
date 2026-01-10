@@ -1,6 +1,7 @@
 from uuid import UUID
+import datetime as dt
 
-from sqlalchemy import ForeignKey, ARRAY, String, Table, Column, Integer, ForeignKeyConstraint
+from sqlalchemy import ForeignKey, ARRAY, String, Table, Column, Integer, ForeignKeyConstraint, DateTime
 from sqlalchemy.dialects.postgresql import UUID as SQLAlchemyUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -37,6 +38,8 @@ class Day(Base, TimestampWithUpdateMixin):
     starred: Mapped[bool] = mapped_column(default=False)
     main_image: Mapped[str | None]
     images: Mapped[list[str] | None] = mapped_column(ARRAY(String))
+    completed_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ai_generated_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="days")
     city: Mapped["City"] = relationship(back_populates="days")

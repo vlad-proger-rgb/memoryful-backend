@@ -94,3 +94,12 @@ DEFAULT_SETTINGS_BACKGROUND = "users/defaults/workspace/settings_bg.jpg"
 RP_LOGIN_CODE = "login_code:"
 RP_BLACKLISTED_TOKEN = "blacklist:"
 RP_AI_CONTEXT = "ai_context:"
+
+# LLM Configuration
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai").strip().lower()
+OPENAI_TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", "0.4"))
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20240620")
+LOCAL_LLM_BASE_URL = os.getenv("LOCAL_LLM_BASE_URL", "http://ollama:11434/v1")
+LOCAL_LLM_MODEL = os.getenv("LOCAL_LLM_MODEL", "llama3.1")
+LOCAL_LLM_API_KEY = os.getenv("LOCAL_LLM_API_KEY", "local")

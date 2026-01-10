@@ -11,7 +11,12 @@ services:
       - redis
       - rabbitmq
       - celery
+      - ollama
+
     environment:
+      ENVIRONMENT: production
+      SEED_DB_ON_EMPTY: ${SEED_DB_ON_EMPTY:-false}
+
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -21,6 +26,22 @@ services:
       RABBITMQ_HOST: ${RABBITMQ_HOST}
       RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER}
       RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
+
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL}
+      S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+      S3_REGION: ${S3_REGION}
+      S3_BUCKET: ${S3_BUCKET:-memoryful}
+
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      LOCAL_LLM_BASE_URL: ${LOCAL_LLM_BASE_URL}
+      LOCAL_LLM_MODEL: ${LOCAL_LLM_MODEL}
+      LOCAL_LLM_API_KEY: ${LOCAL_LLM_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_TEMPERATURE: ${OPENAI_TEMPERATURE:-0.4}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL}
+
 
   db:
     image: postgres:16
@@ -82,6 +103,13 @@ services:
     environment:
       CELERY_BROKER_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@${RABBITMQ_HOST}:${RABBITMQ_PORT}//
       CELERY_RESULT_BACKEND: redis://${REDIS_HOST}:${REDIS_PORT}/${REDIS_DB}
+      LLM_PROVIDER: ${LLM_PROVIDER}
+      LOCAL_LLM_BASE_URL: ${LOCAL_LLM_BASE_URL}
+      LOCAL_LLM_MODEL: ${LOCAL_LLM_MODEL}
+      LOCAL_LLM_API_KEY: ${LOCAL_LLM_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_TEMPERATURE: ${OPENAI_TEMPERATURE:-0.4}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL}
     user: appuser
     command: >
       sh -c "
@@ -102,6 +130,16 @@ services:
     depends_on:
       - celery
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
 volumes:
   redis-data:
   db-data:
+  ollama_data:
