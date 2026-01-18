@@ -140,14 +140,23 @@ async def init_db(db: AsyncSession) -> None:
     if not (await db.scalar(select(Month.month).limit(1))):
         user_id = (await db.scalars(select(User.id).limit(1))).one()
         today = dt.date.today()
+
+        # Calculate previous month and year
+        if today.month == 1:
+            prev_month = 12
+            prev_year = today.year - 1
+        else:
+            prev_month = today.month - 1
+            prev_year = today.year
+
         db.add_all([
             Month(
                 user_id=user_id,
-                month=today.month - 1,
-                year=today.year,
+                month=prev_month,
+                year=prev_year,
                 description="The previous month",
                 background_image="month1.jpg",
-                top_day_timestamp=int(dt.datetime(today.year, today.month - 1, 1).timestamp())
+                top_day_timestamp=int(dt.datetime(prev_year, prev_month, 1).timestamp())
             ),
             Month(
                 user_id=user_id,

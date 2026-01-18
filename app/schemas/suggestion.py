@@ -12,6 +12,7 @@ class SuggestionInDB(CamelModel):
     id: UUID
     user_id: UUID
     model_id: UUID
+    timestamp: int
     description: str
     icon: FAIcon | None = None
     date: dt.date

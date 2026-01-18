@@ -1,6 +1,7 @@
 from typing import Annotated, Literal
 import datetime as dt
 from uuid import UUID
+from collections import defaultdict
 
 from fastapi import (
     APIRouter,
@@ -28,8 +29,10 @@ from app.schemas import (
     DayFilters,
     DayTrackableProgress,
     TrackableTypeWithProgress,
+    TrackableTypeInDB,
+    InsightInDB,
+    SuggestionInDB,
 )
-from app.schemas.trackable_type import TrackableTypeInDB
 
 
 router = APIRouter(
@@ -270,14 +273,14 @@ async def get_day(
             selectinload(Day.trackable_progresses)
                 .selectinload(TrackableProgress.trackable_item)
                 .selectinload(TrackableItem.type),
+            selectinload(Day.insights),
+            selectinload(Day.suggestions),
         )
         .where(Day.timestamp == timestamp, Day.user_id == user_id)
     )
     day = await db.scalar(stmt)
     if not day:
         raise HTTPException(404, "Day not found")
-
-    from collections import defaultdict
 
     progresses_by_type = defaultdict(list)
     type_objects = {}
@@ -295,9 +298,14 @@ async def get_day(
         for type_id, progresses in progresses_by_type.items()
     ]
 
+    insights = [InsightInDB.model_validate(i) for i in day.insights]
+    suggestions = [SuggestionInDB.model_validate(s) for s in day.suggestions]
+
     day_data = {
         **{k: v for k, v in day.__dict__.items() if not k.startswith('_')},
         "trackable_progresses": trackable_progresses,
+        "insights": insights,
+        "suggestions": suggestions,
     }
     print(f"DAYS {day_data=}")
 

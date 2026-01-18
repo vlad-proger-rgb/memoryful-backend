@@ -50,6 +50,7 @@ async def _replace_daily_insights(
     *,
     user_id: UUID,
     model_id: UUID,
+    timestamp: int,
     date_begin: dt.date,
     items: list[dict],
 ) -> None:
@@ -62,7 +63,7 @@ async def _replace_daily_insights(
             and_(
                 Insight.user_id == user_id,
                 Insight.insight_type_id == insight_type.id,
-                Insight.date_begin == date_begin,
+                Insight.timestamp == timestamp,
             )
         )
     )
@@ -75,6 +76,7 @@ async def _replace_daily_insights(
                 user_id=user_id,
                 model_id=model_id,
                 insight_type_id=insight_type.id,
+                timestamp=timestamp,
                 date_begin=date_begin,
                 description=item.get("description", ""),
                 icon=item.get("icon"),
@@ -92,6 +94,7 @@ async def _replace_daily_suggestions(
     *,
     user_id: UUID,
     model_id: UUID,
+    timestamp: int,
     date: dt.date,
     items: list[dict],
 ) -> None:
@@ -101,7 +104,7 @@ async def _replace_daily_suggestions(
         delete(Suggestion).where(
             and_(
                 Suggestion.user_id == user_id,
-                Suggestion.date == date,
+                Suggestion.timestamp == timestamp,
             )
         )
     )
@@ -113,6 +116,7 @@ async def _replace_daily_suggestions(
             Suggestion(
                 user_id=user_id,
                 model_id=model_id,
+                timestamp=timestamp,
                 date=date,
                 description=item.get("description", ""),
                 icon=item.get("icon"),
@@ -151,13 +155,19 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
 
         existing_insights = (
             await db.execute(
-                select(Insight).where(and_(Insight.user_id == user_id, Insight.date_begin == date))
+                select(Insight).where(and_(
+                    Insight.user_id == user_id, 
+                    Insight.timestamp == timestamp,
+                ))
             )
         ).scalars().all()
 
         existing_suggestions = (
             await db.execute(
-                select(Suggestion).where(and_(Suggestion.user_id == user_id, Suggestion.date == date))
+                select(Suggestion).where(and_(
+                    Suggestion.user_id == user_id,
+                    Suggestion.timestamp == timestamp,
+                ))
             )
         ).scalars().all()
 
@@ -232,6 +242,7 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
             db,
             user_id=user_id,
             model_id=model.id,
+            timestamp=timestamp,
             date_begin=date,
             items=sanitize_items(insight_items),
         )
@@ -253,6 +264,7 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
             db,
             user_id=user_id,
             model_id=model.id,
+            timestamp=timestamp,
             date=date,
             items=sanitize_items(suggestion_items),
         )

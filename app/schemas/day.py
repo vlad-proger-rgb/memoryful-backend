@@ -32,6 +32,8 @@ class DayDetail(DayBase):
     images: list[str] | None = Field(default_factory=list)
     trackable_progresses: list["TrackableTypeWithProgress"] = Field(default_factory=list, description="List of trackable types with their associated progresses")
     tags: list["TagInDB"] | None = Field(default_factory=list)
+    insights: list["InsightInDB"] | None = Field(default_factory=list, description="List of insights for this day")
+    suggestions: list["SuggestionInDB"] | None = Field(default_factory=list, description="List of suggestions for this day")
 
 
 class DayCreate(CamelModel):
@@ -91,3 +93,5 @@ class DayFilters(CamelModel):
 from .city import CityInDB, CityDetail
 from .tag import TagInDB
 from .day_trackable_progress import DayTrackableProgress, DayTrackableProgressUpdate, TrackableTypeWithProgress
+from .insight import InsightInDB
+from .suggestion import SuggestionInDB

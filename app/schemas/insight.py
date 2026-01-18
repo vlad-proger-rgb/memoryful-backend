@@ -13,6 +13,7 @@ class InsightInDB(CamelModel):
     user_id: UUID
     model_id: UUID
     insight_type_id: UUID
+    timestamp: int
     date_begin: dt.date
     description: str
     icon: FAIcon | None = None

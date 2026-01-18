@@ -24,6 +24,7 @@ from .trackable import (
     TrackableUpdate,
     TrackableInDB,
 )
+from .trackable_type import TrackableTypeInDB
 from .day_trackable_progress import DayTrackableProgress, DayTrackableProgressUpdate, TrackableTypeWithProgress
 from .user import UserBase, UserInDB
 from .workspace import WorkspaceBase, WorkspaceInDB
@@ -67,6 +68,7 @@ __all__ = [
     "TrackableCreate",
     "TrackableUpdate",
     "TrackableInDB",
+    "TrackableTypeInDB",
     "DayTrackableProgress",
     "DayTrackableProgressUpdate",
     "TrackableTypeWithProgress",
