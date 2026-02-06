@@ -239,6 +239,8 @@ async def get_random_day(
             selectinload(Day.trackable_progresses)
                 .selectinload(TrackableProgress.trackable_item)
                 .selectinload(TrackableItem.type),
+            selectinload(Day.insights),
+            selectinload(Day.suggestions),
         )
         .order_by(func.random())
         .limit(1)
@@ -255,7 +257,35 @@ async def get_random_day(
     if not day:
         raise HTTPException(404, "No days found in the given time range")
 
-    return Msg(code=200, msg="Random day retrieved", data=DayDetail.model_validate(day))
+    progresses_by_type = defaultdict(list)
+    type_objects = {}
+
+    for progress in day.trackable_progresses:
+        trackable_type = progress.trackable_item.type
+        type_objects[trackable_type.id] = TrackableTypeInDB.model_validate(trackable_type)
+        progresses_by_type[trackable_type.id].append(DayTrackableProgress.model_validate(progress))
+
+    trackable_progresses = [
+        TrackableTypeWithProgress(
+            type=type_objects[type_id],
+            progresses=progresses
+        )
+        for type_id, progresses in progresses_by_type.items()
+    ]
+
+    insights = [InsightInDB.model_validate(i) for i in day.insights]
+    suggestions = [SuggestionInDB.model_validate(s) for s in day.suggestions]
+
+    day_data = {
+        **{k: v for k, v in day.__dict__.items() if not k.startswith('_')},
+        "trackable_progresses": trackable_progresses,
+        "insights": insights,
+        "suggestions": suggestions,
+    }
+
+    day_schema = DayDetail.model_validate(day_data)
+
+    return Msg(code=200, msg="Random day retrieved", data=day_schema)
 
 
 @router.get("/{timestamp}", response_model=Msg[DayDetail])
