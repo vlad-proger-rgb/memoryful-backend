@@ -7,5 +7,6 @@ flake8
 mypy
 httpx
 aioresponses
+respx
 faker
 factory-boy

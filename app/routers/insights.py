@@ -31,14 +31,15 @@ async def get_insights(
     user_id: Annotated[UUID, Depends(get_current_user())],
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    timestamp: int | None = Query(None, description="Filter insights by day timestamp"),
 ) -> Msg[list[InsightInDB]]:
     stmt = (
         select(Insight)
         .where(Insight.user_id == user_id)
-        .order_by(Insight.created_at.desc())
-        .limit(limit)
-        .offset(offset)
     )
+    if timestamp is not None:
+        stmt = stmt.where(Insight.timestamp == timestamp)
+    stmt = stmt.order_by(Insight.created_at.desc()).limit(limit).offset(offset)
     result = await db.execute(stmt)
     insights = result.scalars().all()
     return Msg(code=200, msg="Insights retrieved", data=[InsightInDB.model_validate(i) for i in insights])

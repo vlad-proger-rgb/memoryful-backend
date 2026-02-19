@@ -31,14 +31,15 @@ async def get_suggestions(
     user_id: Annotated[UUID, Depends(get_current_user())],
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    timestamp: int | None = Query(None, description="Filter suggestions by day timestamp"),
 ) -> Msg[list[SuggestionInDB]]:
     stmt = (
         select(Suggestion)
         .where(Suggestion.user_id == user_id)
-        .order_by(Suggestion.date.desc())
-        .limit(limit)
-        .offset(offset)
     )
+    if timestamp is not None:
+        stmt = stmt.where(Suggestion.timestamp == timestamp)
+    stmt = stmt.order_by(Suggestion.date.desc()).limit(limit).offset(offset)
     result = await db.execute(stmt)
     suggestions = result.scalars().all()
     return Msg(code=200, msg="Suggestions retrieved", data=[SuggestionInDB.model_validate(s) for s in suggestions])

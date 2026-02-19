@@ -4,8 +4,7 @@ A Model Context Protocol (MCP) server that provides read-only access to the Memo
 
 ## Features
 
-- **31 Read-only Tools** for accessing Memoryful data
-- **Automatic Token Refresh** using refresh tokens
+- **13 Read-only Tools** for accessing Memoryful data
 - **Comprehensive Coverage** of all main entities (days, months, insights, suggestions, tags, trackables, workspaces)
 - **Error Handling** with proper logging through MCP context
 - **Modern Python** using type hints and async/await
@@ -14,55 +13,38 @@ A Model Context Protocol (MCP) server that provides read-only access to the Memo
 
 ### Days
 
-- `get_days` - List days with pagination
-- `get_day_by_id` - Get specific day by ID
-- `get_days_by_date_range` - Get days within date range
-- `search_days` - Search days by content
+- `get_days` - Get days with pagination, sorting, filtering by tags
+- `get_day_by_timestamp` - Get a specific day by UNIX timestamp
+- `get_random_day` - Get a random day with optional date range
 
 ### Months
 
-- `get_months` - List months with pagination
-- `get_month_by_id` - Get specific month by ID
-- `get_months_by_year` - Get all months for a year
-- `get_current_month` - Get current month
+- `get_months_by_year` - Get all months for a specific year
+- `get_month_by_year_and_month_number` - Get a specific month
 
 ### Insights
 
-- `get_insights` - List insights with pagination
-- `get_insight_by_id` - Get specific insight by ID
-- `get_insights_by_type` - Get insights filtered by type
-- `get_insights_for_day` - Get insights for a specific day
+- `get_insights` - Get insights with pagination, optionally filtered by day timestamp
 
 ### Suggestions
 
-- `get_suggestions` - List suggestions with pagination
-- `get_suggestion_by_id` - Get specific suggestion by ID
-- `get_suggestions_for_day` - Get suggestions for a specific day
-- `get_suggestions_by_type` - Get suggestions filtered by type
+- `get_suggestions` - Get suggestions with pagination, optionally filtered by day timestamp
 
 ### Tags
 
-- `get_tags` - List tags with pagination
-- `get_tag_by_id` - Get specific tag by ID
-- `get_tag_by_name` - Get specific tag by name
-- `get_tags_for_day` - Get tags for a specific day
-- `search_tags` - Search tags by name
+- `get_tags` - Get all tags
+- `get_tag_by_id` - Get a specific tag by ID
 
 ### Trackables
 
-- `get_trackables` - List trackable items with pagination
-- `get_trackable_by_id` - Get specific trackable by ID
-- `get_trackable_types` - List trackable types
-- `get_trackable_type_by_id` - Get specific trackable type by ID
-- `get_trackables_for_day` - Get trackables for a specific day
-- `get_trackable_progress` - Get progress history for a trackable
+- `get_trackables` - Get trackable items, optionally filtered by type or search query
+- `get_trackable_by_id` - Get a specific trackable by ID
+- `get_trackable_types` - Get all trackable types
+- `get_trackable_type_by_id` - Get a specific trackable type by ID
 
 ### Workspaces
 
-- `get_workspaces` - List workspaces with pagination
-- `get_workspace_by_id` - Get specific workspace by ID
-- `get_workspace_days` - Get days for a specific workspace
-- `get_workspace_insights` - Get insights for a specific workspace
+- `get_my_workspace` - Get the current user's workspace settings
 
 ## Installation
 
@@ -85,29 +67,31 @@ Create a `.env` file with the following variables:
 
 ```env
 MEMORYFUL_API_BASE_URL=http://localhost:8000
-MEMORYFUL_REFRESH_TOKEN=your_refresh_token_here
+MCP_HOST=127.0.0.1
+MCP_PORT=3001
 ```
 
-### Getting a Refresh Token
+### Authentication
 
-1. Start your Memoryful backend server
-2. Log in through your app or API to get a refresh token
-3. The refresh token is typically returned in the login response or set as a cookie
+The server supports two authentication methods:
+
+1. **HTTP Authorization header** (SSE transport) — set the `Authorization: Bearer <token>` header in your MCP client
+2. **`MEMORYFUL_ACCESS_TOKEN` env var** (STDIO transport) — for clients like Claude Desktop where HTTP headers are not available
 
 ## Usage
 
 ### Running the Server
 
 ```bash
-# From the mcp_server directory
-python -m mcp_server.main
+# From the memoryful-backend directory
+py -m mcp_server.main
 ```
+
+The server starts with SSE transport on the configured host/port (default `127.0.0.1:3001`).
 
 ### Using with MCP Clients
 
-The server will automatically register all tools and can be used by any MCP-compatible client.
-
-**Example with Claude Desktop:**
+**Example with Claude Desktop (STDIO):**
 
 Add to your `claude_desktop_config.json`:
 
@@ -118,21 +102,21 @@ Add to your `claude_desktop_config.json`:
       "command": "cmd",
       "args": [
         "/c",
-        "cd /d c:\\Users\\somet\\Desktop\\Proging\\Memoryful\\memoryful-backend && py -m mcp_server.main"
-      ]
+        "cd /d c:\\path\\to\\memoryful-backend && py -m mcp_server.main"
+      ],
+      "env": {
+        "MEMORYFUL_ACCESS_TOKEN": "your_access_token_here"
+      }
     }
   }
 }
 ```
 
-### Example Tool Usage
+**Example with MCP Inspector (SSE):**
 
-Once connected, you can use tools like:
-
-- "Get the last 10 days from my Memoryful data"
-- "Search for insights about productivity"
-- "Show me all tags for today"
-- "Get trackable progress for my exercise goal"
+1. Set Transport Type to **SSE**
+2. Set URL to `http://localhost:3001/sse`
+3. Add `Authorization: Bearer <token>` in Custom Headers
 
 ## Development
 
@@ -143,6 +127,8 @@ mcp_server/
 ├── main.py              # MCP server setup and tool registration
 ├── settings.py          # Environment configuration
 ├── requirements.mcp.txt # Python dependencies
+├── schemas/             # Pydantic response wrapper
+│   └── __init__.py
 ├── tools/               # Tool implementations
 │   ├── days.py
 │   ├── months.py
@@ -151,8 +137,17 @@ mcp_server/
 │   ├── tags.py
 │   ├── trackables.py
 │   └── workspaces.py
+├── tests/               # Unit tests
+│   ├── conftest.py
+│   ├── test_days.py
+│   ├── test_months.py
+│   ├── test_insights.py
+│   ├── test_suggestions.py
+│   ├── test_tags.py
+│   ├── test_trackables.py
+│   └── test_workspaces.py
 └── utils/
-    └── api_client.py    # HTTP client with auto-refresh
+    └── api_client.py    # HTTP client with auth forwarding
 ```
 
 ### Adding New Tools
@@ -162,34 +157,11 @@ mcp_server/
 3. Use `APIClient(ctx)` to make API calls
 4. Register the tool in `main.py` with `mcp.tool()(your_function)`
 
-## Security
+### Running Tests
 
-- Uses refresh tokens instead of access tokens for better security
-- Automatic token refresh prevents expired token issues
-- All requests are made over HTTPS in production
-- No sensitive data is stored in logs
-
-## Troubleshooting
-
-### Common Issues
-
-1. **"No refresh token provided"**
-   - Check that `MEMORYFUL_REFRESH_TOKEN` is set in `.env`
-   - Verify the refresh token is valid and not expired
-
-2. **"Token refresh failed"**
-   - Ensure your Memoryful backend is running
-   - Check that the refresh token hasn't been revoked
-   - Verify `MEMORYFUL_API_BASE_URL` is correct
-
-3. **Connection errors**
-   - Make sure your Memoryful API server is running
-   - Check the API URL in your configuration
-   - Verify network connectivity
-
-### Debug Mode
-
-The server logs errors and token refresh events through the MCP context, which will be visible in your MCP client's logs.
+```bash
+py -m pytest mcp_server/tests -v
+```
 
 ## Dependencies
 
