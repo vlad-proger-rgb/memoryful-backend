@@ -15,10 +15,19 @@ ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 SEED_DB_ON_EMPTY = os.getenv("SEED_DB_ON_EMPTY", "false").lower() == "true"
 
 # Postgres
-MAIN_DATABASE_URL: str = (
-    f"postgresql+asyncpg://{os.getenv("POSTGRES_USER")}:{os.getenv("POSTGRES_PASSWORD")}"
-    f"@{os.getenv("POSTGRES_HOST")}:{os.getenv("POSTGRES_PORT")}/{os.getenv("POSTGRES_DB")}"
+POSTGRES_USER = get_secret("POSTGRES_USER") or os.getenv("POSTGRES_USER")
+POSTGRES_PASSWORD = get_secret("POSTGRES_PASSWORD") or os.getenv("POSTGRES_PASSWORD")
+POSTGRES_HOST = get_secret("POSTGRES_HOST") or os.getenv("POSTGRES_HOST")
+POSTGRES_PORT = os.getenv("POSTGRES_PORT", 5432)
+POSTGRES_DB = os.getenv("POSTGRES_DB", "memoryful")
+POSTGRES_SSLMODE = os.getenv("POSTGRES_SSLMODE", "require")
+
+MAIN_DATABASE_URL = (
+    f"postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}"
+    f"@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 )
+
+print(f"MAIN_DATABASE_URL: {MAIN_DATABASE_URL}")
 
 # Token
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
