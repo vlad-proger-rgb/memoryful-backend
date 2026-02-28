@@ -19,3 +19,5 @@ langchain-ollama
 celery
 passlib
 boto3
+google-cloud-secret-manager
+google-auth

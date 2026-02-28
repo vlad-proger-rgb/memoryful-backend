@@ -6,6 +6,8 @@ services:
     container_name: app
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     depends_on:
       - db
       - redis
@@ -13,9 +15,13 @@ services:
       - celery
       - ollama
 
+    volumes:
+      - ./secrets/gcs-key.json:/var/secrets/google/key.json:ro
+
     environment:
       ENVIRONMENT: production
       SEED_DB_ON_EMPTY: ${SEED_DB_ON_EMPTY:-false}
+      GOOGLE_APPLICATION_CREDENTIALS: /var/secrets/google/key.json
 
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT}

@@ -1,6 +1,7 @@
 from typing import Annotated, Callable, Awaitable
 from uuid import UUID
 import logging
+from functools import lru_cache
 
 from fastapi import HTTPException, Depends
 from sqlalchemy.orm import Load
@@ -12,6 +13,7 @@ from app.core.database import get_db
 from app.core.security import oauth2_scheme
 from app.core.config import redis
 from app.core.settings import ALGORITHM, ACCESS_SECRET_KEY, RP_BLACKLISTED_TOKEN
+from app.core.storage.service import StorageService
 from app.models import User
 
 
@@ -58,3 +60,10 @@ def get_current_user(load_user: bool = False, *load_options: type[Load]) -> Call
 
     return dependency
 
+
+@lru_cache()
+def get_storage_service() -> StorageService:
+    """Get singleton StorageService instance"""
+    return StorageService()
+
+StorageServiceDep = Annotated[StorageService, Depends(get_storage_service)]

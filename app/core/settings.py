@@ -1,7 +1,14 @@
 import os
 from dotenv import load_dotenv
 
+from app.core.utils import get_secret
+
 load_dotenv()
+
+
+# GCP Configuration
+GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID")
+USE_SECRET_MANAGER = os.getenv("USE_SECRET_MANAGER", "false").lower() == "true"
 
 # Environment
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
@@ -75,13 +82,24 @@ else:
 ALLOWED_METHODS = os.getenv('ALLOWED_METHODS', '*').split(',')
 ALLOWED_HEADERS = os.getenv('ALLOWED_HEADERS', '*').split(',')
 
-# S3 / MinIO
-S3_ENDPOINT_URL = os.getenv("S3_ENDPOINT_URL", "http://localhost:9000")
-S3_ACCESS_KEY_ID = os.getenv("S3_ACCESS_KEY_ID", "minioadmin")
-S3_SECRET_ACCESS_KEY = os.getenv("S3_SECRET_ACCESS_KEY", "minioadmin")
-S3_REGION = os.getenv("S3_REGION", "us-east-1")
-S3_BUCKET = os.getenv("S3_BUCKET", "memoryful")
-S3_PUBLIC_BASE_URL = os.getenv("S3_PUBLIC_BASE_URL", "http://localhost:9000")
+# S3 / MinIO (now GCS-compatible) - Environment-based configuration
+if ENVIRONMENT == "development":
+    S3_ENDPOINT_URL = os.getenv("S3_ENDPOINT_URL", "http://localhost:9000")
+    S3_ACCESS_KEY_ID = os.getenv("S3_ACCESS_KEY_ID", "minioadmin")
+    S3_SECRET_ACCESS_KEY = os.getenv("S3_SECRET_ACCESS_KEY", "minioadmin")
+    S3_REGION = os.getenv("S3_REGION", "us-east-1")
+    S3_BUCKET = os.getenv("S3_BUCKET", "memoryful")
+    S3_PUBLIC_BASE_URL = os.getenv("S3_PUBLIC_BASE_URL", "http://localhost:9000")
+else:
+    # Production with GCS - ensure endpoint is always set
+    S3_ENDPOINT_URL = os.getenv("S3_ENDPOINT_URL", "https://storage.googleapis.com")
+    S3_ACCESS_KEY_ID = get_secret("S3_ACCESS_KEY_ID") or os.getenv("S3_ACCESS_KEY_ID", "")
+    S3_SECRET_ACCESS_KEY = get_secret("S3_SECRET_ACCESS_KEY") or os.getenv("S3_SECRET_ACCESS_KEY", "")
+    S3_REGION = os.getenv("S3_REGION", "europe-central2")
+    S3_BUCKET = os.getenv("S3_BUCKET", "memoryful")
+    S3_PUBLIC_BASE_URL = os.getenv("S3_PUBLIC_BASE_URL", "https://storage.googleapis.com")
+
+print(f"S3 CONFIG: {S3_ENDPOINT_URL=} | {S3_ACCESS_KEY_ID=} | {S3_SECRET_ACCESS_KEY=} | {S3_REGION=} | {S3_BUCKET=} | {S3_PUBLIC_BASE_URL=}")
 
 # S3 / MinIO defaults
 DEFAULT_DASHBOARD_BACKGROUND = "users/defaults/workspace/dashboard_bg.jpg"
