@@ -14,6 +14,8 @@ from app.core.settings import (
     REDIS_HOST,
     REDIS_PORT,
     REDIS_DB,
+    REDIS_PASSWORD,
+    REDIS_SSL,
     S3_ACCESS_KEY_ID,
     S3_ENDPOINT_URL,
     S3_REGION,
@@ -37,6 +39,8 @@ redis = Redis(
     host=REDIS_HOST,
     port=REDIS_PORT,
     db=REDIS_DB,
+    password=REDIS_PASSWORD,
+    ssl=REDIS_SSL,
     decode_responses=True,
 )
 

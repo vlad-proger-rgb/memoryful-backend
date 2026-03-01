@@ -27,8 +27,6 @@ MAIN_DATABASE_URL = (
     f"@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 )
 
-print(f"MAIN_DATABASE_URL: {MAIN_DATABASE_URL}")
-
 # Token
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 REFRESH_TOKEN_EXPIRE_MINUTES = int(os.getenv("REFRESH_TOKEN_EXPIRE_MINUTES", str(60 * 24 * 7)))
@@ -48,10 +46,18 @@ RABBITMQ_PASS = os.getenv("RABBITMQ_DEFAULT_PASS", "guest")
 RABBITMQ_URL = f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASS}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/"
 
 # Redis
-REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_HOST = get_secret("REDIS_HOST") or os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+REDIS_PASSWORD = get_secret("REDIS_PASSWORD") or os.getenv("REDIS_PASSWORD")
 REDIS_DB = int(os.getenv("REDIS_DB", 0))
-REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+REDIS_SSL = os.getenv("REDIS_SSL", "false").lower() == "true"
+
+# Construct Redis URL
+redis_protocol = "rediss" if REDIS_SSL else "redis"
+redis_auth = f"default:{REDIS_PASSWORD}@" if REDIS_PASSWORD else ""
+REDIS_URL = f"{redis_protocol}://{redis_auth}{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+if REDIS_SSL:
+    REDIS_URL += "?ssl_cert_reqs=CERT_REQUIRED"
 
 # Celery
 CELERY_BROKER_URL = RABBITMQ_URL
@@ -107,8 +113,6 @@ else:
     S3_REGION = os.getenv("S3_REGION", "europe-central2")
     S3_BUCKET = os.getenv("S3_BUCKET", "memoryful")
     S3_PUBLIC_BASE_URL = os.getenv("S3_PUBLIC_BASE_URL", "https://storage.googleapis.com")
-
-print(f"S3 CONFIG: {S3_ENDPOINT_URL=} | {S3_ACCESS_KEY_ID=} | {S3_SECRET_ACCESS_KEY=} | {S3_REGION=} | {S3_BUCKET=} | {S3_PUBLIC_BASE_URL=}")
 
 # S3 / MinIO defaults
 DEFAULT_DASHBOARD_BACKGROUND = "users/defaults/workspace/dashboard_bg.jpg"
