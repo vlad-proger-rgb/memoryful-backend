@@ -21,3 +21,5 @@ passlib
 boto3
 google-cloud-secret-manager
 google-auth
+google-cloud-pubsub
+google-cloud-monitoring

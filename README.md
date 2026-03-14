@@ -113,7 +113,7 @@ The API will be available at `http://localhost:8000`
 For development with hot-reload:
 
 ```bash
-docker-compose -f docker-compose.dev.yml up --build
+docker-compose -f docker-compose.dev.yml --env-file=.env.dev up --build
 ```
 
 ## API Documentation

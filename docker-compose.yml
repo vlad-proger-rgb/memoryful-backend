@@ -11,17 +11,17 @@ services:
     depends_on:
       - db
       - redis
-      - rabbitmq
+      # - rabbitmq
       - celery
       - ollama
 
     volumes:
-      - ./secrets/gcs-key.json:/var/secrets/google/key.json:ro
+      - ./secrets/google/service-account.json:${GCP_CREDENTIALS_PATH}:ro
 
     environment:
       ENVIRONMENT: production
       SEED_DB_ON_EMPTY: ${SEED_DB_ON_EMPTY:-false}
-      GOOGLE_APPLICATION_CREDENTIALS: /var/secrets/google/key.json
+      GCP_CREDENTIALS_PATH: ${GCP_CREDENTIALS_PATH}
 
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT}
@@ -79,21 +79,21 @@ services:
       timeout: 1s
       retries: 5
 
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    container_name: rabbitmq
-    restart: always
-    ports:
-      - "${RABBITMQ_PORT}:${RABBITMQ_PORT}"
-      - "${RABBITMQ_WEB_PORT}:${RABBITMQ_WEB_PORT}"
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
-    healthcheck:
-      test: ["CMD", "rabbitmqctl", "status"]
-      interval: 3s
-      timeout: 1s
-      retries: 5
+  # rabbitmq:
+  #   image: rabbitmq:3-management-alpine
+  #   container_name: rabbitmq
+  #   restart: always
+  #   ports:
+  #     - "${RABBITMQ_PORT}:${RABBITMQ_PORT}"
+  #     - "${RABBITMQ_WEB_PORT}:${RABBITMQ_WEB_PORT}"
+  #   environment:
+  #     RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+  #     RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+  #   healthcheck:
+  #     test: ["CMD", "rabbitmqctl", "status"]
+  #     interval: 3s
+  #     timeout: 1s
+  #     retries: 5
 
   celery:
     build:
@@ -101,14 +101,16 @@ services:
       dockerfile: Dockerfile
     container_name: celery
     depends_on:
-      rabbitmq:
-        condition: service_healthy
+      # rabbitmq:
+      #   condition: service_healthy
       redis:
         condition: service_healthy
     restart: always
+    env_file:
+      - .env
     environment:
-      CELERY_BROKER_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@${RABBITMQ_HOST}:${RABBITMQ_PORT}//
-      CELERY_RESULT_BACKEND: redis://${REDIS_HOST}:${REDIS_PORT}/${REDIS_DB}
+      GCP_CREDENTIALS_PATH: ${GCP_CREDENTIALS_PATH}
+      ENVIRONMENT: production
       LLM_PROVIDER: ${LLM_PROVIDER}
       LOCAL_LLM_BASE_URL: ${LOCAL_LLM_BASE_URL}
       LOCAL_LLM_MODEL: ${LOCAL_LLM_MODEL}
@@ -116,6 +118,8 @@ services:
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       OPENAI_TEMPERATURE: ${OPENAI_TEMPERATURE:-0.4}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL}
+    volumes:
+      - ./secrets/google/service-account.json:${GCP_CREDENTIALS_PATH}:ro
     user: appuser
     command: >
       sh -c "

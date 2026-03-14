@@ -9,6 +9,16 @@ load_dotenv()
 # GCP Configuration
 GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID")
 USE_SECRET_MANAGER = os.getenv("USE_SECRET_MANAGER", "false").lower() == "true"
+GCP_CREDENTIALS_PATH = os.getenv("GCP_CREDENTIALS_PATH")
+
+# GCP PubSub Configuration
+GCP_PUBSUB_PROJECT_ID = os.getenv("GCP_PUBSUB_PROJECT_ID", GCP_PROJECT_ID)
+GCP_PUBSUB_EMULATOR_HOST = os.getenv("GCP_PUBSUB_EMULATOR_HOST", "")
+GCP_PUBSUB_EMULATOR_PORT = os.getenv("GCP_PUBSUB_EMULATOR_PORT", "8085")
+
+# Set credentials for Google Cloud clients
+if GCP_CREDENTIALS_PATH:
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = GCP_CREDENTIALS_PATH
 
 # Environment
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
@@ -60,7 +70,13 @@ if REDIS_SSL:
     REDIS_URL += "?ssl_cert_reqs=CERT_REQUIRED"
 
 # Celery
-CELERY_BROKER_URL = RABBITMQ_URL
+if ENVIRONMENT == "development" and GCP_PUBSUB_EMULATOR_HOST:
+    # For emulator, PUBSUB_EMULATOR_HOST env var must be set (done in docker-compose)
+    CELERY_BROKER_URL = f"gcpubsub://projects/{GCP_PROJECT_ID}"
+elif ENVIRONMENT == "production":
+    CELERY_BROKER_URL = f"gcpubsub://projects/{GCP_PUBSUB_PROJECT_ID}"
+else:
+    CELERY_BROKER_URL = RABBITMQ_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 
 # Mail
