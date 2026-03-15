@@ -27,7 +27,7 @@ SEED_DB_ON_EMPTY = os.getenv("SEED_DB_ON_EMPTY", "false").lower() == "true"
 # Postgres
 POSTGRES_USER = get_secret("POSTGRES_USER") or os.getenv("POSTGRES_USER")
 POSTGRES_PASSWORD = get_secret("POSTGRES_PASSWORD") or os.getenv("POSTGRES_PASSWORD")
-POSTGRES_HOST = get_secret("POSTGRES_HOST") or os.getenv("POSTGRES_HOST")
+POSTGRES_HOST = str(get_secret("POSTGRES_HOST") or os.getenv("POSTGRES_HOST"))
 POSTGRES_PORT = os.getenv("POSTGRES_PORT", 5432)
 POSTGRES_DB = os.getenv("POSTGRES_DB", "memoryful")
 POSTGRES_SSLMODE = os.getenv("POSTGRES_SSLMODE", "require")
