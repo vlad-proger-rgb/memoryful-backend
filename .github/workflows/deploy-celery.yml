@@ -1,0 +1,45 @@
+name: Deploy Celery Workers
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'app/**'
+      - 'docker/Dockerfile.celery'
+      - 'requirements.txt'
+      - '.github/workflows/deploy-celery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  VM_NAME: celery-worker-free
+  VM_ZONE: us-central1-a
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to VM
+        run: |
+          gcloud compute ssh ${{ env.VM_NAME }} \
+            --zone=${{ env.VM_ZONE }} \
+            --project=${{ env.GCP_PROJECT_ID }} \
+            --command="bash ~/memoryful-backend/scripts/deploy-celery.sh"
