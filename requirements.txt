@@ -1,12 +1,14 @@
 python-dotenv
 python-jose
 fastapi
-fastapi_mail
+resend
+jinja2
 fastapi_camelcase
 uvicorn
 sqlalchemy
 alembic
 pydantic
+email-validator
 redis[async]
 asyncpg
 aio_pika

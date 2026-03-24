@@ -1,0 +1,16 @@
+# Production Docker Compose
+# Uses .env (copied from .env.prod)
+# External services: Cloud SQL, Upstash Redis, GCS, Pub/Sub
+# Only runs the FastAPI app - Celery workers run on separate VM
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: memoryful-app
+    ports:
+      - "8000:8080"
+    volumes:
+      - ../secrets/google/service-account.json:${GCP_CREDENTIALS_PATH}:ro
+    restart: unless-stopped

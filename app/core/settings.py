@@ -79,12 +79,9 @@ else:
     CELERY_BROKER_URL = RABBITMQ_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 
-# Mail
-MAIL_USERNAME = os.getenv("MAIL_USERNAME")
-MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
-MAIL_FROM = os.getenv("MAIL_FROM")
-MAIL_PORT = os.getenv("MAIL_PORT")
-MAIL_SERVER = os.getenv("MAIL_SERVER")
+# Resend Email
+RESEND_API_KEY = get_secret("RESEND_API_KEY") or os.getenv("RESEND_API_KEY")
+MAIL_FROM = get_secret("MAIL_FROM") or os.getenv("MAIL_FROM")
 MAIL_FROM_NAME = os.getenv("MAIL_FROM_NAME")
 
 # Auth

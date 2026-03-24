@@ -1,15 +1,15 @@
 services:
   app:
     build:
-      context: .
-      dockerfile: Dockerfile.dev
-    container_name: app-dev
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    container_name: memoryful-app-local
     ports:
       - "8000:8000"
     volumes:
-      - .:/app
+      - ..:/app
     env_file:
-      - .env.dev
+      - ../.env.local
     depends_on:
       - db
       - redis
@@ -22,41 +22,7 @@ services:
     environment:
       ENVIRONMENT: development
       SEED_DB_ON_EMPTY: ${SEED_DB_ON_EMPTY:-true}
-
-      POSTGRES_HOST: ${POSTGRES_HOST}
-      POSTGRES_PORT: ${POSTGRES_PORT}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-
-      RABBITMQ_HOST: ${RABBITMQ_HOST}
-      RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER}
-      RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
-
-      REDIS_HOST: ${REDIS_HOST}
-      REDIS_PORT: ${REDIS_PORT}
-      REDIS_DB: ${REDIS_DB}
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-      REDIS_SSL: ${REDIS_SSL}
-
-      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
-      S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:-http://localhost:9000}
-      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-minioadmin}
-      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-minioadmin}
-      S3_REGION: ${S3_REGION:-us-east-1}
-      S3_BUCKET: ${S3_BUCKET:-memoryful}
-
-      LLM_PROVIDER: ${LLM_PROVIDER:-local}
-      OPENAI_TEMPERATURE: ${OPENAI_TEMPERATURE:-0.4}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
-      LOCAL_LLM_BASE_URL: ${LOCAL_LLM_BASE_URL:-http://ollama:11434/v1}
-      LOCAL_LLM_MODEL: ${LOCAL_LLM_MODEL:-llama3.1}
-      LOCAL_LLM_API_KEY: ${LOCAL_LLM_API_KEY:-local}
-      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-3-5-sonnet-20240620}
-
-      GCP_PUBSUB_EMULATOR_HOST: ${GCP_PUBSUB_EMULATOR_HOST}
-      GCP_PUBSUB_EMULATOR_PORT: ${GCP_PUBSUB_EMULATOR_PORT}
-      PUBSUB_EMULATOR_HOST: ${GCP_PUBSUB_EMULATOR_HOST}:${GCP_PUBSUB_EMULATOR_PORT}
+      PUBSUB_EMULATOR_HOST: pubsub-emulator:8085
       GOOGLE_CLOUD_PROJECT: ${GCP_PROJECT_ID}
 
     command: >
@@ -65,19 +31,18 @@ services:
         uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
       "
 
-
   db:
     image: postgres:16
-    container_name: db-dev
+    container_name: memoryful-db-local
     restart: always
     ports:
-      - "5444:${POSTGRES_PORT}"
+      - "5444:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - postgres_data_dev:/var/lib/postgresql/data
+      - postgres_data_local:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -86,12 +51,12 @@ services:
 
   redis:
     image: redis:6.0.7
-    container_name: redis-dev
+    container_name: memoryful-redis-local
     restart: always
     volumes:
-      - redis_data_dev:/data
+      - redis_data_local:/data
     ports:
-      - "${REDIS_PORT}:${REDIS_PORT}"
+      - "6379:6379"
     command: redis-server --requirepass ${REDIS_PASSWORD}
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
@@ -101,11 +66,11 @@ services:
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
-    container_name: rabbitmq-dev
+    container_name: memoryful-rabbitmq-local
     restart: always
     ports:
-      - "${RABBITMQ_PORT}:${RABBITMQ_PORT}"
-      - "${RABBITMQ_WEB_PORT}:${RABBITMQ_WEB_PORT}"
+      - "5672:5672"
+      - "15673:15672"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
@@ -117,13 +82,13 @@ services:
 
   celery:
     build:
-      context: .
-      dockerfile: Dockerfile.dev
-    container_name: celery-dev
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    container_name: memoryful-celery-local
     volumes:
-      - .:/app
+      - ..:/app
     env_file:
-      - .env.dev
+      - ../.env.local
     depends_on:
       pubsub-emulator:
         condition: service_started
@@ -134,12 +99,6 @@ services:
       ENVIRONMENT: development
       PUBSUB_EMULATOR_HOST: pubsub-emulator:8085
       GOOGLE_CLOUD_PROJECT: ${GCP_PROJECT_ID}
-      LLM_PROVIDER: ${LLM_PROVIDER:-local}
-      LOCAL_LLM_BASE_URL: ${LOCAL_LLM_BASE_URL:-http://ollama:11434/v1}
-      LOCAL_LLM_MODEL: ${LOCAL_LLM_MODEL:-llama3.1}
-      LOCAL_LLM_API_KEY: ${LOCAL_LLM_API_KEY:-local}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
-      OPENAI_TEMPERATURE: ${OPENAI_TEMPERATURE:-0.4}
     command: >
       sh -c "
         celery -A app.core.celery_app worker -Q ai_queue --loglevel=debug --hostname=celery@ai_worker &
@@ -151,18 +110,18 @@ services:
 
   flower:
     image: mher/flower
-    container_name: flower-dev
+    container_name: memoryful-flower-local
     restart: on-failure
     command: celery --broker=amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@${RABBITMQ_HOST}:${RABBITMQ_PORT}// flower
     ports:
-      - "${FLOWER_PORT}:${FLOWER_PORT}"
+      - "5555:5555"
     depends_on:
       - celery
       - rabbitmq
 
   pubsub-emulator:
     image: google/cloud-sdk:latest
-    container_name: pubsub-dev
+    container_name: memoryful-pubsub-local
     ports:
       - "8085:8085"
     command: >
@@ -175,7 +134,7 @@ services:
 
   minio:
     image: minio/minio:latest
-    container_name: minio-dev
+    container_name: memoryful-minio-local
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"
@@ -184,16 +143,16 @@ services:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-minioadmin}
       MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-minioadmin}
     volumes:
-      - minio_data_dev:/data
+      - minio_data_local:/data
 
   ollama:
     image: ollama/ollama:latest
-    container_name: ollama-dev
+    container_name: memoryful-ollama-local
     restart: unless-stopped
     ports:
       - "11434:11434"
     volumes:
-      - ollama_data_dev:/root/.ollama
+      - ollama_data_local:/root/.ollama
     deploy:
       resources:
         reservations:
@@ -203,7 +162,7 @@ services:
               capabilities: [gpu]
 
 volumes:
-  redis_data_dev:
-  postgres_data_dev:
-  minio_data_dev:
-  ollama_data_dev:
+  redis_data_local:
+  postgres_data_local:
+  minio_data_local:
+  ollama_data_local:

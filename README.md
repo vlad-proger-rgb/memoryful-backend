@@ -58,23 +58,30 @@ Memoryful is an intelligent life journaling platform that combines personal data
 ```plaintext
 memoryful-backend/
 ├── app/
-│   ├── core/               # Core functionality
-│   ├── routers/            # API endpoints
-│   ├── models/             # Database models
-│   ├── schemas/            # Pydantic schemas
-│   ├── tasks/              # Celery tasks
-│   ├── templates/          # HTML templates (e.g. for email notifications)
-│   ├── init_db.py          # Database initialization script
-│   └── main.py             # FastAPI application entry point and configuration
-├── .env.example            # Example environment variables
-├── .gitignore              # Git ignore rules
-├── Dockerfile              # Container definition
-├── docker-compose.yml      # Container orchestration
-├── docker-compose.dev.yml  # Development container config
-├── mypy.ini                # MyPy type checking configuration
-├── requirements.txt        # Python dependencies
-├── requirements.dev.txt    # Development dependencies
-└── README.md               # Project documentation
+│   ├── core/                      # Core functionality
+│   ├── routers/                   # API endpoints
+│   ├── models/                    # Database models
+│   ├── schemas/                   # Pydantic schemas
+│   ├── tasks/                     # Celery tasks
+│   ├── templates/                 # HTML templates (e.g. for email notifications)
+│   ├── init_db.py                 # Database initialization script
+│   └── main.py                    # FastAPI application entry point
+├── docker/
+│   ├── Dockerfile                 # Production container definition
+│   ├── Dockerfile.dev             # Development container definition
+│   ├── Dockerfile.celery          # Celery worker container definition
+│   ├── docker-compose.local.yml   # Local development orchestration
+│   ├── docker-compose.prod.yml    # Production orchestration (FastAPI only)
+│   └── docker-compose.celery.yml  # Celery worker deployment (for VM)
+├── scripts/
+│   └── deploy-celery-vm.sh        # Script to create Celery worker VM
+├── .env.local                     # Local development environment variables
+├── .env.prod                      # Production environment template
+├── .gitignore                     # Git ignore rules
+├── mypy.ini                       # MyPy type checking configuration
+├── requirements.txt               # Python dependencies
+├── requirements.dev.txt           # Development dependencies
+└── README.md                      # Project documentation
 ```
 
 ## Setup and Installation
@@ -84,7 +91,25 @@ memoryful-backend/
 - Docker
 - Docker Compose
 
-### Running the Application
+### Environment Configurations
+
+This project supports two distinct environments:
+
+#### **Local Development** (`.env.local`)
+
+- All services run locally in Docker containers
+- No external dependencies or cloud services
+- Uses local PostgreSQL, Redis, RabbitMQ, MinIO, Ollama
+- Perfect for development and testing
+
+#### **Production** (`.env.prod`)
+
+- Uses GCP managed services (Cloud SQL, GCS, Pub/Sub)
+- Secrets managed via GCP Secret Manager
+- Optimized for Cloud Run deployment
+- Celery workers run on separate e2-micro VM
+
+### Development Setup
 
 1. Clone the repository:
 
@@ -93,28 +118,51 @@ memoryful-backend/
    cd memoryful-backend
    ```
 
-2. Create and configure environment variables:
+2. Start with docker-compose
+
+   - Local:
 
    ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
+   docker-compose -p memoryful -f docker/docker-compose.local.yml --env-file=.env.local up --build
    ```
 
-3. Build and start all services:
+   - Production using GCP services:
 
    ```bash
-   docker-compose up --build
+   # First, create .env from template
+   cp .env.prod .env
+   # Edit .env with your actual values, then run:
+   docker-compose -p memoryful -f docker/docker-compose.prod.yml --env-file=.env up --build
    ```
 
-The API will be available at `http://localhost:8000`
+### Production Setup
 
-### Development
+For production, you'll need to set up the following:
 
-For development with hot-reload:
+1. Create a GCP project and enable the necessary APIs
+2. Set up Cloud SQL, GCS, and Pub/Sub
+3. Create secrets in GCP Secret Manager
+4. Deploy the application to Cloud Run
+5. Redis (e.g., Upstash Redis with free tier)
+6. Set up the Celery worker VM
 
-```bash
-docker-compose -f docker-compose.dev.yml --env-file=.env.dev up --build
-```
+### GCP Secrets
+
+Store these in GCP Secret Manager for production:
+
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+- `POSTGRES_HOST`
+- `REDIS_HOST`
+- `REDIS_PASSWORD`
+- `ACCESS_SECRET_KEY`
+- `REFRESH_SECRET_KEY`
+- `RESEND_API_KEY`
+- `MAIL_FROM`
+- `S3_ACCESS_KEY_ID` (for GCS)
+- `S3_SECRET_ACCESS_KEY` (for GCS)
+- `OPENAI_API_KEY` (if using OpenAI)
+- `ANTHROPIC_API_KEY` (if using Anthropic)
 
 ## API Documentation
 

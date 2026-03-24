@@ -1,0 +1,21 @@
+FROM python:3.13-slim
+
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+RUN adduser --disabled-password --gecos '' appuser
+
+USER appuser
+
+COPY . .
+
+# Run multiple Celery workers for different queues
+CMD celery -A app.core.celery_app worker \
+    -Q email_queue,ai_queue,apps_queue,notifications_queue,system_queue \
+    --loglevel=info \
+    --concurrency=4 \
+    --hostname=celery@%h
