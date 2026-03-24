@@ -7,11 +7,12 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-RUN adduser --disabled-password --gecos '' appuser
+COPY . .
+
+RUN adduser --disabled-password --gecos '' appuser && \
+    chown -R appuser:appuser /app
 
 USER appuser
-
-COPY . .
 
 # Run multiple Celery workers for different queues
 CMD celery -A app.core.celery_app worker \

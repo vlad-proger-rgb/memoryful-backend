@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'app/**'
+      - 'docker/Dockerfile'
+      - 'requirements.txt'
+      - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
 
 permissions:
