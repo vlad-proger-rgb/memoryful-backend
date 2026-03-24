@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   celery-worker:
     build:
@@ -7,9 +9,9 @@ services:
     restart: always
     environment:
       ENVIRONMENT: production
-      GCP_CREDENTIALS_PATH: /app/secrets/service-account.json
+      GCP_CREDENTIALS_PATH: /app/secrets/google/service-account.json
     volumes:
-      - ../secrets/google/service-account.json:/app/secrets/service-account.json:ro
+      - ../secrets/google/service-account.json:/app/secrets/google/service-account.json:ro
     logging:
       driver: "json-file"
       options:
