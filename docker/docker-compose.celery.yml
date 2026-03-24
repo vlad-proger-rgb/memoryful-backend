@@ -11,7 +11,7 @@ services:
       ENVIRONMENT: production
       GCP_CREDENTIALS_PATH: /app/secrets/google/service-account.json
     volumes:
-      - ../secrets/google/service-account.json:/app/secrets/google/service-account.json:ro
+      - ~/secrets/google/service-account.json:/app/secrets/google/service-account.json:ro
     logging:
       driver: "json-file"
       options:
