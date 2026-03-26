@@ -24,7 +24,7 @@ class TrackableCreate(TrackableBase):
 class TrackableUpdate(CamelModel):
     title: str | None = None
     description: str | None = None
-    icon: str | None = None
+    icon: "FAIcon | None" = None
     meta: dict | None = None
     type_id: UUID | None = None
 
