@@ -42,5 +42,5 @@ jobs:
           gcloud compute ssh ${{ env.VM_NAME }} \
             --zone=${{ env.VM_ZONE }} \
             --project=${{ env.GCP_PROJECT_ID }} \
-            --tunnel-through-iap \
+            --strict-host-key-checking=no \
             --command="bash ~/memoryful-backend/scripts/deploy-celery.sh"
