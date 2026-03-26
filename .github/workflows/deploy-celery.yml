@@ -43,4 +43,4 @@ jobs:
             --zone=${{ env.VM_ZONE }} \
             --project=${{ env.GCP_PROJECT_ID }} \
             --strict-host-key-checking=no \
-            --command="cd ~/memoryful-backend && bash scripts/deploy-celery.sh"
+            --command='cd $HOME/memoryful-backend && bash scripts/deploy-celery.sh'
