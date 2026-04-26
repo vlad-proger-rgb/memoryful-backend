@@ -388,6 +388,7 @@ async def create_day(
                 timestamp=timestamp,
                 trackable_item_id=progress.trackable_item_id,
                 value=progress.value,
+                description=progress.description,
             ) for progress in data.trackable_progresses
         ],
     ))
@@ -446,7 +447,7 @@ async def update_day(
         raise HTTPException(404, "Day not found")
 
     update_data = data.model_dump(exclude_unset=True)
-    trackable_progresses = update_data.pop('trackable_progresses', None)
+    trackable_progresses: list[dict] = update_data.pop('trackable_progresses', None)
     tag_uuids = update_data.pop('tags', None)
 
     if update_data:
@@ -481,6 +482,7 @@ async def update_day(
                 timestamp=timestamp,
                 trackable_item_id=progress["trackable_item_id"],
                 value=progress["value"],
+                description=progress.get("description"),
             )
             db.add(new_progress)
 
