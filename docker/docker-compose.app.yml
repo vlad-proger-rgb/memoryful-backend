@@ -1,0 +1,36 @@
+# VM-based production deployment for the FastAPI app
+# Runs on the same e2-micro VM as the Celery workers
+# Pulls pre-built image from Google Artifact Registry (built by CI)
+# Requires in .env: GAR_REGION, GCP_PROJECT_ID, GAR_REPOSITORY
+
+services:
+  app:
+    image: ${GAR_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/memoryful-backend:latest
+    container_name: memoryful-app
+    ports:
+      - "8080:8080"
+    volumes:
+      - /home/Vlad/secrets/google/service-account.json:${GCP_CREDENTIALS_PATH}:ro
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/Vlad/.docker/config.json:/config.json:ro
+    environment:
+      WATCHTOWER_POLL_INTERVAL: 30
+      WATCHTOWER_CLEANUP: "true"
+      DOCKER_CONFIG: /config.json
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"

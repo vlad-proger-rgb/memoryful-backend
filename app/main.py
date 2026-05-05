@@ -1,4 +1,5 @@
 from typing import AsyncIterator
+import asyncio
 import logging
 import sys
 
@@ -56,8 +57,21 @@ from app.routers import (
 
 
 
+async def run_migrations() -> None:
+    from alembic.config import Config
+    from alembic import command
+
+    def _upgrade() -> None:
+        alembic_cfg = Config("alembic.ini")
+        command.upgrade(alembic_cfg, "head")
+
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, _upgrade)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    await run_migrations()
     async with AsyncSessionLocal() as session:
         if ENVIRONMENT == "development" and SEED_DB_ON_EMPTY:
             has_any_user = await session.scalar(select(User.id).limit(1))

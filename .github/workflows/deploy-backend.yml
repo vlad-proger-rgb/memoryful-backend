@@ -18,9 +18,9 @@ permissions:
 env:
   GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
   GAR_REGION: ${{ vars.GAR_REGION }}
-  CLOUD_RUN_REGION: ${{ vars.CLOUD_RUN_REGION }}
+  # CLOUD_RUN_REGION: ${{ vars.CLOUD_RUN_REGION }}
   GAR_REPOSITORY: ${{ vars.GAR_REPOSITORY }}
-  CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
+  # CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
   IMAGE_NAME: memoryful-backend
 
 jobs:
@@ -56,11 +56,11 @@ jobs:
           docker push ${{ env.GAR_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           docker push ${{ env.GAR_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.IMAGE_NAME }}:latest
 
-      - name: Deploy to Cloud Run
-        run: |
-          gcloud run deploy ${{ env.CLOUD_RUN_SERVICE }} \
-            --image ${{ env.GAR_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
-            --region ${{ env.CLOUD_RUN_REGION }} \
-            --project ${{ env.GCP_PROJECT_ID }} \
-            --platform managed \
-            --quiet
+      # - name: Deploy to Cloud Run
+      #   run: |
+      #     gcloud run deploy ${{ env.CLOUD_RUN_SERVICE }} \
+      #       --image ${{ env.GAR_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+      #       --region ${{ env.CLOUD_RUN_REGION }} \
+      #       --project ${{ env.GCP_PROJECT_ID }} \
+      #       --platform managed \
+      #       --quiet

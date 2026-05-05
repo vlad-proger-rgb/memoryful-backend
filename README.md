@@ -55,7 +55,7 @@ Memoryful is an intelligent life journaling platform that combines personal data
 
 ## Project Structure
 
-```plaintext
+```bash
 memoryful-backend/
 ├── app/
 │   ├── core/                      # Core functionality
@@ -111,29 +111,29 @@ This project supports two distinct environments:
 
 ### Development Setup
 
-1. Clone the repository:
+#### 1. Clone the repository
 
-   ```bash
-   git clone https://github.com/vlad-proger-rgb/memoryful-backend.git
-   cd memoryful-backend
-   ```
+```bash
+git clone https://github.com/vlad-proger-rgb/memoryful-backend.git
+cd memoryful-backend
+```
 
-2. Start with docker-compose
+#### 2. Start with docker-compose
 
-   - Local:
+- Local:
 
-   ```bash
-   docker-compose -p memoryful -f docker/docker-compose.local.yml --env-file=.env.local up --build
-   ```
+```bash
+docker-compose -p memoryful -f docker/docker-compose.local.yml --env-file=.env.local up --build
+```
 
-   - Production using GCP services:
+- Production using GCP services:
 
-   ```bash
-   # First, create .env from template
-   cp .env.prod .env
-   # Edit .env with your actual values, then run:
-   docker-compose -p memoryful -f docker/docker-compose.prod.yml --env-file=.env up --build
-   ```
+```bash
+# First, create .env from template
+cp .env.prod .env
+# Edit .env with your actual values, then run:
+docker-compose -p memoryful -f docker/docker-compose.prod.yml --env-file=.env up --build
+```
 
 ### Production Setup
 
