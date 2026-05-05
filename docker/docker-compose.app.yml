@@ -3,6 +3,8 @@
 # Pulls pre-built image from Google Artifact Registry (built by CI)
 # Requires in .env: GAR_REGION, GCP_PROJECT_ID, GAR_REPOSITORY
 
+version: '3.8'
+
 services:
   app:
     image: ${GAR_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/memoryful-backend:latest
