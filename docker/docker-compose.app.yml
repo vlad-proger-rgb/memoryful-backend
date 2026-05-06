@@ -22,7 +22,7 @@ services:
     container_name: memoryful-app
     restart: unless-stopped
     env_file:
-      - .env
+      - ../.env
     volumes:
       - /home/Vlad/secrets/google/service-account.json:/app/secrets/google/service-account.json:ro
     logging:
