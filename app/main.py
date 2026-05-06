@@ -71,7 +71,7 @@ async def run_migrations() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    await run_migrations()
+    # await run_migrations()
     async with AsyncSessionLocal() as session:
         if ENVIRONMENT == "development" and SEED_DB_ON_EMPTY:
             has_any_user = await session.scalar(select(User.id).limit(1))

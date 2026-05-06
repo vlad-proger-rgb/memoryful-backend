@@ -20,9 +20,8 @@ def get_engine() -> AsyncEngine:
     if ENVIRONMENT == "production" and POSTGRES_HOST.startswith("/cloudsql/"):
         from google.cloud.sql.connector import Connector
 
-        connector = Connector()
-
         async def getconn():
+            connector = Connector()
             conn = await connector.connect_async(
                 POSTGRES_HOST.replace("/cloudsql/", ""),
                 "asyncpg",
