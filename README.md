@@ -71,10 +71,9 @@ memoryful-backend/
 │   ├── Dockerfile.dev             # Development container definition
 │   ├── Dockerfile.celery          # Celery worker container definition
 │   ├── docker-compose.local.yml   # Local development orchestration
-│   ├── docker-compose.prod.yml    # Production orchestration (FastAPI only)
-│   └── docker-compose.celery.yml  # Celery worker deployment (for VM)
+│   └── docker-compose.vm.yml      # VM production orchestration
 ├── scripts/
-│   └── deploy-celery-vm.sh        # Script to create Celery worker VM
+│   └── deploy-app.sh              # VM deployment script
 ├── .env.local                     # Local development environment variables
 ├── .env.prod                      # Production environment template
 ├── .gitignore                     # Git ignore rules
@@ -104,10 +103,10 @@ This project supports two distinct environments:
 
 #### **Production** (`.env.prod`)
 
-- Uses GCP managed services (Cloud SQL, GCS, Pub/Sub)
+- Runs FastAPI, nginx, and Celery worker on a Compute Engine VM
+- Uses Neon Postgres, GCP Pub/Sub, GCS-compatible storage, and Redis/Upstash
 - Secrets managed via GCP Secret Manager
-- Optimized for Cloud Run deployment
-- Celery workers run on separate e2-micro VM
+- Deployed with the unified VM Docker Compose stack
 
 ### Development Setup
 
@@ -126,13 +125,13 @@ cd memoryful-backend
 docker-compose -p memoryful -f docker/docker-compose.local.yml --env-file=.env.local up --build
 ```
 
-- Production using GCP services:
+- Production VM stack:
 
 ```bash
 # First, create .env from template
 cp .env.prod .env
 # Edit .env with your actual values, then run:
-docker-compose -p memoryful -f docker/docker-compose.prod.yml --env-file=.env up --build
+docker-compose -p memoryful -f docker/docker-compose.vm.yml --env-file=.env up --build
 ```
 
 ### Production Setup
@@ -140,11 +139,11 @@ docker-compose -p memoryful -f docker/docker-compose.prod.yml --env-file=.env up
 For production, you'll need to set up the following:
 
 1. Create a GCP project and enable the necessary APIs
-2. Set up Cloud SQL, GCS, and Pub/Sub
+2. Set up GCP Pub/Sub and storage
 3. Create secrets in GCP Secret Manager
-4. Deploy the application to Cloud Run
-5. Redis (e.g., Upstash Redis with free tier)
-6. Set up the Celery worker VM
+4. Set up Neon Postgres
+5. Set up Redis (e.g., Upstash Redis with free tier)
+6. Deploy the unified VM stack
 
 ### GCP Secrets
 

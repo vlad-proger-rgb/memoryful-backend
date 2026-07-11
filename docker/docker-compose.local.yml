@@ -11,13 +11,20 @@ services:
     env_file:
       - ../.env.local
     depends_on:
-      - db
-      - redis
-      - rabbitmq
-      - celery
-      - pubsub-emulator
-      - minio
-      - ollama
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      celery:
+        condition: service_started
+      pubsub-emulator:
+        condition: service_started
+      minio:
+        condition: service_started
+      ollama:
+        condition: service_started
 
     environment:
       ENVIRONMENT: development
@@ -101,11 +108,11 @@ services:
       GOOGLE_CLOUD_PROJECT: ${GCP_PROJECT_ID}
     command: >
       sh -c "
-        celery -A app.core.celery_app worker -Q ai_queue --loglevel=debug --hostname=celery@ai_worker &
-        celery -A app.core.celery_app worker -Q apps_queue --loglevel=debug --hostname=celery@apps_worker &
-        celery -A app.core.celery_app worker -Q email_queue --loglevel=debug --hostname=celery@email_worker &
-        celery -A app.core.celery_app worker -Q notifications_queue --loglevel=debug --hostname=celery@notifications_worker &
-        celery -A app.core.celery_app worker -Q system_queue --loglevel=debug --hostname=celery@system_worker &
+        celery -A app.core.celery_app worker -Q ai_queue --loglevel=info --hostname=celery@ai_worker &
+        celery -A app.core.celery_app worker -Q apps_queue --loglevel=info --hostname=celery@apps_worker &
+        celery -A app.core.celery_app worker -Q email_queue --loglevel=info --hostname=celery@email_worker &
+        celery -A app.core.celery_app worker -Q notifications_queue --loglevel=info --hostname=celery@notifications_worker &
+        celery -A app.core.celery_app worker -Q system_queue --loglevel=info --hostname=celery@system_worker &
         wait"
 
   flower:
