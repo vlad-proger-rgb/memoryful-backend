@@ -64,7 +64,7 @@ jobs:
 
       - name: Deploy to VM
         run: |
-          gcloud compute ssh ${{ env.VM_NAME }} \
+          gcloud compute ssh Vlad@${{ env.VM_NAME }} \
             --zone=${{ env.VM_ZONE }} \
             --project=${{ env.GCP_PROJECT_ID }} \
             --strict-host-key-checking=no \
