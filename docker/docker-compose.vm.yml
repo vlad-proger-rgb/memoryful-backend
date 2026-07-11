@@ -49,6 +49,27 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  certbot-renew:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.certbot
+    container_name: certbot-renew
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock
+    entrypoint: >
+      sh -c "while true; do
+        certbot renew --standalone --pre-hook 'docker stop memoryful-nginx' --post-hook 'docker start memoryful-nginx' --quiet;
+        sleep 12h;
+      done"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
   watchtower:
     image: containrrr/watchtower
     container_name: watchtower

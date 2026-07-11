@@ -17,6 +17,9 @@ $COMPOSE -f $COMPOSE_FILE --env-file .env pull app nginx watchtower
 echo "Building Celery worker image..."
 $COMPOSE -f $COMPOSE_FILE --env-file .env build celery-worker
 
+echo "Building certbot-renew image..."
+$COMPOSE -f $COMPOSE_FILE --env-file .env build certbot-renew
+
 echo "Recreating app container..."
 $COMPOSE -f $COMPOSE_FILE --env-file .env up -d --force-recreate app
 

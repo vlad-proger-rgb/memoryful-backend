@@ -1,0 +1,3 @@
+FROM docker:26-cli
+
+RUN apk add --no-cache certbot
