@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-COMPOSE="docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v $PWD:$PWD -w=$PWD docker/compose:1.26.2"
+COMPOSE="docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v $PWD:$PWD -v $HOME/.docker/config.json:/root/.docker/config.json:ro -w=$PWD docker/compose:1.26.2"
 COMPOSE_FILE="docker/docker-compose.vm.yml"
 
 echo "Deploying Memoryful VM stack..."
