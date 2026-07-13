@@ -14,6 +14,8 @@ from app.schemas import (
     ChatModelInDB as C,
 )
 from app.core.database import get_db
+from app.core.cache import cached
+from app.core.settings import CACHE_TTL_STATIC
 from app.models import ChatModel
 
 
@@ -24,6 +26,7 @@ router = APIRouter(
 
 
 @router.get("/", response_model=Msg[list[C]])
+@cached(expire=CACHE_TTL_STATIC, namespace="chat_models")
 async def get_chat_models(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Msg[list[C]]:
@@ -35,6 +38,7 @@ async def get_chat_models(
 
 
 @router.get("/{id}", response_model=Msg[C])
+@cached(expire=CACHE_TTL_STATIC, namespace="chat_models")
 async def get_chat_model(
     db: Annotated[AsyncSession, Depends(get_db)],
     id: UUID,

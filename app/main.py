@@ -1,11 +1,13 @@
-from typing import AsyncIterator
+from typing import AsyncIterator, Callable
 import asyncio
 import logging
 import sys
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.redis import RedisBackend
 from sqlalchemy import select
 
 sys.path.append("..")
@@ -27,6 +29,8 @@ from app.init_db import init_db
 from app.schemas import Msg
 from app.core.exceptions import register_exception_handlers
 from app.core.database import Base, AsyncSessionLocal, engine
+from app.core.config import cache_redis
+from app.core.cache import CACHE_PREFIX
 from app.core.settings import (
     ALLOWED_ORIGINS,
     ALLOW_CREDENTIALS,
@@ -71,6 +75,7 @@ async def run_migrations() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    FastAPICache.init(RedisBackend(cache_redis), prefix=CACHE_PREFIX)
     # await run_migrations()
     async with AsyncSessionLocal() as session:
         if ENVIRONMENT == "development" and SEED_DB_ON_EMPTY:
@@ -93,6 +98,23 @@ app.add_middleware(
     allow_methods=ALLOWED_METHODS,
     allow_headers=ALLOWED_HEADERS,
 )
+
+
+@app.middleware("http")
+async def disable_http_caching(request: Request, call_next: Callable):
+    """
+    fastapi_cache's `cache` decorator always sets `Cache-Control: max-age=...`
+    and an `ETag` on responses it wraps, which makes browsers cache GET
+    responses client-side. That's independent from (and bypasses) our
+    server-side Redis cache invalidation via `clear_cache`, so mutations
+    would appear to have no effect until the browser cache expired. We only
+    want the Redis-layer cache, so strip any such headers here.
+    """
+    response: Response = await call_next(request)
+    response.headers["Cache-Control"] = "no-store"
+    if "ETag" in response.headers:
+        del response.headers["ETag"]
+    return response
 
 
 app.include_router(auth.router)

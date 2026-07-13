@@ -10,12 +10,15 @@ from fastapi import (
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+
 from app.schemas import (
     Msg,
     CityInDB,
     CityDetail,
 )
 from app.core.database import get_db
+from app.core.cache import cached
+from app.core.settings import CACHE_TTL_STATIC
 from app.models import Country, City
 
 
@@ -26,6 +29,7 @@ router = APIRouter(
 
 
 @router.get("/by-country/{country_id}", response_model=Msg[list[CityInDB]])
+@cached(expire=CACHE_TTL_STATIC, namespace="cities")
 async def get_cities_by_country_id(
     db: Annotated[AsyncSession, Depends(get_db)],
     country_id: UUID,
@@ -54,6 +58,7 @@ async def get_cities_by_country_id(
 
 
 @router.get("/{city_id}", response_model=Msg[CityDetail])
+@cached(expire=CACHE_TTL_STATIC, namespace="cities")
 async def get_city_by_id(
     db: Annotated[AsyncSession, Depends(get_db)],
     city_id: UUID,

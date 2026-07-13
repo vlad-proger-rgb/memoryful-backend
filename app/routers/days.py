@@ -18,6 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.models import Day, City, Tag, TrackableItem, TrackableProgress
 from app.core.deps import get_current_user
+from app.core.cache import cached, clear_cache
+from app.core.settings import CACHE_TTL_DAYS
 from app.enums.sorting import SortOrder, DaySortField
 from app.tasks.ai_tasks import generate_day_ai
 from app.schemas import (
@@ -124,6 +126,7 @@ def _apply_sorting(stmt: Select, sort_field: DaySortField | None, sort_order: So
 
 
 @router.get("/", response_model=Msg[list[DayListItem | DayDetail]])
+@cached(expire=CACHE_TTL_DAYS, namespace="days_list")
 async def get_days(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
@@ -289,6 +292,7 @@ async def get_random_day(
 
 
 @router.get("/{timestamp}", response_model=Msg[DayDetail])
+@cached(expire=CACHE_TTL_DAYS, namespace="days_detail")
 async def get_day(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
@@ -394,6 +398,8 @@ async def create_day(
     ))
     await db.commit()
 
+    await clear_cache("days_list")
+    await clear_cache("days_detail")
     return Msg(code=201, msg="Day created")
 
 
@@ -410,6 +416,8 @@ async def complete_day(
     if day.completed_at is None:
         day.completed_at = dt.datetime.now(dt.UTC)
         await db.commit()
+        await clear_cache("days_list")
+        await clear_cache("days_detail")
 
     generate_day_ai.delay(str(user_id), timestamp)
     return Msg(code=200, msg="Day marked as complete")
@@ -427,6 +435,8 @@ async def toggle_starred(
 
     day.starred = not day.starred
     await db.commit()
+    await clear_cache("days_list")
+    await clear_cache("days_detail")
     return Msg(code=200, msg="Day updated")
 
 
@@ -487,6 +497,8 @@ async def update_day(
             db.add(new_progress)
 
     await db.commit()
+    await clear_cache("days_list")
+    await clear_cache("days_detail")
     return Msg(code=200, msg="Day updated")
 
 

@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.models import TrackableType
 from app.core.deps import get_current_user
+from app.core.cache import cached, clear_cache
+from app.core.settings import CACHE_TTL_USER_DATA
 from app.schemas import Msg
 from app.schemas.trackable_type import TrackableTypeInDB, TrackableTypeCreate, TrackableTypeUpdate
 
@@ -18,6 +20,7 @@ router = APIRouter(
 
 
 @router.get("/", response_model=Msg[list[TrackableTypeInDB]])
+@cached(expire=CACHE_TTL_USER_DATA, namespace="trackable_types")
 async def get_trackable_types(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
@@ -62,6 +65,7 @@ async def create_trackable_type(
     db.add(trackable_type)
     await db.commit()
     await db.refresh(trackable_type)
+    await clear_cache("trackable_types")
     return Msg(code=200, msg="Trackable type created", data=trackable_type.id)
 
 
@@ -87,6 +91,11 @@ async def update_trackable_type(
     if result.rowcount == 0:
         raise HTTPException(404, "Trackable type not found")
 
+    await clear_cache("trackable_types")
+    # `DayDetail` embeds the full trackable type object by value, so cached
+    # days would otherwise keep showing the old name/color/icon.
+    await clear_cache("days_list")
+    await clear_cache("days_detail")
     return Msg(code=200, msg="Trackable type updated")
 
 
@@ -103,4 +112,7 @@ async def delete_trackable_type(
     if result.rowcount == 0:
         raise HTTPException(404, "Trackable type not found")
 
+    await clear_cache("trackable_types")
+    await clear_cache("days_list")
+    await clear_cache("days_detail")
     return Msg(code=200, msg="Trackable type deleted")

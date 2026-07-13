@@ -17,6 +17,8 @@ from app.schemas import (
 from app.core.database import get_db
 from app.models import Insight
 from app.core.deps import get_current_user
+from app.core.cache import cached
+from app.core.settings import CACHE_TTL_AI_CONTENT
 
 
 router = APIRouter(
@@ -26,6 +28,7 @@ router = APIRouter(
 
 
 @router.get("/", response_model=Msg[list[schemas.InsightInDB]])
+@cached(expire=CACHE_TTL_AI_CONTENT, namespace="insights")
 async def get_insights(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],

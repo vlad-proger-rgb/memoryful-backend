@@ -139,6 +139,13 @@ RP_LOGIN_CODE = "login_code:"
 RP_BLACKLISTED_TOKEN = "blacklist:"
 RP_AI_CONTEXT = "ai_context:"
 
+# Cache TTLs (seconds)
+CACHE_ENABLED = os.getenv("CACHE_ENABLED", "true").lower() == "true"
+CACHE_TTL_STATIC = 60 * 60 * 6       # global reference data: countries, cities, chat models
+CACHE_TTL_USER_DATA = 60 * 5         # small per-user data mutable via API: tags, trackable types, workspace
+CACHE_TTL_DAYS = 60 * 10             # days / months
+CACHE_TTL_AI_CONTENT = 60 * 60 * 24  # AI-generated insights/suggestions, immutable once generated
+
 # LLM Configuration
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai").strip().lower()
 OPENAI_TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", "0.4"))

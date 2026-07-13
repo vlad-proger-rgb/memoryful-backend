@@ -23,6 +23,18 @@ redis = Redis(
     decode_responses=True,
 )
 
+# Dedicated client for FastAPICache: `redis` above decodes responses to `str`,
+# but fastapi-cache2's JsonCoder calls `.decode()` on the raw bytes it gets
+# back from Redis, so it needs a client with `decode_responses=False`.
+cache_redis = Redis(
+    host=REDIS_HOST,
+    port=REDIS_PORT,
+    db=REDIS_DB,
+    password=REDIS_PASSWORD,
+    ssl=REDIS_SSL,
+    decode_responses=False,
+)
+
 s3_client = boto3.client(
     "s3",
     endpoint_url=S3_ENDPOINT_URL,

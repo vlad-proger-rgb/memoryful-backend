@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.core.cache import cached, clear_cache
 from app.models import Workspace
 from app.schemas import Msg
 from app.schemas.workspace import WorkspaceBase, WorkspaceInDB
@@ -15,6 +16,7 @@ from app.core.settings import (
     DEFAULT_DAY_BACKGROUND,
     DEFAULT_SEARCH_BACKGROUND,
     DEFAULT_SETTINGS_BACKGROUND,
+    CACHE_TTL_USER_DATA,
 )
 
 
@@ -41,6 +43,7 @@ def _effective_workspace(user_id: UUID, ws: Workspace | None) -> WorkspaceInDB:
 
 
 @router.get("/me", response_model=Msg[WorkspaceInDB])
+@cached(expire=CACHE_TTL_USER_DATA, namespace="workspaces")
 async def get_my_workspace(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
@@ -84,8 +87,10 @@ async def update_my_workspace(
     if all_null:
         await db.delete(ws)
         await db.commit()
+        await clear_cache("workspaces")
         return Msg(code=200, msg="Workspace updated", data=_effective_workspace(user_id, None))
 
     await db.commit()
     await db.refresh(ws)
+    await clear_cache("workspaces")
     return Msg(code=200, msg="Workspace updated", data=_effective_workspace(user_id, ws))

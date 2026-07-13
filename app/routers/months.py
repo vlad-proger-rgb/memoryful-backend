@@ -12,6 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.models import Month
 from app.core.deps import get_current_user
+from app.core.cache import cached, clear_cache
+from app.core.settings import CACHE_TTL_DAYS
 from app.schemas import (
     Msg,
     MonthInDB as M,
@@ -26,6 +28,7 @@ router = APIRouter(
 
 
 @router.get("/{year}", response_model=Msg[list[M]])
+@cached(expire=CACHE_TTL_DAYS, namespace="months")
 async def get_months(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
@@ -39,6 +42,7 @@ async def get_months(
 
 
 @router.get("/{year}/{month_number}", response_model=Msg[M])
+@cached(expire=CACHE_TTL_DAYS, namespace="months")
 async def get_month(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
@@ -74,6 +78,7 @@ async def create_month(
     ))
     await db.commit()
 
+    await clear_cache("months")
     return Msg(code=200, msg="Month created")
 
 
@@ -90,5 +95,6 @@ async def update_month(
     )
     await db.execute(stmt)
     await db.commit()
+    await clear_cache("months")
     return Msg(code=200, msg="Month updated")
 

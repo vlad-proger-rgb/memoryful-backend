@@ -23,6 +23,7 @@ from app.core.database import get_db
 from app.core.config import redis
 from app.core.utils import generate_activation_code
 from app.core.deps import get_current_user
+from app.core.cache import cached, clear_cache
 
 from app.core.security import (
     oauth2_scheme,
@@ -41,6 +42,7 @@ from app.core.settings import (
     REFRESH_SECRET_KEY,
     REFRESH_TOKEN_EXPIRE_MINUTES,
     ENVIRONMENT,
+    CACHE_TTL_USER_DATA,
 )
 from app.schemas import (
     Msg,
@@ -61,9 +63,21 @@ router = APIRouter(
 
 
 @router.get("/me", response_model=Msg[UserInDB])
+@cached(expire=CACHE_TTL_USER_DATA, namespace="users")
 async def get_me(
-    current_user: Annotated[User, Depends(get_current_user(True, selectinload(User.country), selectinload(User.city)))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: Annotated[UUID, Depends(get_current_user())],
 ) -> Msg[UserInDB]:
+    # Deliberately depend on `user_id` (a plain UUID) rather than the full
+    # `User` ORM object: the cache key builder hashes every kwarg's repr(),
+    # and an ORM object's repr differs per request/session, so the cache key
+    # would never match between requests and this would always miss.
+    current_user = await db.get(
+        User, user_id, options=[selectinload(User.country), selectinload(User.city)]
+    )
+    if not current_user:
+        raise HTTPException(404, "User not found")
+
     return Msg(code=200, msg="Current user retrieved", data=UserInDB.model_validate(current_user))
 
 
@@ -264,6 +278,8 @@ async def update_me(
     )
     await db.execute(stmt)
     await db.commit()
+
+    await clear_cache("users")
     return Msg(code=200, msg="User was updated")
 
 

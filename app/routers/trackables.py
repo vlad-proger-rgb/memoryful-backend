@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.models import TrackableItem, TrackableType
 from app.core.deps import get_current_user
+from app.core.cache import cached, clear_cache
+from app.core.settings import CACHE_TTL_USER_DATA
 from app.schemas import Msg
 from app.schemas.trackable import (
     TrackableDetail,
@@ -24,6 +26,7 @@ router = APIRouter(
 
 
 @router.get("/", response_model=Msg[list[TrackableInDB]])
+@cached(expire=CACHE_TTL_USER_DATA, namespace="trackables")
 async def get_trackables(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
@@ -53,6 +56,7 @@ async def get_trackables(
 
 
 @router.get("/{id}", response_model=Msg[TrackableDetail])
+@cached(expire=CACHE_TTL_USER_DATA, namespace="trackables")
 async def get_trackable(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
@@ -98,6 +102,7 @@ async def create_trackable(
     await db.commit()
     await db.refresh(trackable)
 
+    await clear_cache("trackables")
     return Msg(code=200, msg="Trackable item created", data=trackable.id)
 
 
@@ -136,6 +141,11 @@ async def update_trackable(
     )
     await db.commit()
 
+    await clear_cache("trackables")
+    # `DayDetail` embeds the full trackable item object by value, so cached
+    # days would otherwise keep showing the old title/description/icon.
+    await clear_cache("days_list")
+    await clear_cache("days_detail")
     return Msg(code=200, msg="Trackable item updated")
 
 
@@ -155,4 +165,7 @@ async def delete_trackable(
     if result.rowcount == 0:
         raise HTTPException(404, "Trackable item not found")
 
+    await clear_cache("trackables")
+    await clear_cache("days_list")
+    await clear_cache("days_detail")
     return Msg(code=200, msg="Trackable item deleted")

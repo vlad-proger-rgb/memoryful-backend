@@ -12,6 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.models import Tag
 from app.core.deps import get_current_user
+from app.core.cache import cached, clear_cache
+from app.core.settings import CACHE_TTL_USER_DATA
 from app.schemas import (
     Msg,
     TagInDB as T,
@@ -26,6 +28,7 @@ router = APIRouter(
 
 
 @router.get("/", response_model=Msg[list[T]])
+@cached(expire=CACHE_TTL_USER_DATA, namespace="tags")
 async def get_tags(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
@@ -62,6 +65,7 @@ async def create_tag(
     await db.commit()
     await db.refresh(tag)
 
+    await clear_cache("tags")
     return Msg(code=200, msg="Tag created", data=tag.id)
 
 
@@ -80,6 +84,11 @@ async def update_tag(
     await db.execute(stmt)
     await db.commit()
 
+    await clear_cache("tags")
+    # `DayDetail`/`DayBase` embed the full tag object by value, so cached
+    # days would otherwise keep showing the old name/color/icon.
+    await clear_cache("days_list")
+    await clear_cache("days_detail")
     return Msg(code=200, msg="Tag updated")
 
 
@@ -93,5 +102,8 @@ async def delete_tag(
     await db.execute(stmt)
     await db.commit()
 
+    await clear_cache("tags")
+    await clear_cache("days_list")
+    await clear_cache("days_detail")
     return Msg(code=200, msg="Tag deleted")
 

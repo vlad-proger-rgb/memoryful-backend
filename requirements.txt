@@ -10,6 +10,7 @@ alembic
 pydantic
 email-validator
 redis[async]
+fastapi-cache2
 asyncpg
 aio_pika
 bcrypt

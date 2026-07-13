@@ -10,6 +10,7 @@ from openai import OpenAIError
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.core.database import AsyncSessionLocal
+from app.core.cache import clear_cache
 from app.models import Day, Insight, InsightType, Suggestion
 from app.schemas.font_awesome import FAIcon
 from app.ai.utils import (
@@ -271,4 +272,10 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
 
         day.ai_generated_at = dt.datetime.now(dt.UTC)
         await db.commit()
+
+        await clear_cache("insights")
+        await clear_cache("suggestions")
+        await clear_cache("days_detail")
+        await clear_cache("days_list")
+
         logging.info(f"AI generation completed successfully for user {user_id}, timestamp {timestamp}")
