@@ -68,4 +68,6 @@ jobs:
             --zone=${{ env.VM_ZONE }} \
             --project=${{ env.GCP_PROJECT_ID }} \
             --strict-host-key-checking=no \
+            --ssh-flag="-o ServerAliveInterval=30" \
+            --ssh-flag="-o ServerAliveCountMax=20" \
             --command='bash -c "cd ~/memoryful-backend && bash scripts/deploy-app.sh"'
