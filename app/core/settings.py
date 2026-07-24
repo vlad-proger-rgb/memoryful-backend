@@ -172,6 +172,7 @@ LOCAL_LLM_BASE_URL = os.getenv("LOCAL_LLM_BASE_URL", "http://ollama:11434/v1")
 LOCAL_LLM_MODEL = os.getenv("LOCAL_LLM_MODEL", "llama3.1")
 LOCAL_LLM_API_KEY = os.getenv("LOCAL_LLM_API_KEY", "local")
 
-# Direct OpenAI API (used for provider=openai models). From Secret Manager in
-# prod, from the env file locally.
+# Direct provider APIs (used for provider=openai / provider=anthropic models).
+# From Secret Manager in prod, from the env file locally.
 OPENAI_API_KEY = get_secret("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+ANTHROPIC_API_KEY = get_secret("ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY")

@@ -21,7 +21,6 @@ langchain>=1.3,<2
 langchain-openai>=1.3,<2
 langchain-anthropic>=1.4,<2
 langchain-ollama>=1.1,<2
-langchain-google-vertexai>=3.2,<4   # ChatAnthropicVertex (Claude on Vertex)
 langchain-google-genai>=4.2,<5      # ChatGoogleGenerativeAI (Gemini via Vertex)
 celery
 passlib

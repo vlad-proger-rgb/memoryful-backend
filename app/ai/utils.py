@@ -22,6 +22,7 @@ from app.core.settings import (
     LOCAL_LLM_MODEL,
     LOCAL_LLM_API_KEY,
     OPENAI_API_KEY,
+    ANTHROPIC_API_KEY,
 )
 
 logger = logging.getLogger(__name__)
@@ -122,6 +123,16 @@ def handle_openai_model_error(e: OpenAIError) -> None:
 # (no dedicated LangChain class exists for these). Extend as you enable more.
 _VERTEX_MAAS_PROVIDERS = {Provider.xai, Provider.meta, Provider.mistral, Provider.cohere}
 
+# Claude models that dropped temperature/top_p/top_k — passing any of them is a
+# 400. Matched as prefixes so dated snapshot ids are covered too.
+_ANTHROPIC_NO_SAMPLING = (
+    "claude-opus-4-8",
+    "claude-opus-4-7",
+    "claude-sonnet-5",
+    "claude-fable-5",
+    "claude-mythos-5",
+)
+
 # Cached ADC credentials; the access token is valid ~1h and refreshed on demand.
 _gcp_credentials = None
 
@@ -187,30 +198,37 @@ def build_chat_model(model: ChatModel) -> BaseChatModel:
     # (e.g. Claude) may only have quota in a specific region, not "global".
     location = model.region or VERTEX_LOCATION
 
-    # GCP Vertex AI — Gemini and Claude both live here (ADC via GCP_CREDENTIALS_PATH,
-    # no API keys). Imported lazily so local dev doesn't need the Google libs.
-    if provider in {Provider.google, Provider.anthropic}:
+    # Gemini via the unified google-genai SDK pointed at Vertex (ADC through
+    # GCP_CREDENTIALS_PATH, no API key). Imported lazily so local dev doesn't
+    # need the Google libs.
+    if provider is Provider.google:
         if not GCP_PROJECT_ID:
             raise RuntimeError("GCP_PROJECT_ID is required to use Vertex AI models")
-        if provider is Provider.google:
-            # Gemini via the unified google-genai SDK pointed at Vertex.
-            from langchain_google_genai import ChatGoogleGenerativeAI
+        from langchain_google_genai import ChatGoogleGenerativeAI
 
-            return ChatGoogleGenerativeAI(
-                model=model.name,
-                temperature=temperature,
-                vertexai=True,
-                project=GCP_PROJECT_ID,
-                location=location,
-            )
-        # Claude via Vertex Model Garden.
-        from langchain_google_vertexai.model_garden import ChatAnthropicVertex
-
-        return ChatAnthropicVertex(
-            model_name=model.name,
+        return ChatGoogleGenerativeAI(
+            model=model.name,
             temperature=temperature,
+            vertexai=True,
             project=GCP_PROJECT_ID,
             location=location,
+        )
+
+    # Claude through Anthropic's own API rather than Vertex Model Garden: the
+    # Vertex route needs a per-model quota grant that Google declined for this
+    # project. `model.name` is the direct-API id (no "@version" suffix).
+    if provider is Provider.anthropic:
+        if not ANTHROPIC_API_KEY:
+            raise RuntimeError("ANTHROPIC_API_KEY is required to use Claude models")
+        from langchain_anthropic import ChatAnthropic
+
+        # Newer Claude models removed the sampling parameters: sending
+        # temperature to them returns a 400. Older ones still accept it.
+        sampling = {} if model.name.startswith(_ANTHROPIC_NO_SAMPLING) else {"temperature": temperature}
+        return ChatAnthropic(
+            model=model.name,
+            api_key=SecretStr(ANTHROPIC_API_KEY),
+            **sampling,
         )
 
     # Vertex Model Garden partner models (xAI/Grok, Llama, Mistral, ...) have no

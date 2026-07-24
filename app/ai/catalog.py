@@ -48,11 +48,16 @@ CHAT_MODEL_CATALOG: list[dict[str, object]] = [
         "supports_tools": True,
         "sort_order": 20,
     },
-    # --- Anthropic Claude via Vertex Model Garden (ChatAnthropicVertex) ---
+    # --- Anthropic Claude, direct API (requires ANTHROPIC_API_KEY) ---
+    # Not via Vertex Model Garden: that route needs a per-model quota grant
+    # Google declined for this project. Use the bare aliases — never append a
+    # date suffix, and the "@version" form is Vertex-only.
     {
-        # ~$1.00/$5.00 per 1M tokens — ~10x Gemini, keep off the default slot.
+        # ~$1.00/$5.00 per 1M tokens — ~10x Gemini but the cheapest Claude, and
+        # plenty for this app. 200K context. Flagship Sonnet/Opus deliberately
+        # left out — overkill and expensive for the current goals.
         "label": "Claude Haiku 4.5",
-        "name": "claude-haiku-4-5@20251001",
+        "name": "claude-haiku-4-5",
         "provider": Provider.anthropic.value,
         "supports_tools": True,
         "sort_order": 30,
