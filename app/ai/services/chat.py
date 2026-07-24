@@ -142,6 +142,31 @@ def _derive_title(content: str) -> str:
     return stripped[:TITLE_MAX_LEN].rstrip() + "..."
 
 
+def _extract_text(content: object) -> str:
+    """Flatten a model reply to plain text.
+
+    LangChain 1.x models (Gemini especially) return a list of content blocks
+    rather than a string, and each block may carry provider metadata such as
+    thought signatures. str() on that leaks a Python repr into the chat, so
+    pull out the text blocks explicitly.
+    """
+    if isinstance(content, str):
+        return content
+
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and block.get("type") == "text":
+                text = block.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+        return "".join(parts)
+
+    return str(content)
+
+
 def _to_langchain_messages(system_prompt: str, messages: list[dict[str, str]]) -> list:
     lc_messages: list = [SystemMessage(content=system_prompt)]
     for m in messages:
@@ -179,7 +204,7 @@ async def run_completion(
     lc_messages = _to_langchain_messages(system_prompt, chat.messages)
 
     response = await llm.ainvoke(lc_messages)
-    reply_text = response.content if isinstance(response.content, str) else str(response.content)
+    reply_text = _extract_text(response.content)
     assistant_message = MessageSchema(role="assistant", content=reply_text)
 
     chat.messages = [*chat.messages, assistant_message.model_dump()]

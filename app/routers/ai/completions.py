@@ -1,14 +1,16 @@
+import logging
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from openai import OpenAIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.ai.services import chat as chat_service
 from app.schemas import Msg, CompletionCreate, CompletionResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/completions",
@@ -30,8 +32,18 @@ async def create_completion(
             model_id=data.model_id,
             content=data.content,
         )
-    except OpenAIError as e:
-        raise HTTPException(502, f"AI provider error: {e}") from e
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Any provider failure (quota, auth, timeout, bad model id) lands here.
+        # The real cause goes to the logs; the client gets a safe, actionable
+        # message rather than a 500 and a stack trace.
+        logger.exception("Completion failed for user %s", user_id)
+        raise HTTPException(
+            502,
+            "The AI provider could not complete this request. "
+            "Please try again, or pick a different model.",
+        ) from e
 
     return Msg(
         code=200,
