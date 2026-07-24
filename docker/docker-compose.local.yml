@@ -10,6 +10,10 @@ services:
       - ..:/app
     env_file:
       - ../.env.local
+      # Optional local overrides (real API keys, LLM_MODE=vertex). Gitignored;
+      # absent on a fresh clone. Later file wins, so these override .env.local.
+      - path: ../.env.local.secrets
+        required: false
     depends_on:
       db:
         condition: service_healthy
@@ -105,6 +109,10 @@ services:
       - ..:/app
     env_file:
       - ../.env.local
+      # Optional local overrides (real API keys, LLM_MODE=vertex). Gitignored;
+      # absent on a fresh clone. Later file wins, so these override .env.local.
+      - path: ../.env.local.secrets
+        required: false
     depends_on:
       pubsub-emulator:
         condition: service_started

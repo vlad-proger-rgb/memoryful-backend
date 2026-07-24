@@ -145,9 +145,29 @@ There are three env files, and it matters which one Docker Compose loads:
 
 | File | Used for |
 | --- | --- |
-| `.env.local` | The full local stack (local Postgres, Redis, MinIO, Ollama, …). |
-| `.env` | Local tooling only — just `BACKUP_SOURCE_URL` (the Neon URL) for `manage_backup.py`. Gitignored. |
+| `.env.local` | The full local stack (local Postgres, Redis, MinIO, Ollama, …). Committed with placeholders — never put real secrets here. |
+| `.env.local.secrets` | Your real container overrides (API keys, `LLM_MODE=vertex`). Gitignored; loaded after `.env.local` so it wins. Copy from `.env.local.secrets.example`. |
+| `.env` | Host tooling only — just `BACKUP_SOURCE_URL` (the Neon URL) for `manage_backup.py`. Gitignored; never loaded into a container. |
 | `.env.prod` | Template for the VM deploy; the VM keeps its own filled-in `.env`. |
+
+> **Real keys go in `.env.local.secrets`, never in `.env.local`.** `.env.local` is
+> committed with placeholders, so you never have to revert it before a commit —
+> your real OpenAI/Anthropic keys and `LLM_MODE=vertex` live only in the gitignored
+> override file, which Docker Compose loads second (later file wins). A fresh clone
+> with no override file just runs on the placeholders (Ollama). The `BACKUP_SOURCE_URL`
+> for the backup script stays in `.env` on purpose — it's your **production DB**
+> connection string, read by a host script, and should never be injected into the
+> app container the way `.env.local.secrets` is.
+
+Set it up once, then fill only the lines you need:
+
+```bash
+cp .env.local.secrets.example .env.local.secrets
+```
+
+Fill the real keys from your password manager. Delete a line rather than leaving
+it blank — an empty value overrides the `.env.local` placeholder with an empty
+string. Drop `LLM_MODE=vertex` to stay on local Ollama.
 
 > ⚠️ **Always pass `--env-file` explicitly.** Docker Compose auto-loads a bare
 > `.env` for `${VAR}` interpolation in the compose file — and that file is *not*

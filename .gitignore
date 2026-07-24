@@ -178,3 +178,6 @@ backups/
 
 # Local MinIO seed assets (default workspace backgrounds)
 bucket_base/
+
+# Local real secrets / overrides (never committed; overrides .env.local)
+.env.local.secrets
