@@ -172,3 +172,9 @@ cython_debug/
 
 # Secrets
 secrets/
+
+# Local DB dumps (prod data restored for dev)
+backups/
+
+# Local MinIO seed assets (default workspace backgrounds)
+bucket_base/

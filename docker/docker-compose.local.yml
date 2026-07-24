@@ -39,7 +39,7 @@ services:
       "
 
   db:
-    image: postgres:16
+    image: postgres:18
     container_name: memoryful-db-local
     restart: always
     ports:
@@ -49,12 +49,20 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - postgres_data_local:/var/lib/postgresql/data
+      # Postgres 18+ stores data in a version-specific subdir, so the volume
+      # mounts at the parent (/var/lib/postgresql), not /var/lib/postgresql/data.
+      - postgres_data_local:/var/lib/postgresql
+      - ../backups:/backups   # prod dumps for manage_backup.py + auto-restore
+      # Runs only on a fresh volume (first boot / after `down -v`): restores
+      # backups/neondb_backup_latest.dump if present.
+      - ./init-restore-db.sh:/docker-entrypoint-initdb.d/restore.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 1s
       retries: 5
+      # Grace period so a first-boot restore of a large dump isn't marked unhealthy.
+      start_period: 90s
 
   redis:
     image: redis:6.0.7
@@ -152,6 +160,27 @@ services:
       MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-minioadmin}
     volumes:
       - minio_data_local:/data
+
+  # One-shot: create the bucket and seed default workspace assets into MinIO.
+  # Idempotent (safe to run every `up`); mirrors only new/changed files.
+  # Real user photos are NOT seeded — they live in prod GCS and would be huge.
+  minio-init:
+    image: minio/mc
+    container_name: memoryful-minio-init
+    depends_on:
+      - minio
+    volumes:
+      - ../bucket_base:/bucket_base:ro
+    entrypoint: >
+      /bin/sh -c "
+        until mc alias set local http://minio:9000 '${S3_ACCESS_KEY_ID:-minioadmin}' '${S3_SECRET_ACCESS_KEY:-minioadmin}'; do
+          echo 'waiting for minio...'; sleep 1;
+        done;
+        mc mb --ignore-existing local/${S3_BUCKET:-memoryful};
+        mc anonymous set download local/${S3_BUCKET:-memoryful};
+        mc mirror --overwrite /bucket_base local/${S3_BUCKET:-memoryful};
+        echo 'minio seed complete';
+      "
 
   ollama:
     image: ollama/ollama:latest
