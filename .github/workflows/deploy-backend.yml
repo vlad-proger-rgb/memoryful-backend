@@ -26,6 +26,7 @@ env:
   GAR_REPOSITORY: ${{ vars.GAR_REPOSITORY }}
   # CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
   IMAGE_NAME: memoryful-backend
+  CELERY_IMAGE_NAME: memoryful-celery
   VM_NAME: memoryful-backend
   VM_ZONE: us-central1-a
 
@@ -49,18 +50,29 @@ jobs:
       - name: Configure Docker auth
         run: gcloud auth configure-docker ${{ env.GAR_REGION }}-docker.pkg.dev --quiet
 
-      - name: Build image
+      - name: Build images
         run: |
+          REG=${{ env.GAR_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GAR_REPOSITORY }}
           docker build \
             -f docker/Dockerfile \
-            -t ${{ env.GAR_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
-            -t ${{ env.GAR_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.IMAGE_NAME }}:latest \
+            -t $REG/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            -t $REG/${{ env.IMAGE_NAME }}:latest \
+            .
+          # Built here rather than on the VM: the celery image installs the full
+          # dependency tree, which starved the 1GB VM and degraded the live site.
+          docker build \
+            -f docker/Dockerfile.celery \
+            -t $REG/${{ env.CELERY_IMAGE_NAME }}:${{ github.sha }} \
+            -t $REG/${{ env.CELERY_IMAGE_NAME }}:latest \
             .
 
-      - name: Push image
+      - name: Push images
         run: |
-          docker push ${{ env.GAR_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          docker push ${{ env.GAR_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.IMAGE_NAME }}:latest
+          REG=${{ env.GAR_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GAR_REPOSITORY }}
+          docker push $REG/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker push $REG/${{ env.IMAGE_NAME }}:latest
+          docker push $REG/${{ env.CELERY_IMAGE_NAME }}:${{ github.sha }}
+          docker push $REG/${{ env.CELERY_IMAGE_NAME }}:latest
 
       - name: Deploy to VM
         run: |
@@ -70,4 +82,4 @@ jobs:
             --strict-host-key-checking=no \
             --ssh-flag="-o ServerAliveInterval=30" \
             --ssh-flag="-o ServerAliveCountMax=20" \
-            --command='bash -c "cd ~/memoryful-backend && bash scripts/deploy-app.sh"'
+            --command='bash -c "cd ~/memoryful-backend && git pull origin main && bash scripts/deploy-app.sh"'

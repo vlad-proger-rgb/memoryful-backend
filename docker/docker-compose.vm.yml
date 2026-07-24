@@ -32,9 +32,9 @@ services:
         max-file: "3"
 
   celery-worker:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.celery
+    # Built and pushed by CI (see .github/workflows/deploy-backend.yml); the VM
+    # only pulls it. Building here starved the 1GB VM and slowed the live site.
+    image: ${GAR_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/memoryful-celery:latest
     container_name: celery-worker
     restart: always
     env_file:
