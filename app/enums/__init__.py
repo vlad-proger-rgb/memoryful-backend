@@ -2,6 +2,7 @@ from .font_awesome import IconStyle
 from .sorting import DaySortField, SortOrder
 from .emails import EmailTemplate
 from .storage import StorageUploadIntent
+from .provider import Provider
 
 __all__ = [
     "DaySortField",
@@ -9,4 +10,5 @@ __all__ = [
     "SortOrder",
     "EmailTemplate",
     "StorageUploadIntent",
+    "Provider",
 ]

@@ -21,7 +21,7 @@ from app.models import ChatModel
 
 router = APIRouter(
     prefix="/chat-models",
-    tags=["Chat Models"],
+    tags=["AI Chat Models"],
 )
 
 
@@ -30,7 +30,13 @@ router = APIRouter(
 async def get_chat_models(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Msg[list[C]]:
-    stmt = select(ChatModel)
+    # Retired models stay in the table (chats/insights reference them) but are
+    # hidden from the selector.
+    stmt = (
+        select(ChatModel)
+        .where(ChatModel.is_active == True)  # noqa: E712
+        .order_by(ChatModel.sort_order.asc())
+    )
     result = await db.execute(stmt)
     chat_models = result.scalars().all()
 

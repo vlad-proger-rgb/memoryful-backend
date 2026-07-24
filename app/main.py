@@ -26,6 +26,7 @@ ai_logger = logging.getLogger('app.ai')
 ai_logger.setLevel(logging.DEBUG)
 
 from app.init_db import init_db
+from app.ai.catalog import sync_chat_models
 from app.schemas import Msg
 from app.core.exceptions import register_exception_handlers
 from app.core.database import Base, AsyncSessionLocal, engine
@@ -42,8 +43,8 @@ from app.core.settings import (
 from app.models import User
 
 from app.routers import (
+    ai,
     auth,
-    chat_models,
     chats,
     cities,
     countries,
@@ -78,6 +79,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     FastAPICache.init(RedisBackend(cache_redis), prefix=CACHE_PREFIX)
     # await run_migrations()
     async with AsyncSessionLocal() as session:
+        # Reference data: kept in sync in every environment, but never fatal —
+        # a catalog sync failure (e.g. the DB is behind on migrations during a
+        # deploy) must not take down the whole API.
+        try:
+            await sync_chat_models(session)
+        except Exception:
+            logging.exception("Chat model catalog sync failed; continuing startup")
+            await session.rollback()
         if ENVIRONMENT == "development" and SEED_DB_ON_EMPTY:
             has_any_user = await session.scalar(select(User.id).limit(1))
             if not has_any_user:
@@ -117,8 +126,8 @@ async def disable_http_caching(request: Request, call_next: Callable):
     return response
 
 
+app.include_router(ai.router)
 app.include_router(auth.router)
-app.include_router(chat_models.router)
 app.include_router(chats.router)
 app.include_router(cities.router)
 app.include_router(countries.router)

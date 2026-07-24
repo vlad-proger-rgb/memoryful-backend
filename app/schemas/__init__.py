@@ -7,6 +7,8 @@ from .chat import (
     ChatListItem,
     ChatDetail,
     MessageSchema,
+    CompletionCreate,
+    CompletionResponse,
 )
 from .insight import InsightInDB
 from .suggestion import SuggestionInDB
@@ -39,6 +41,8 @@ __all__ = [
     "ChatListItem",
     "ChatDetail",
     "MessageSchema",
+    "CompletionCreate",
+    "CompletionResponse",
     "InsightInDB",
     "SuggestionInDB",
     "CityInDB",

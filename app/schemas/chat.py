@@ -40,4 +40,16 @@ class ChatDetail(ChatBase):
     chat_model: "ChatModelInDB"
 
 
+class CompletionCreate(CamelModel):
+    chat_id: UUID | None = None
+    model_id: UUID | None = None
+    content: str
+
+
+class CompletionResponse(CamelModel):
+    chat_id: UUID
+    title: str
+    message: MessageSchema
+
+
 from .chat_model import ChatModelInDB

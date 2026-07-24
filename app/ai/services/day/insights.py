@@ -18,7 +18,7 @@ from app.ai.utils import (
     extract_json_array,
     sanitize_items,
     handle_openai_model_error,
-    init_chat_model_with_provider,
+    build_chat_model,
     get_default_chat_model,
 )
 
@@ -149,7 +149,7 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
         insights_prompt = load_prompt("insights.md")
         suggestions_prompt = load_prompt("suggestions.md")
 
-        llm = init_chat_model_with_provider(db_model_name=model.name)
+        llm = build_chat_model(model)
         logging.info(f"Initialized LLM: {model.name} (provider: {llm.__class__.__name__})")
 
         date = dt.datetime.fromtimestamp(timestamp, tz=dt.UTC).date()
@@ -193,11 +193,11 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
             ]
         ).strip()
 
-        def _invoke_items(*, prompt: str, context: str) -> list[dict]:
+        async def _invoke_items(*, prompt: str, context: str) -> list[dict]:
             structured_llm = llm.with_structured_output(_AIItemList)
             try:
                 logging.info(f"Attempting structured output generation for {len(context)} characters of context")
-                parsed = structured_llm.invoke(
+                parsed = await structured_llm.ainvoke(
                     [
                         SystemMessage(content=system_base),
                         SystemMessage(content=prompt),
@@ -211,7 +211,7 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
                 return result
             except Exception as e:
                 logging.warning(f"Structured output failed: {e}. Falling back to text parsing")
-                resp = llm.invoke(
+                resp = await llm.ainvoke(
                     [
                         SystemMessage(content=system_base),
                         SystemMessage(content=prompt),
@@ -235,7 +235,7 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
                     raise
 
         try:
-            insight_items = _invoke_items(prompt=insights_prompt, context=day_context)
+            insight_items = await _invoke_items(prompt=insights_prompt, context=day_context)
         except OpenAIError as e:
             handle_openai_model_error(e)
 
@@ -257,7 +257,7 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
         )
 
         try:
-            suggestion_items = _invoke_items(prompt=suggestions_prompt, context=suggestions_context)
+            suggestion_items = await _invoke_items(prompt=suggestions_prompt, context=suggestions_context)
         except OpenAIError as e:
             handle_openai_model_error(e)
 

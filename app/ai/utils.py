@@ -7,21 +7,24 @@ from openai import OpenAIError
 from pydantic import ValidationError, SecretStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 
 from app.schemas.font_awesome import FAIcon
 from app.models import ChatModel
+from app.enums.provider import Provider
 from app.core.settings import (
-    LLM_PROVIDER,
-    OPENAI_TEMPERATURE,
-    OPENAI_MODEL,
-    ANTHROPIC_MODEL,
+    LLM_MODE,
+    DEFAULT_TEMPERATURE,
+    GCP_PROJECT_ID,
+    VERTEX_LOCATION,
     LOCAL_LLM_BASE_URL,
     LOCAL_LLM_MODEL,
     LOCAL_LLM_API_KEY,
+    OPENAI_API_KEY,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def prompts_dir() -> str:
@@ -104,8 +107,8 @@ def sanitize_items(items: list[dict[str, object]]) -> list[dict[str, object]]:
 
 
 def handle_openai_model_error(e: OpenAIError) -> None:
-    """Handle OpenAI model not found errors for local/ollama providers."""
-    if LLM_PROVIDER in {"local", "ollama"} and "model" in str(e).lower() and "not found" in str(e).lower():
+    """Handle 'model not found' errors when running against local Ollama."""
+    if LLM_MODE == "local" and "model" in str(e).lower() and "not found" in str(e).lower():
         raise RuntimeError(
             "Local model not found in Ollama. "
             f"Requested LOCAL_LLM_MODEL='{LOCAL_LLM_MODEL}'. "
@@ -115,11 +118,63 @@ def handle_openai_model_error(e: OpenAIError) -> None:
     raise
 
 
-def init_chat_model_with_provider(*, db_model_name: str | None) -> BaseChatModel:
-    """Initialize a chat model based on the configured LLM provider."""
-    temperature = OPENAI_TEMPERATURE
+# Providers served by Vertex Model Garden through the OpenAI-compatible endpoint
+# (no dedicated LangChain class exists for these). Extend as you enable more.
+_VERTEX_MAAS_PROVIDERS = {Provider.xai, Provider.meta, Provider.mistral, Provider.cohere}
 
-    if LLM_PROVIDER in {"local", "ollama"}:
+# Cached ADC credentials; the access token is valid ~1h and refreshed on demand.
+_gcp_credentials = None
+
+
+def _vertex_access_token() -> str:
+    """Mint/refresh an OAuth access token from Application Default Credentials."""
+    global _gcp_credentials
+    import google.auth
+    from google.auth.transport.requests import Request
+
+    if _gcp_credentials is None:
+        _gcp_credentials, _ = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+    if not _gcp_credentials.valid:
+        _gcp_credentials.refresh(Request())
+    return _gcp_credentials.token
+
+
+def _resolve_provider(model: ChatModel) -> Provider:
+    """Providers are set explicitly by the catalog sync, so this is a plain lookup."""
+    try:
+        return Provider(model.provider.strip().lower())
+    except ValueError as e:
+        raise RuntimeError(
+            f"Chat model {model.name!r} has an unknown provider {model.provider!r}"
+        ) from e
+
+
+def _vertex_openapi_base_url(location: str) -> str:
+    """Base URL for Vertex's OpenAI-compatible endpoint (Model Garden partners).
+
+    The "global" location is served from the bare host; regional locations are
+    served from a region-prefixed one.
+    """
+    host = (
+        "aiplatform.googleapis.com"
+        if location == "global"
+        else f"{location}-aiplatform.googleapis.com"
+    )
+    return f"https://{host}/v1/projects/{GCP_PROJECT_ID}/locations/{location}/endpoints/openapi"
+
+
+def build_chat_model(model: ChatModel) -> BaseChatModel:
+    """Build a LangChain chat model for a specific DB `ChatModel` record.
+
+    The gateway is chosen by `LLM_MODE`; the model id and provider come from the
+    selected catalog record, so the in-app model selector actually switches models.
+    """
+    temperature = DEFAULT_TEMPERATURE
+
+    # Dev: everything is served by local Ollama regardless of the catalog pick.
+    if LLM_MODE == "local":
         return ChatOpenAI(
             model=LOCAL_LLM_MODEL,
             temperature=temperature,
@@ -127,21 +182,75 @@ def init_chat_model_with_provider(*, db_model_name: str | None) -> BaseChatModel
             api_key=SecretStr(LOCAL_LLM_API_KEY) if LOCAL_LLM_API_KEY else None,
         )
 
-    if LLM_PROVIDER == "anthropic":
-        return init_chat_model(ANTHROPIC_MODEL, model_provider="anthropic", temperature=temperature)
+    provider = _resolve_provider(model)
+    # Per-model region override; falls back to the global default. Some models
+    # (e.g. Claude) may only have quota in a specific region, not "global".
+    location = model.region or VERTEX_LOCATION
 
-    # default: OpenAI
-    model_name = db_model_name or OPENAI_MODEL
-    return init_chat_model(model_name, model_provider="openai", temperature=temperature)
+    # GCP Vertex AI — Gemini and Claude both live here (ADC via GCP_CREDENTIALS_PATH,
+    # no API keys). Imported lazily so local dev doesn't need the Google libs.
+    if provider in {Provider.google, Provider.anthropic}:
+        if not GCP_PROJECT_ID:
+            raise RuntimeError("GCP_PROJECT_ID is required to use Vertex AI models")
+        if provider is Provider.google:
+            # Gemini via the unified google-genai SDK pointed at Vertex.
+            from langchain_google_genai import ChatGoogleGenerativeAI
+
+            return ChatGoogleGenerativeAI(
+                model=model.name,
+                temperature=temperature,
+                vertexai=True,
+                project=GCP_PROJECT_ID,
+                location=location,
+            )
+        # Claude via Vertex Model Garden.
+        from langchain_google_vertexai.model_garden import ChatAnthropicVertex
+
+        return ChatAnthropicVertex(
+            model_name=model.name,
+            temperature=temperature,
+            project=GCP_PROJECT_ID,
+            location=location,
+        )
+
+    # Vertex Model Garden partner models (xAI/Grok, Llama, Mistral, ...) have no
+    # dedicated LangChain class — they're called via Vertex's OpenAI-compatible
+    # endpoint, authenticated with an ADC access token instead of an API key.
+    # `model.name` must carry the publisher prefix, e.g. "xai/grok-4.1-fast-reasoning".
+    if provider in _VERTEX_MAAS_PROVIDERS:
+        if not GCP_PROJECT_ID:
+            raise RuntimeError("GCP_PROJECT_ID is required to use Vertex Model Garden models")
+        return ChatOpenAI(
+            model=model.name,
+            temperature=temperature,
+            base_url=_vertex_openapi_base_url(location),
+            api_key=SecretStr(_vertex_access_token()),
+        )
+
+    if provider is Provider.openai:
+        # Direct OpenAI API (outside GCP).
+        if not OPENAI_API_KEY:
+            raise RuntimeError("OPENAI_API_KEY is required to use OpenAI models")
+        return ChatOpenAI(
+            model=model.name,
+            temperature=temperature,
+            api_key=SecretStr(OPENAI_API_KEY),
+        )
+
+    raise RuntimeError(
+        f"No LLM gateway configured for provider {provider!r} (model {model.name!r}) in LLM_MODE={LLM_MODE!r}"
+    )
 
 
 async def get_default_chat_model(db: AsyncSession) -> ChatModel:
-    """Get the default chat model from the database."""
-    preferred = await db.scalar(select(ChatModel).where(ChatModel.name == "gpt-4o-mini"))
-    if preferred:
-        return preferred
+    """Pick the fallback chat model for background jobs (insights/suggestions)."""
+    base = select(ChatModel).where(ChatModel.is_active == True)  # noqa: E712
 
-    model = await db.scalar(select(ChatModel).order_by(ChatModel.label.asc()).limit(1))
+    default = await db.scalar(base.where(ChatModel.is_default == True).limit(1))  # noqa: E712
+    if default:
+        return default
+
+    model = await db.scalar(base.order_by(ChatModel.sort_order.asc()).limit(1))
     if not model:
-        raise RuntimeError("No chat models found")
+        raise RuntimeError("No active chat models found")
     return model

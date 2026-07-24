@@ -138,6 +138,8 @@ DEFAULT_SETTINGS_BACKGROUND = "users/defaults/workspace/settings_bg.jpg"
 RP_LOGIN_CODE = "login_code:"
 RP_BLACKLISTED_TOKEN = "blacklist:"
 RP_AI_CONTEXT = "ai_context:"
+RP_CHAT = "chat:"
+RP_CHAT_LIST = "chat_list:"
 
 # Cache TTLs (seconds)
 CACHE_ENABLED = os.getenv("CACHE_ENABLED", "true").lower() == "true"
@@ -145,12 +147,31 @@ CACHE_TTL_STATIC = 60 * 60 * 6       # global reference data: countries, cities,
 CACHE_TTL_USER_DATA = 60 * 5         # small per-user data mutable via API: tags, trackable types, workspace
 CACHE_TTL_DAYS = 60 * 10             # days / months
 CACHE_TTL_AI_CONTENT = 60 * 60 * 24  # AI-generated insights/suggestions, immutable once generated
+CACHE_TTL_CHAT_HOT = 60 * 60         # hot chat cache (write-through; DB remains source of truth)
 
 # LLM Configuration
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai").strip().lower()
-OPENAI_TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", "0.4"))
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20240620")
+#
+# LLM_MODE decides the *gateway*, not the model. The model itself is chosen
+# per-request from the `chat_models` DB catalog (see app/ai/utils.build_chat_model):
+#   - "local"  -> every request is served by the local Ollama container.
+#                 The catalog selection is ignored; LOCAL_LLM_MODEL is used.
+#   - "vertex" -> route by the selected model's `provider`, all through GCP
+#                 Vertex AI using ADC (no API keys).
+LLM_MODE = os.getenv("LLM_MODE", "local").strip().lower()
+
+# Vertex AI region. "global" routes across regions and is the widest-availability
+# option — partner models (Claude, Grok) are often only offered there.
+# GCP_PROJECT_ID is defined above; ADC comes from GCP_CREDENTIALS_PATH.
+VERTEX_LOCATION = os.getenv("VERTEX_LOCATION", "global")
+
+# Applied to every provider unless the model rejects it.
+DEFAULT_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.4"))
+
+# Local dev (Ollama, OpenAI-compatible endpoint).
 LOCAL_LLM_BASE_URL = os.getenv("LOCAL_LLM_BASE_URL", "http://ollama:11434/v1")
 LOCAL_LLM_MODEL = os.getenv("LOCAL_LLM_MODEL", "llama3.1")
 LOCAL_LLM_API_KEY = os.getenv("LOCAL_LLM_API_KEY", "local")
+
+# Direct OpenAI API (used for provider=openai models). From Secret Manager in
+# prod, from the env file locally.
+OPENAI_API_KEY = get_secret("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")

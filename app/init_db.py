@@ -11,7 +11,6 @@ from app.schemas.font_awesome import FAIcon
 from app.models import (
     Country,
     City,
-    ChatModel,
     User,
     Tag,
     TrackableType,
@@ -44,14 +43,6 @@ async def init_db(db: AsyncSession) -> None:
         ])
 
         db.add_all([united_states, ukraine, poland, germany])
-        await db.commit()
-
-    # chat models
-    if not (await db.scalar(select(ChatModel.id).limit(1))):
-        db.add_all([
-            ChatModel(label="GPT-3.5", name="gpt-3.5-turbo"),
-            ChatModel(label="GPT-4", name="gpt-4"),
-        ])
         await db.commit()
 
     # user
