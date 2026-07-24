@@ -18,6 +18,9 @@ services:
     image: ${GAR_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/memoryful-backend:latest
     container_name: memoryful-app
     restart: unless-stopped
+    # Migrate before serving so the schema is current before app startup runs
+    # (the lifespan syncs reference data). Single VM => no concurrent-migration race.
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8080"
     env_file:
       - ../.env
     volumes:

@@ -21,10 +21,9 @@ echo "Building certbot-renew image..."
 $COMPOSE -f $COMPOSE_FILE --env-file .env build certbot-renew
 
 echo "Recreating app container..."
+# The app container runs `alembic upgrade head` before uvicorn (see
+# docker-compose.vm.yml), so migrations apply automatically on start.
 $COMPOSE -f $COMPOSE_FILE --env-file .env up -d --force-recreate app
-
-echo "Running database migrations..."
-docker exec memoryful-app alembic upgrade head
 
 echo "Starting VM stack..."
 $COMPOSE -f $COMPOSE_FILE --env-file .env up -d
