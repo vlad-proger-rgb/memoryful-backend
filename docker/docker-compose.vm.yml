@@ -23,8 +23,33 @@ services:
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8080"
     env_file:
       - ../.env
+    environment:
+      MCP_SERVER_URL: http://mcp:3001/mcp   # in-app agent loads tools from the sidecar
     volumes:
       - /home/Vlad/secrets/google/service-account.json:/app/secrets/google/service-account.json:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # MCP server sidecar (streamable-HTTP). Same prebuilt image as app (ships
+  # mcp_server/ + fastmcp), just a different command; watchtower keeps it in sync
+  # since it shares the :latest tag. Internal-only — no host ports; the in-app
+  # agent reaches it over the compose network. A public mcp.* subdomain for
+  # external clients would be a separate nginx/TLS change, not this.
+  mcp:
+    image: ${GAR_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GAR_REPOSITORY}/memoryful-backend:latest
+    container_name: memoryful-mcp
+    restart: unless-stopped
+    command: python -m mcp_server.main
+    env_file:
+      - ../.env
+    environment:
+      MCP_TRANSPORT: http
+      MCP_HOST: 0.0.0.0                       # bind all interfaces so app can reach it
+      MCP_PORT: "3001"
+      MEMORYFUL_API_BASE_URL: http://app:8080  # prod app serves on 8080; tools call back here
     logging:
       driver: "json-file"
       options:

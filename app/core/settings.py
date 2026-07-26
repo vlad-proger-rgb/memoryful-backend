@@ -164,6 +164,11 @@ LLM_MODE = os.getenv("LLM_MODE", "local").strip().lower()
 # GCP_PROJECT_ID is defined above; ADC comes from GCP_CREDENTIALS_PATH.
 VERTEX_LOCATION = os.getenv("VERTEX_LOCATION", "global")
 
+# MCP server (streamable-HTTP) the in-app agent loads its tools from. Defaults to
+# the compose sidecar's internal address. FastMCP's canonical path is /mcp with
+# NO trailing slash — /mcp/ 307-redirects to it, doubling every round-trip.
+MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://mcp:3001/mcp")
+
 # Applied to every provider unless the model rejects it.
 DEFAULT_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.4"))
 

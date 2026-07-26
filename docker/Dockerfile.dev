@@ -9,8 +9,8 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt requirements.dev.txt ./
-RUN pip install --no-cache-dir -r requirements.txt -r requirements.dev.txt
+COPY requirements.txt requirements.dev.txt mcp_server/requirements.mcp.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -r requirements.dev.txt -r requirements.mcp.txt
 
 RUN adduser --disabled-password --gecos '' appuser
 

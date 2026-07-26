@@ -1,16 +1,13 @@
-import json
 import logging
 import os
-import re
 
-from openai import OpenAIError
-from pydantic import ValidationError, SecretStr
+from pydantic import SecretStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import AIMessage, BaseMessage
 from langchain_openai import ChatOpenAI
 
-from app.schemas.font_awesome import FAIcon
 from app.models import ChatModel
 from app.enums.provider import Provider
 from app.core.settings import (
@@ -38,85 +35,6 @@ def load_prompt(filename: str) -> str:
     path = os.path.join(prompts_dir(), filename)
     with open(path, "r", encoding="utf-8") as f:
         return f.read().strip()
-
-
-def extract_json_array(text: str) -> list[dict[str, object]]:
-    """Extract a JSON array from text that may contain additional content."""
-    logging.info(f"Attempting to extract JSON array from text of length {len(text)}")
-    logging.debug(f"Text content: {text[:500]}...")
-
-    try:
-        parsed = json.loads(text)
-        if isinstance(parsed, list):
-            logging.info(f"Successfully parsed JSON directly, found {len(parsed)} items")
-            return parsed
-    except Exception as e:
-        logging.debug(f"Direct JSON parsing failed: {e}")
-
-    match = re.search(r"\[[\s\S]*\]", text)
-    if not match:
-        logging.error("No JSON array found in text")
-        raise ValueError("LLM did not return a JSON array")
-
-    json_str = match.group(0)
-    logging.debug(f"Found JSON array: {json_str}")
-
-    try:
-        parsed = json.loads(json_str)
-        if not isinstance(parsed, list):
-            logging.error(f"Parsed JSON is not an array: {type(parsed)}")
-            raise ValueError("LLM did not return a JSON array")
-        logging.info(f"Successfully extracted and parsed JSON array with {len(parsed)} items")
-        return parsed
-    except Exception as e:
-        logging.error(f"Failed to parse extracted JSON: {e}")
-        raise ValueError(f"Failed to parse JSON array: {e}")
-
-
-def sanitize_items(items: list[dict[str, object]]) -> list[dict[str, object]]:
-    """Sanitize a list of items, ensuring proper icon handling."""
-    logging.info(f"Sanitizing {len(items)} items")
-    sanitized: list[dict[str, object]] = []
-    for i, item in enumerate(items):
-        if not isinstance(item, dict):
-            logging.warning(f"Item {i+1} is not a dict: {type(item)}")
-            continue
-
-        icon = item.get("icon")
-        if icon is not None:
-            logging.info(f"Item {i+1} has icon: {icon} (type: {type(icon)})")
-            try:
-                if isinstance(icon, FAIcon):
-                    item["icon"] = icon
-                    logging.info(f"Item {i+1}: Icon is already valid FAIcon")
-                elif isinstance(icon, dict):
-                    item["icon"] = FAIcon(**icon)
-                    logging.info(f"Item {i+1}: Icon converted from dict to FAIcon")
-                else:
-                    logging.warning(f"Item {i+1}: Invalid icon type {type(icon)}, setting to None")
-                    item["icon"] = None
-            except ValidationError as e:
-                logging.error(f"Item {i+1}: Icon validation failed: {e}, setting to None")
-                item["icon"] = None
-        else:
-            logging.info(f"Item {i+1}: No icon provided")
-
-        sanitized.append(item)
-    
-    logging.info(f"Sanitized {len(sanitized)} items")
-    return sanitized
-
-
-def handle_openai_model_error(e: OpenAIError) -> None:
-    """Handle 'model not found' errors when running against local Ollama."""
-    if LLM_MODE == "local" and "model" in str(e).lower() and "not found" in str(e).lower():
-        raise RuntimeError(
-            "Local model not found in Ollama. "
-            f"Requested LOCAL_LLM_MODEL='{LOCAL_LLM_MODEL}'. "
-            "Run: docker exec -it ollama-dev ollama list (to see installed models) "
-            f"and docker exec -it ollama-dev ollama pull {LOCAL_LLM_MODEL} (to download it)."
-        ) from e
-    raise
 
 
 # Providers served by Vertex Model Garden through the OpenAI-compatible endpoint
@@ -174,6 +92,27 @@ def _vertex_openapi_base_url(location: str) -> str:
         else f"{location}-aiplatform.googleapis.com"
     )
     return f"https://{host}/v1/projects/{GCP_PROJECT_ID}/locations/{location}/endpoints/openapi"
+
+
+class _VertexMaaSChatOpenAI(ChatOpenAI):
+    """ChatOpenAI for Vertex's OpenAI-compat endpoint (Grok/MaaS). That shim 400s on
+    messages with no content element, but tool-call turns have empty content — so we
+    pad them with a space, else the agent's 2nd turn breaks. Non-streaming only for now."""
+
+    @staticmethod
+    def _pad_tool_call_messages(messages: list[BaseMessage]) -> list[BaseMessage]:
+        padded: list[BaseMessage] = []
+        for msg in messages:
+            if isinstance(msg, AIMessage) and msg.tool_calls and not msg.content:
+                msg = msg.model_copy(update={"content": " "})
+            padded.append(msg)
+        return padded
+
+    def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+        return super()._generate(self._pad_tool_call_messages(messages), stop=stop, run_manager=run_manager, **kwargs)
+
+    async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
+        return await super()._agenerate(self._pad_tool_call_messages(messages), stop=stop, run_manager=run_manager, **kwargs)
 
 
 def build_chat_model(model: ChatModel) -> BaseChatModel:
@@ -238,7 +177,8 @@ def build_chat_model(model: ChatModel) -> BaseChatModel:
     if provider in _VERTEX_MAAS_PROVIDERS:
         if not GCP_PROJECT_ID:
             raise RuntimeError("GCP_PROJECT_ID is required to use Vertex Model Garden models")
-        return ChatOpenAI(
+        # _VertexMaaSChatOpenAI (not plain ChatOpenAI): pads empty tool-call messages.
+        return _VertexMaaSChatOpenAI(
             model=model.name,
             temperature=temperature,
             base_url=_vertex_openapi_base_url(location),

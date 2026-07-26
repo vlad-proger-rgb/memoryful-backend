@@ -7,7 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.ai.services import chat as chat_service
+from app.core.security import oauth2_scheme
+from app.ai.services.completions import ChatAgent
 from app.schemas import Msg, CompletionCreate, CompletionResponse
 
 logger = logging.getLogger(__name__)
@@ -23,14 +24,17 @@ async def create_completion(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
     data: CompletionCreate,
+    # Same bearer get_current_user already validated; captured here so the agent
+    # loop can forward it to the MCP server for per-user data isolation.
+    access_token: Annotated[str, Depends(oauth2_scheme)],
 ) -> Msg[CompletionResponse]:
     try:
-        chat, message = await chat_service.run_completion(
-            db,
+        chat, message = await ChatAgent(db).run_completion(
             user_id,
             chat_id=data.chat_id,
             model_id=data.model_id,
             content=data.content,
+            access_token=access_token,
         )
     except HTTPException:
         raise

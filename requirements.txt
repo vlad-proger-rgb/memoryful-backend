@@ -22,6 +22,7 @@ langchain-openai>=1.3,<2
 langchain-anthropic>=1.4,<2
 langchain-ollama>=1.1,<2
 langchain-google-genai>=4.2,<5      # ChatGoogleGenerativeAI (Gemini via Vertex)
+langchain-mcp-adapters>=0.3,<1       # load MCP server tools as LangChain tools (langgraph comes transitively via langchain)
 celery
 passlib
 boto3

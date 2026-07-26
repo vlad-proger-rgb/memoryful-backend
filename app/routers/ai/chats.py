@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.ai.services import chat as chat_service
+from app.ai.services.chats import ChatStore
 from app.schemas import Msg, ChatListItem, ChatDetail, ChatCreate, ChatUpdate
 
 router = APIRouter(
@@ -24,7 +24,7 @@ async def get_chats(
     offset: int = Query(0, ge=0),
     query: str | None = Query(None, description="Substring to search for in chat title"),
 ) -> Msg[list[ChatListItem]]:
-    items = await chat_service.list_chats(db, user_id, limit=limit, offset=offset, query=query)
+    items = await ChatStore(db).list(user_id, limit=limit, offset=offset, query=query)
     return Msg(code=200, msg="Chats retrieved", data=items)
 
 
@@ -34,7 +34,7 @@ async def get_chat(
     user_id: Annotated[UUID, Depends(get_current_user())],
     id: UUID,
 ) -> Msg[ChatDetail]:
-    detail = await chat_service.get_chat(db, id, user_id)
+    detail = await ChatStore(db).get(id, user_id)
     return Msg(code=200, msg="Chat retrieved", data=detail)
 
 
@@ -44,7 +44,7 @@ async def create_chat(
     user_id: Annotated[UUID, Depends(get_current_user())],
     data: ChatCreate,
 ) -> Msg[ChatDetail]:
-    chat = await chat_service.create_chat(db, user_id, data.model_id, title=data.title or "New chat")
+    chat = await ChatStore(db).create(user_id, data.model_id, title=data.title or "New chat")
     return Msg(code=200, msg="Chat created", data=ChatDetail.model_validate(chat))
 
 
@@ -56,7 +56,7 @@ async def update_chat(
     data: ChatUpdate,
 ) -> Msg[None]:
     if data.title is not None:
-        await chat_service.rename_chat(db, id, user_id, data.title)
+        await ChatStore(db).rename(id, user_id, data.title)
     return Msg(code=200, msg="Chat updated")
 
 
@@ -66,5 +66,5 @@ async def delete_chat(
     user_id: Annotated[UUID, Depends(get_current_user())],
     id: UUID,
 ) -> Msg[None]:
-    await chat_service.delete_chat(db, id, user_id)
+    await ChatStore(db).delete(id, user_id)
     return Msg(code=200, msg="Chat deleted")

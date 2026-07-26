@@ -35,12 +35,32 @@ services:
       SEED_DB_ON_EMPTY: ${SEED_DB_ON_EMPTY:-true}
       PUBSUB_EMULATOR_HOST: pubsub-emulator:8085
       GOOGLE_CLOUD_PROJECT: ${GCP_PROJECT_ID}
+      MCP_SERVER_URL: http://mcp:3001/mcp   # in-app agent loads tools from the sidecar (no trailing slash — avoids a 307)
 
     command: >
       sh -c "
         alembic upgrade head &&
         uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
       "
+
+  # MCP server as a streamable-HTTP sidecar. The in-app agent connects to it at
+  # http://mcp:3001/mcp/ over the compose network; its tools call back into the
+  # app's REST API (MEMORYFUL_API_BASE_URL) with the forwarded user bearer.
+  mcp:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    container_name: memoryful-mcp-local
+    volumes:
+      - ..:/app
+    ports:
+      - "3001:3001"   # host-exposed for curl/list_tools debugging
+    environment:
+      MEMORYFUL_API_BASE_URL: http://app:8000
+      MCP_HOST: 0.0.0.0        # bind all interfaces so the app container can reach it
+      MCP_PORT: "3001"
+      MCP_TRANSPORT: http
+    command: python -m mcp_server.main
 
   db:
     image: postgres:18

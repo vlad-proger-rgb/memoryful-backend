@@ -64,7 +64,9 @@ CHAT_MODEL_CATALOG: list[dict[str, object]] = [
     },
     # --- xAI Grok via Vertex OpenAI-compatible endpoint ---
     # These MUST keep the "xai/" publisher prefix; it's part of the model string
-    # the OpenAI-compatible endpoint expects.
+    # the OpenAI-compatible endpoint expects. Tool-calling works via
+    # _VertexMaaSChatOpenAI (utils.py), which pads the empty tool-call turns the
+    # Vertex shim would otherwise reject.
     {
         # Cheaper/lower latency — the better fit for interactive chat.
         "label": "Grok 4.1 Fast",

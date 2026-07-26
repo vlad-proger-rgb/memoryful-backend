@@ -1,5 +1,5 @@
 from fastmcp import FastMCP
-# from .settings import MCP_HOST, MCP_PORT
+from .settings import MCP_HOST, MCP_PORT, MCP_TRANSPORT
 from .tools import (
     days,
     months,
@@ -43,5 +43,9 @@ mcp.tool()(trackables.get_trackable_type_by_id)
 mcp.tool()(workspaces.get_my_workspace)
 
 if __name__ == "__main__":
-    mcp.run()
-    # mcp.run(transport="sse", host=MCP_HOST, port=MCP_PORT)
+    # stdio for a directly-launched desktop client; streamable-HTTP for the
+    # deployed sidecar the in-app agent connects to at http://<host>:<port>/mcp/.
+    if MCP_TRANSPORT == "stdio":
+        mcp.run()
+    else:
+        mcp.run(transport="http", host=MCP_HOST, port=MCP_PORT)
