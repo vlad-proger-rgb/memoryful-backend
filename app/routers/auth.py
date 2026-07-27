@@ -39,6 +39,7 @@ from app.core.settings import (
     VERIFICATION_CODE_EXPIRE_MINUTES,
     RP_LOGIN_CODE,
     RP_BLACKLISTED_TOKEN,
+    RP_AI_CONTEXT,
     REFRESH_SECRET_KEY,
     REFRESH_TOKEN_EXPIRE_MINUTES,
     ENVIRONMENT,
@@ -280,6 +281,7 @@ async def update_me(
     await db.commit()
 
     await clear_cache("users")
+    await redis.delete(f"{RP_AI_CONTEXT}{user_id}")
     return Msg(code=200, msg="User was updated")
 
 

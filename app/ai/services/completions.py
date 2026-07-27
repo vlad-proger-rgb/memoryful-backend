@@ -5,10 +5,11 @@ from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-from app.core.settings import MCP_SERVER_URL
 from app.models import Chat
 from app.schemas import MessageSchema
-from app.ai.utils import load_prompt, build_chat_model
+from app.ai.utils import build_chat_model
+from app.ai.context import ChatContextBuilder
+from app.ai.mcp import load_mcp_tools
 from app.ai.services.chats import ChatStore
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,7 @@ class ChatAgent:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.store = ChatStore(db)
+        self.context = ChatContextBuilder(db)
 
     async def run_completion(
         self,
@@ -97,7 +99,7 @@ class ChatAgent:
     async def _generate_reply(self, chat: Chat, access_token: str | None) -> str:
         """Reply to the chat's current history. Tool-capable models with a bearer run
         the MCP loop; everything else (and any MCP failure) falls back to plain completion."""
-        system_prompt = load_prompt("chat_system.md")
+        system_prompt = await self.context.system_prompt(chat.user_id)
         llm = build_chat_model(chat.chat_model)
         history = _to_lc_history(chat.messages)
 
@@ -111,23 +113,11 @@ class ChatAgent:
         return _extract_text(response.content)
 
     async def _run_agent(self, llm, system_prompt: str, history: list, access_token: str) -> str:
-        """Run the MCP tool loop. A fresh client per request forwards the user's bearer
-        in the HTTP headers, so the MCP server acts as that user (per-user isolation)."""
-        # Lazy import: only the tool path needs these.
-        from langchain_mcp_adapters.client import MultiServerMCPClient
+        """Run the MCP tool loop over the (cached) tools for this bearer, which the
+        MCP server executes as that user (per-user isolation)."""
         from langchain.agents import create_agent
 
-        client = MultiServerMCPClient(
-            {
-                "memoryful": {
-                    "url": MCP_SERVER_URL,
-                    "transport": "streamable_http",
-                    "headers": {"Authorization": f"Bearer {access_token}"},
-                }
-            }
-        )
-        tools = await client.get_tools()
-
+        tools = await load_mcp_tools(access_token)
         agent = create_agent(llm, tools, system_prompt=system_prompt)
         result = await agent.ainvoke({"messages": history})
 
