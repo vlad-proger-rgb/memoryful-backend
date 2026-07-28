@@ -7,16 +7,19 @@ loader method on `ChatContextBuilder`.
 """
 
 import asyncio
+import datetime as dt
 import logging
 from uuid import UUID
 
 from jinja2 import Environment, FileSystemLoader
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.config import redis
 from app.core.settings import RP_AI_CONTEXT, CACHE_TTL_USER_DATA
-from app.models import User
+from app.models import Day, User
 from app.ai.utils import prompts_dir, load_prompt
 
 logger = logging.getLogger(__name__)
@@ -69,6 +72,51 @@ async def get_user_profile(db: AsyncSession, user_id: UUID) -> UserProfile:
     )
     await redis.set(key, profile.model_dump_json(), ex=CACHE_TTL_USER_DATA)
     return profile
+
+
+# A journal entry can be long; keep one attachment from eating the whole window.
+_MAX_ATTACHMENT_CHARS = 4000
+
+
+def format_day_label(timestamp: int) -> str:
+    return dt.datetime.fromtimestamp(timestamp, tz=dt.UTC).strftime("%B %d, %Y")
+
+
+async def render_day_attachments(
+    db: AsyncSession, user_id: UUID, timestamps: list[int]
+) -> dict[int, str]:
+    """Render the user's referenced days into prompt text, keyed by timestamp.
+
+    One query for all of them — a chat can accumulate references across turns, and
+    they're re-rendered on every turn so the data stays with its message.
+    Timestamps the user doesn't own simply don't come back.
+    """
+    if not timestamps:
+        return {}
+
+    stmt = (
+        select(Day)
+        .options(selectinload(Day.tags), selectinload(Day.city))
+        .where(Day.user_id == user_id, Day.timestamp.in_(set(timestamps)))
+    )
+    days = (await db.scalars(stmt)).all()
+
+    rendered: dict[int, str] = {}
+    for day in days:
+        content = day.content or ""
+        truncated = len(content) > _MAX_ATTACHMENT_CHARS
+        rendered[day.timestamp] = render_block(
+            "context/day_attachment.md.j2",
+            date=format_day_label(day.timestamp),
+            description=day.description,
+            city=day.city.name if day.city else None,
+            steps=day.steps,
+            starred=day.starred,
+            tags=[tag.name for tag in day.tags],
+            content=content[:_MAX_ATTACHMENT_CHARS],
+            truncated=truncated,
+        )
+    return rendered
 
 
 class ChatContextBuilder:

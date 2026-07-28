@@ -1,0 +1,24 @@
+--- Attached day: {{ date }} ---
+{% if description %}
+Description: {{ description }}
+{% endif %}
+{% if city %}
+Location: {{ city }}
+{% endif %}
+{% if steps %}
+Steps: {{ steps }}
+{% endif %}
+{% if starred %}
+Starred: yes
+{% endif %}
+{% if tags %}
+Tags: {{ tags | join(', ') }}
+{% endif %}
+{% if content %}
+
+{{ content }}
+{% endif %}
+{% if truncated %}
+[entry truncated]
+{% endif %}
+--- end of {{ date }} ---

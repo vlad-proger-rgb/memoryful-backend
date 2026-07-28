@@ -8,9 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.models import Chat
-from app.schemas import MessageSchema, ToolCallSchema
+from app.schemas import AttachmentRef, MessageSchema, ToolCallSchema
 from app.ai.utils import build_chat_model
-from app.ai.context import ChatContextBuilder
+from app.ai.context import ChatContextBuilder, render_day_attachments
 from app.ai.mcp import load_mcp_tools
 from app.ai.services.chats import ChatStore
 
@@ -65,17 +65,31 @@ def _tool_args(raw: object) -> dict:
     return args
 
 
-def _to_lc_history(messages: list[dict[str, str]]) -> list:
+def _to_lc_history(messages: list[dict], attachments: dict[int, str] | None = None) -> list:
     """Flat {role, content} history -> LangChain messages. No system message: the
-    plain path prepends it, the agent path passes system_prompt to create_agent."""
+    plain path prepends it, the agent path passes system_prompt to create_agent.
+
+    A user message's @-referenced days are appended to its own text, so the data
+    stays with the message it belongs to on every later turn.
+    """
     lc_messages: list = []
     for m in messages:
+        content = m["content"]
+        if m["role"] == "user" and attachments:
+            blocks = [
+                attachments[ref["timestamp"]]
+                for ref in (m.get("attachments") or [])
+                if ref.get("timestamp") in attachments
+            ]
+            if blocks:
+                content = "\n\n".join([content, *blocks])
+
         if m["role"] == "user":
-            lc_messages.append(HumanMessage(content=m["content"]))
+            lc_messages.append(HumanMessage(content=content))
         elif m["role"] == "assistant":
-            lc_messages.append(AIMessage(content=m["content"]))
+            lc_messages.append(AIMessage(content=content))
         elif m["role"] == "system":
-            lc_messages.append(SystemMessage(content=m["content"]))
+            lc_messages.append(SystemMessage(content=content))
     return lc_messages
 
 
@@ -88,6 +102,17 @@ class ChatAgent:
         self.store = ChatStore(db)
         self.context = ChatContextBuilder(db)
 
+    async def _history(self, chat: Chat) -> list:
+        """Chat history as LangChain messages, with @-referenced days rendered in."""
+        timestamps = [
+            ref["timestamp"]
+            for message in chat.messages
+            for ref in (message.get("attachments") or [])
+            if ref.get("timestamp") is not None
+        ]
+        rendered = await render_day_attachments(self.db, chat.user_id, timestamps)
+        return _to_lc_history(chat.messages, rendered)
+
     async def run_completion(
         self,
         user_id: UUID,
@@ -96,6 +121,7 @@ class ChatAgent:
         model_id: UUID | None,
         content: str,
         access_token: str | None = None,
+        attachments: list[AttachmentRef] | None = None,
     ) -> tuple[Chat, MessageSchema]:
         is_new_chat = chat_id is None
 
@@ -106,7 +132,12 @@ class ChatAgent:
         else:
             chat = await self.store.load(chat_id, user_id)
 
-        user_message = MessageSchema(role="user", content=content, created_at=dt.datetime.now(dt.UTC))
+        user_message = MessageSchema(
+            role="user",
+            content=content,
+            attachments=attachments or [],
+            created_at=dt.datetime.now(dt.UTC),
+        )
         chat.messages = [*chat.messages, _dump(user_message)]
 
         reply_text = await self._generate_reply(chat, access_token)
@@ -127,6 +158,7 @@ class ChatAgent:
         model_id: UUID | None,
         content: str,
         access_token: str | None = None,
+        attachments: list[AttachmentRef] | None = None,
     ) -> AsyncIterator[dict]:
         """Same turn as `run_completion`, but yielded as events: a `start`, then
         `token` / `toolCall` / `toolResult` as they happen, then `done` once the
@@ -141,7 +173,12 @@ class ChatAgent:
         else:
             chat = await self.store.load(chat_id, user_id)
 
-        user_message = MessageSchema(role="user", content=content, created_at=dt.datetime.now(dt.UTC))
+        user_message = MessageSchema(
+            role="user",
+            content=content,
+            attachments=attachments or [],
+            created_at=dt.datetime.now(dt.UTC),
+        )
         chat.messages = [*chat.messages, _dump(user_message)]
 
         yield {
@@ -194,7 +231,7 @@ class ChatAgent:
         surface an error instead, so the user never sees duplicated text."""
         system_prompt = await self.context.system_prompt(chat.user_id)
         llm = build_chat_model(chat.chat_model)
-        history = _to_lc_history(chat.messages)
+        history = await self._history(chat)
 
         if chat.chat_model.supports_tools and access_token:
             emitted = False
@@ -247,7 +284,7 @@ class ChatAgent:
         the MCP loop; everything else (and any MCP failure) falls back to plain completion."""
         system_prompt = await self.context.system_prompt(chat.user_id)
         llm = build_chat_model(chat.chat_model)
-        history = _to_lc_history(chat.messages)
+        history = await self._history(chat)
 
         if chat.chat_model.supports_tools and access_token:
             try:

@@ -37,6 +37,7 @@ async def create_completion(
             model_id=data.model_id,
             content=data.content,
             access_token=access_token,
+            attachments=data.attachments,
         )
     except HTTPException:
         raise
@@ -81,6 +82,7 @@ async def stream_completion(
                     model_id=data.model_id,
                     content=data.content,
                     access_token=access_token,
+                    attachments=data.attachments,
                 ):
                     yield _sse(event)
             except HTTPException as e:

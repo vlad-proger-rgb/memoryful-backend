@@ -11,12 +11,23 @@ class ToolCallSchema(CamelModel):
     args: dict = {}
 
 
+class AttachmentRef(CamelModel):
+    """Something the user @-referenced in a message. `type` is a Literal so new
+    kinds (month, tag, trackable) are an explicit, reviewable change."""
+    type: Literal["day"] = "day"
+    timestamp: int
+    # What the user saw in the input, e.g. "Jul 12, 2026" — kept so the chat can
+    # render the chip without refetching the day.
+    label: str | None = None
+
+
 class MessageSchema(CamelModel):
     role: Literal["system", "user", "assistant"]
     content: str
-    # Both optional: messages stored before these existed simply don't have them
+    # All optional: messages stored before these existed simply don't have them
     # (the column is JSON, so there's nothing to migrate).
     tools: list[ToolCallSchema] = []
+    attachments: list[AttachmentRef] = []
     created_at: dt.datetime | None = None
 
 
@@ -54,6 +65,7 @@ class CompletionCreate(CamelModel):
     chat_id: UUID | None = None
     model_id: UUID | None = None
     content: str
+    attachments: list[AttachmentRef] = []
 
 
 class CompletionResponse(CamelModel):

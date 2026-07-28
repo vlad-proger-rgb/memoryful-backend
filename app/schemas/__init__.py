@@ -8,6 +8,7 @@ from .chat import (
     ChatDetail,
     MessageSchema,
     ToolCallSchema,
+    AttachmentRef,
     CompletionCreate,
     CompletionResponse,
 )
@@ -43,6 +44,7 @@ __all__ = [
     "ChatDetail",
     "MessageSchema",
     "ToolCallSchema",
+    "AttachmentRef",
     "CompletionCreate",
     "CompletionResponse",
     "InsightInDB",
