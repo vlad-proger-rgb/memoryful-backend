@@ -5,9 +5,19 @@ from pydantic import ConfigDict
 from fastapi_camelcase import CamelModel
 
 
+class ToolCallSchema(CamelModel):
+    """A tool the assistant ran while producing a message."""
+    name: str
+    args: dict = {}
+
+
 class MessageSchema(CamelModel):
     role: Literal["system", "user", "assistant"]
     content: str
+    # Both optional: messages stored before these existed simply don't have them
+    # (the column is JSON, so there's nothing to migrate).
+    tools: list[ToolCallSchema] = []
+    created_at: dt.datetime | None = None
 
 
 class ChatUpdate(CamelModel):

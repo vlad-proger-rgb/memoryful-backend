@@ -1,3 +1,4 @@
+import datetime as dt
 import logging
 from typing import AsyncIterator
 from uuid import UUID
@@ -7,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.models import Chat
-from app.schemas import MessageSchema
+from app.schemas import MessageSchema, ToolCallSchema
 from app.ai.utils import build_chat_model
 from app.ai.context import ChatContextBuilder
 from app.ai.mcp import load_mcp_tools
@@ -43,6 +44,12 @@ def _extract_text(content: object) -> str:
         return "".join(parts)
 
     return str(content)
+
+
+def _dump(message: MessageSchema) -> dict:
+    """JSON-mode dump for the `chats.messages` JSON column: `created_at` has to go
+    in as an ISO string, not a datetime."""
+    return message.model_dump(mode="json")
 
 
 def _tool_args(raw: object) -> dict:
@@ -99,13 +106,15 @@ class ChatAgent:
         else:
             chat = await self.store.load(chat_id, user_id)
 
-        user_message = MessageSchema(role="user", content=content)
-        chat.messages = [*chat.messages, user_message.model_dump()]
+        user_message = MessageSchema(role="user", content=content, created_at=dt.datetime.now(dt.UTC))
+        chat.messages = [*chat.messages, _dump(user_message)]
 
         reply_text = await self._generate_reply(chat, access_token)
-        assistant_message = MessageSchema(role="assistant", content=reply_text)
+        assistant_message = MessageSchema(
+            role="assistant", content=reply_text, created_at=dt.datetime.now(dt.UTC)
+        )
 
-        chat.messages = [*chat.messages, assistant_message.model_dump()]
+        chat.messages = [*chat.messages, _dump(assistant_message)]
         chat = await self.store.persist(chat, user_id, invalidate_list=is_new_chat)
 
         return chat, assistant_message
@@ -132,30 +141,43 @@ class ChatAgent:
         else:
             chat = await self.store.load(chat_id, user_id)
 
-        user_message = MessageSchema(role="user", content=content)
-        chat.messages = [*chat.messages, user_message.model_dump()]
+        user_message = MessageSchema(role="user", content=content, created_at=dt.datetime.now(dt.UTC))
+        chat.messages = [*chat.messages, _dump(user_message)]
 
-        yield {"type": "start", "chatId": str(chat.id), "title": chat.title}
+        yield {
+            "type": "start",
+            "chatId": str(chat.id),
+            "title": chat.title,
+            "createdAt": user_message.created_at.isoformat(),
+        }
 
         # Text is collected per model turn: a turn that ends in a tool call is a
         # preamble ("let me check..."), so segments are joined with a blank line to
         # read the same on reload as it did while streaming.
         segments: list[str] = []
         current: list[str] = []
+        tools: list[ToolCallSchema] = []
         async for event in self._stream_reply(chat, access_token):
             if event["type"] == "token":
                 current.append(event["text"])
-            elif event["type"] == "toolCall" and current:
-                segments.append("".join(current))
-                current = []
+            elif event["type"] == "toolCall":
+                tools.append(ToolCallSchema(name=event["name"], args=event.get("args") or {}))
+                if current:
+                    segments.append("".join(current))
+                    current = []
             yield event
 
         if current:
             segments.append("".join(current))
         reply_text = "\n\n".join(s.strip() for s in segments if s.strip())
 
-        assistant_message = MessageSchema(role="assistant", content=reply_text)
-        chat.messages = [*chat.messages, assistant_message.model_dump()]
+        assistant_message = MessageSchema(
+            role="assistant",
+            content=reply_text,
+            tools=tools,
+            created_at=dt.datetime.now(dt.UTC),
+        )
+        chat.messages = [*chat.messages, _dump(assistant_message)]
         chat = await self.store.persist(chat, user_id, invalidate_list=is_new_chat)
 
         yield {
@@ -163,6 +185,7 @@ class ChatAgent:
             "chatId": str(chat.id),
             "title": chat.title,
             "content": reply_text,
+            "createdAt": assistant_message.created_at.isoformat(),
         }
 
     async def _stream_reply(self, chat: Chat, access_token: str | None) -> AsyncIterator[dict]:

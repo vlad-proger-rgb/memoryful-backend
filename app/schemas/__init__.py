@@ -7,6 +7,7 @@ from .chat import (
     ChatListItem,
     ChatDetail,
     MessageSchema,
+    ToolCallSchema,
     CompletionCreate,
     CompletionResponse,
 )
@@ -41,6 +42,7 @@ __all__ = [
     "ChatListItem",
     "ChatDetail",
     "MessageSchema",
+    "ToolCallSchema",
     "CompletionCreate",
     "CompletionResponse",
     "InsightInDB",
