@@ -1,4 +1,5 @@
 import logging
+from typing import AsyncIterator
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -42,6 +43,19 @@ def _extract_text(content: object) -> str:
         return "".join(parts)
 
     return str(content)
+
+
+def _tool_args(raw: object) -> dict:
+    """Shrink tool input to something small and JSON-safe for the UI."""
+    if not isinstance(raw, dict):
+        return {}
+    args: dict = {}
+    for key, value in raw.items():
+        if value is None or isinstance(value, (str, int, float, bool)):
+            args[key] = value
+        else:
+            args[key] = str(value)
+    return args
 
 
 def _to_lc_history(messages: list[dict[str, str]]) -> list:
@@ -95,6 +109,115 @@ class ChatAgent:
         chat = await self.store.persist(chat, user_id, invalidate_list=is_new_chat)
 
         return chat, assistant_message
+
+    async def stream_completion(
+        self,
+        user_id: UUID,
+        *,
+        chat_id: UUID | None,
+        model_id: UUID | None,
+        content: str,
+        access_token: str | None = None,
+    ) -> AsyncIterator[dict]:
+        """Same turn as `run_completion`, but yielded as events: a `start`, then
+        `token` / `toolCall` / `toolResult` as they happen, then `done` once the
+        reply is persisted. Only the final text is stored (tool steps are transient).
+        """
+        is_new_chat = chat_id is None
+
+        if is_new_chat:
+            if not model_id:
+                raise HTTPException(400, "model_id is required to start a new chat")
+            chat = await self.store.create(user_id, model_id, title=_derive_title(content))
+        else:
+            chat = await self.store.load(chat_id, user_id)
+
+        user_message = MessageSchema(role="user", content=content)
+        chat.messages = [*chat.messages, user_message.model_dump()]
+
+        yield {"type": "start", "chatId": str(chat.id), "title": chat.title}
+
+        # Text is collected per model turn: a turn that ends in a tool call is a
+        # preamble ("let me check..."), so segments are joined with a blank line to
+        # read the same on reload as it did while streaming.
+        segments: list[str] = []
+        current: list[str] = []
+        async for event in self._stream_reply(chat, access_token):
+            if event["type"] == "token":
+                current.append(event["text"])
+            elif event["type"] == "toolCall" and current:
+                segments.append("".join(current))
+                current = []
+            yield event
+
+        if current:
+            segments.append("".join(current))
+        reply_text = "\n\n".join(s.strip() for s in segments if s.strip())
+
+        assistant_message = MessageSchema(role="assistant", content=reply_text)
+        chat.messages = [*chat.messages, assistant_message.model_dump()]
+        chat = await self.store.persist(chat, user_id, invalidate_list=is_new_chat)
+
+        yield {
+            "type": "done",
+            "chatId": str(chat.id),
+            "title": chat.title,
+            "content": reply_text,
+        }
+
+    async def _stream_reply(self, chat: Chat, access_token: str | None) -> AsyncIterator[dict]:
+        """Stream the reply, preferring the tool loop. If the agent fails before
+        emitting anything we fall back to a plain stream; if it fails mid-stream we
+        surface an error instead, so the user never sees duplicated text."""
+        system_prompt = await self.context.system_prompt(chat.user_id)
+        llm = build_chat_model(chat.chat_model)
+        history = _to_lc_history(chat.messages)
+
+        if chat.chat_model.supports_tools and access_token:
+            emitted = False
+            try:
+                async for event in self._stream_agent(llm, system_prompt, history, access_token):
+                    emitted = True
+                    yield event
+                return
+            except Exception:
+                logger.exception("MCP agent stream failed (emitted=%s)", emitted)
+                if emitted:
+                    yield {"type": "error", "message": "The assistant stopped early. Please try again."}
+                    return
+
+        async for event in self._stream_plain(llm, system_prompt, history):
+            yield event
+
+    async def _stream_agent(
+        self, llm, system_prompt: str, history: list, access_token: str
+    ) -> AsyncIterator[dict]:
+        from langchain.agents import create_agent
+
+        tools = await load_mcp_tools(access_token)
+        agent = create_agent(llm, tools, system_prompt=system_prompt)
+
+        async for event in agent.astream_events({"messages": history}):
+            kind = event.get("event")
+            if kind == "on_chat_model_stream":
+                chunk = event.get("data", {}).get("chunk")
+                text = _extract_text(getattr(chunk, "content", "")) if chunk is not None else ""
+                if text:
+                    yield {"type": "token", "text": text}
+            elif kind == "on_tool_start":
+                yield {
+                    "type": "toolCall",
+                    "name": event.get("name", ""),
+                    "args": _tool_args(event.get("data", {}).get("input")),
+                }
+            elif kind == "on_tool_end":
+                yield {"type": "toolResult", "name": event.get("name", "")}
+
+    async def _stream_plain(self, llm, system_prompt: str, history: list) -> AsyncIterator[dict]:
+        async for chunk in llm.astream([SystemMessage(content=system_prompt), *history]):
+            text = _extract_text(chunk.content)
+            if text:
+                yield {"type": "token", "text": text}
 
     async def _generate_reply(self, chat: Chat, access_token: str | None) -> str:
         """Reply to the chat's current history. Tool-capable models with a bearer run

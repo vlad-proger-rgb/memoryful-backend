@@ -97,7 +97,8 @@ def _vertex_openapi_base_url(location: str) -> str:
 class _VertexMaaSChatOpenAI(ChatOpenAI):
     """ChatOpenAI for Vertex's OpenAI-compat endpoint (Grok/MaaS). That shim 400s on
     messages with no content element, but tool-call turns have empty content — so we
-    pad them with a space, else the agent's 2nd turn breaks. Non-streaming only for now."""
+    pad them with a space, else the agent's 2nd turn breaks. Applied on both the
+    buffered and streaming paths."""
 
     @staticmethod
     def _pad_tool_call_messages(messages: list[BaseMessage]) -> list[BaseMessage]:
@@ -113,6 +114,15 @@ class _VertexMaaSChatOpenAI(ChatOpenAI):
 
     async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
         return await super()._agenerate(self._pad_tool_call_messages(messages), stop=stop, run_manager=run_manager, **kwargs)
+
+    def _stream(self, messages, stop=None, run_manager=None, **kwargs):
+        return super()._stream(self._pad_tool_call_messages(messages), stop=stop, run_manager=run_manager, **kwargs)
+
+    async def _astream(self, messages, stop=None, run_manager=None, **kwargs):
+        async for chunk in super()._astream(
+            self._pad_tool_call_messages(messages), stop=stop, run_manager=run_manager, **kwargs
+        ):
+            yield chunk
 
 
 def build_chat_model(model: ChatModel) -> BaseChatModel:

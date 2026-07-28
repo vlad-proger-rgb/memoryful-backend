@@ -1,11 +1,13 @@
+import json
 import logging
-from typing import Annotated
+from typing import Annotated, AsyncIterator
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
+from app.core.database import get_db, AsyncSessionLocal
 from app.core.deps import get_current_user
 from app.core.security import oauth2_scheme
 from app.ai.services.completions import ChatAgent
@@ -53,4 +55,50 @@ async def create_completion(
         code=200,
         msg="Completion generated",
         data=CompletionResponse(chat_id=chat.id, title=chat.title, message=message),
+    )
+
+
+def _sse(event: dict) -> str:
+    return f"data: {json.dumps(event)}\n\n"
+
+
+@router.post("/stream")
+async def stream_completion(
+    user_id: Annotated[UUID, Depends(get_current_user())],
+    data: CompletionCreate,
+    access_token: Annotated[str, Depends(oauth2_scheme)],
+) -> StreamingResponse:
+    """Same as POST /completions, streamed as SSE: start -> token/toolCall/toolResult -> done."""
+
+    async def event_stream() -> AsyncIterator[str]:
+        # Own session, not the request-scoped one: FastAPI can close a `yield`
+        # dependency before the response body finishes streaming.
+        async with AsyncSessionLocal() as db:
+            try:
+                async for event in ChatAgent(db).stream_completion(
+                    user_id,
+                    chat_id=data.chat_id,
+                    model_id=data.model_id,
+                    content=data.content,
+                    access_token=access_token,
+                ):
+                    yield _sse(event)
+            except HTTPException as e:
+                yield _sse({"type": "error", "message": e.detail})
+            except Exception:
+                logger.exception("Streamed completion failed for user %s", user_id)
+                yield _sse({
+                    "type": "error",
+                    "message": "The AI provider could not complete this request. "
+                               "Please try again, or pick a different model.",
+                })
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # nginx: don't buffer the stream
+        },
     )
