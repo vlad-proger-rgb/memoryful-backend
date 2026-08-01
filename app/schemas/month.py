@@ -5,12 +5,15 @@ from pydantic import ConfigDict, Field, field_validator
 from fastapi_camelcase import CamelModel
 from dateutil.parser import parse
 
+from app.schemas.media import ResolvedBackground
+
 
 class MonthBase(CamelModel):
     year: int = Field(dt.date.today().year)
     month: int = Field(ge=1, le=12)
     description: str | None = None
     background_image: str | None = None
+    background_placeholder: str | None = None
     top_day_timestamp: int | None = None
 
     @field_validator("top_day_timestamp")
@@ -32,3 +35,4 @@ class MonthBase(CamelModel):
 class MonthInDB(MonthBase):
     model_config = ConfigDict(from_attributes=True)
     user_id: UUID
+    resolved: ResolvedBackground | None = None

@@ -79,6 +79,7 @@ memoryful-backend/
 │       └── manage_backup.py       # Dump prod DB / restore into the local one
 ├── backups/                       # Local prod DB dumps (gitignored)
 ├── bucket_base/                   # Default assets seeded into local MinIO (gitignored)
+├── specs/                         # Deep-dives kept out of the README
 ├── .env.local                     # Local development environment variables
 ├── .env.prod                      # Production environment template
 ├── .gitignore                     # Git ignore rules
@@ -207,6 +208,16 @@ Local file storage (MinIO) seeds itself: the `minio-init` service creates the
 every `up` (idempotent). Real user photos are **not** copied — they stay in prod
 GCS, so restored days with photos will show broken image links locally. That's
 expected and intentional (mirroring them would be gigabytes).
+
+`bucket_base/` is gitignored, so a fresh machine needs the default assets pulled
+from the public bucket before that seeding has anything to mirror:
+
+```bash
+gcloud storage rsync -r gs://memoryful-public/users/defaults bucket_base/users/defaults
+```
+
+See [specs/workspace-backgrounds.md](specs/workspace-backgrounds.md) for how
+backgrounds are stored, resolved and encoded.
 
 Re-run `backup` whenever you want to refresh from prod (e.g. before testing a new
 migration). Dumps live in `backups/` (gitignored). The dump's Postgres major must

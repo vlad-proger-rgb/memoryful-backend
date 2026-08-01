@@ -30,7 +30,12 @@ from .trackable import (
 from .trackable_type import TrackableTypeInDB
 from .day_trackable_progress import DayTrackableProgress, DayTrackableProgressUpdate, TrackableTypeWithProgress
 from .user import UserBase, UserInDB
-from .workspace import WorkspaceBase, WorkspaceInDB
+from .media import ResolvedBackground
+from .workspace import (
+    PageBackgroundIn,
+    WorkspaceInDB,
+    WorkspaceUpdate,
+)
 from .font_awesome import FAIcon
 
 
@@ -80,8 +85,10 @@ __all__ = [
     "TrackableTypeWithProgress",
     "UserBase",
     "UserInDB",
-    "WorkspaceBase",
+    "ResolvedBackground",
+    "PageBackgroundIn",
     "WorkspaceInDB",
+    "WorkspaceUpdate",
 ]
 
 class Msg[T](BaseModel):

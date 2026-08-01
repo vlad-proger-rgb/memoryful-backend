@@ -8,11 +8,10 @@ from app.core.settings import CACHE_ENABLED
 
 CACHE_PREFIX = "fastapi-cache"
 
-# Per-request dependencies that must never end up in the cache key.
-# The SQLAlchemy AsyncSession (injected as `db`) has a different memory
-# address on every request, so including it (as the default key builder
-# does via repr()) would make the cache miss on every single call.
-_EXCLUDED_CACHE_KWARGS = {"db", "request", "response"}
+# The default key builder repr()s each kwarg, which for injected dependencies
+# bakes in a memory address: `db` differs every request (missing the cache
+# every call), and `storage_service` differs per process restart.
+_EXCLUDED_CACHE_KWARGS = {"db", "request", "response", "storage_service"}
 
 
 def cache_key_builder(

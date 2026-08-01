@@ -1,5 +1,6 @@
+import asyncio
 import logging
-from typing import Any
+from typing import Any, Iterable
 from uuid import UUID
 
 from botocore.exceptions import ClientError
@@ -20,14 +21,13 @@ from app.schemas.storage import (
 
 logger = logging.getLogger(__name__)
 
-# Presigned GET URLs are valid for this many seconds (see generate_presigned_get).
-PRESIGNED_GET_EXPIRES_IN = 60 * 5  # 5 minutes
-# Cache the presigned GET URL itself for a bit less than that, so repeated
-# requests for the same object (e.g. reopening the same photo) get back the
-# *same* URL instead of a freshly signed one. This lets the browser's own
-# HTTP cache actually kick in for the underlying image bytes, since a new
-# signature/expiry query string would otherwise make every URL look unique.
-PRESIGNED_GET_CACHE_TTL = PRESIGNED_GET_EXPIRES_IN - 30
+# Long-lived on purpose: the browser caches against the full URL including the
+# signature, so a short expiry turns every re-signing into a cache miss and
+# defeats the `immutable` header set below.
+PRESIGNED_GET_EXPIRES_IN = 60 * 60 * 12
+# Half the lifetime, so a URL served at the end of the cache window still has
+# hours of validity left.
+PRESIGNED_GET_CACHE_TTL = PRESIGNED_GET_EXPIRES_IN // 2
 
 
 class StorageService:
@@ -44,7 +44,7 @@ class StorageService:
         if self._bucket_verified:
             return
         try:
-            self.client.head_bucket(Bucket=S3_BUCKET)
+            await asyncio.to_thread(self.client.head_bucket, Bucket=S3_BUCKET)
             self._bucket_verified = True
         except ClientError as e:
             code = str(e.response.get("Error", {}).get("Code", ""))
@@ -53,7 +53,7 @@ class StorageService:
                 # AWS requires LocationConstraint for most regions. us-east-1 must omit it.
                 if S3_REGION and S3_REGION != "us-east-1":
                     params["CreateBucketConfiguration"] = {"LocationConstraint": S3_REGION}
-                self.client.create_bucket(**params)
+                await asyncio.to_thread(self.client.create_bucket, **params)
                 logger.info(f"Created bucket: {S3_BUCKET}")
                 self._bucket_verified = True
                 return
@@ -63,7 +63,7 @@ class StorageService:
     async def generate_presigned_put(
         self, 
         user_id: UUID, 
-        request: PresignPutRequest
+        request: PresignPutRequest,
     ) -> PresignPutResponse:
         """Generate presigned URL for uploading a file"""
         await self.ensure_bucket_exists()
@@ -90,18 +90,14 @@ class StorageService:
     async def generate_presigned_get(
         self, 
         user_id: UUID, 
-        request: PresignGetRequest
+        request: PresignGetRequest,
     ) -> PresignGetResponse:
         """Generate presigned URL for downloading a file"""
-        # Security check: ensure user can only access their own files or defaults
-        if not (
-            request.object_key.startswith(f"users/{user_id}/")
-            or request.object_key.startswith("users/defaults/")
-        ):
+        if not request.object_key.startswith(f"users/{user_id}/"):
             logger.warning(f"Access denied for user {user_id} to object: {request.object_key}")
             raise Exception("Access denied")
 
-        cache_key = f"presign_get:{user_id}:{request.object_key}"
+        cache_key = f"presign_get:{request.object_key}"
         cached_url = await cache_redis.get(cache_key)
         if cached_url is not None:
             return PresignGetResponse(download_url=cached_url.decode())
@@ -113,9 +109,8 @@ class StorageService:
             Params={
                 "Bucket": S3_BUCKET,
                 "Key": request.object_key,
-                # Object keys embed a random asset id, so the same key is
-                # never overwritten with different content. Safe to let the
-                # browser cache the actual image/video bytes long-term.
+                # Safe because object keys embed a random asset id, so a key is
+                # never overwritten with different content.
                 "ResponseCacheControl": "private, max-age=2592000, immutable",
             },
             HttpMethod="GET",
@@ -127,3 +122,46 @@ class StorageService:
 
         await cache_redis.set(cache_key, download_url, ex=PRESIGNED_GET_CACHE_TTL)
         return PresignGetResponse(download_url=download_url)
+
+    async def resolve_url(
+        self,
+        user_id: UUID,
+        object_key: str,
+    ) -> str:
+        """An object key as a presigned URL the browser can fetch."""
+        result = await self.generate_presigned_get(
+            user_id,
+            PresignGetRequest(object_key=object_key),
+        )
+        return result.download_url
+
+    async def delete_objects(
+        self,
+        user_id: UUID,
+        object_keys: Iterable[str],
+    ) -> None:
+        """Remove objects the user owns, best-effort.
+
+        Call only after the write that orphaned them has committed — deleting
+        first would destroy a still-referenced object if the commit then failed.
+
+        Never raises: the caller's write already succeeded, and a failed delete
+        only leaves an orphan behind.
+        """
+        for object_key in object_keys:
+            if not object_key.startswith(f"users/{user_id}/"):
+                logger.warning(f"Refusing to delete object outside user {user_id}: {object_key}")
+                continue
+
+            try:
+                # boto3 is synchronous; off-thread so a slow delete can't stall
+                # the event loop. Removing a large object can take tens of seconds.
+                await asyncio.to_thread(
+                    self.client.delete_object, Bucket=S3_BUCKET, Key=object_key
+                )
+            except ClientError:
+                logger.exception(f"Failed to delete object: {object_key}")
+                continue
+
+            await cache_redis.delete(f"presign_get:{object_key}")
+            logger.info(f"Deleted orphaned object for user {user_id}: {object_key}")

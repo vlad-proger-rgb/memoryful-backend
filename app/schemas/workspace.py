@@ -1,16 +1,25 @@
 from uuid import UUID
 
-from pydantic import ConfigDict
 from fastapi_camelcase import CamelModel
 
-
-class WorkspaceBase(CamelModel):
-    dashboard_background: str | None = None
-    day_background: str | None = None
-    search_background: str | None = None
-    settings_background: str | None = None
+from app.enums import WorkspacePage
+from app.schemas.media import ResolvedBackground
 
 
-class WorkspaceInDB(WorkspaceBase):
-    model_config = ConfigDict(from_attributes=True)
+class PageBackgroundIn(CamelModel):
+    """A page's background as the client sets it. `key=None` clears the page."""
+
+    key: str | None = None
+    placeholder: str | None = None
+
+
+class WorkspaceUpdate(CamelModel):
+    """Only the pages present are touched; the rest are left alone."""
+
+    backgrounds: dict[WorkspacePage, PageBackgroundIn]
+
+
+class WorkspaceInDB(CamelModel):
     user_id: UUID
+    # Only customized pages appear. The client supplies its own defaults.
+    backgrounds: dict[WorkspacePage, ResolvedBackground]

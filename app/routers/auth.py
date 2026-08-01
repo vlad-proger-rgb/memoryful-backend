@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from jose import jwt, JWTError
 from fastapi import (
+    BackgroundTasks,
     APIRouter,
     HTTPException,
     Response,
@@ -22,7 +23,8 @@ from app.enums import EmailTemplate
 from app.core.database import get_db
 from app.core.config import redis
 from app.core.utils import generate_activation_code
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, StorageServiceDep
+from app.core.storage.utils import orphaned_keys
 from app.core.cache import cached, clear_cache
 
 from app.core.security import (
@@ -241,6 +243,8 @@ async def update_me(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
     new_user: UserBase,
+    storage_service: StorageServiceDep,
+    background_tasks: BackgroundTasks,
 ) -> Msg[None]:
     country = None
     city = None
@@ -259,6 +263,11 @@ async def update_me(
         raise HTTPException(400, "Selected city does not belong to selected country")
 
     update_data = new_user.model_dump(exclude_unset=True)
+
+    previous_photo = await db.scalar(select(User.photo).where(User.id == user_id))
+    # An unsent field keeps its current value, so it must not count as orphaned.
+    orphaned = orphaned_keys(previous_photo, update_data.get("photo", previous_photo))
+
     # Remove nested country/city objects
     update_data.pop("country", None)
     update_data.pop("city", None)
@@ -282,6 +291,7 @@ async def update_me(
 
     await clear_cache("users")
     await redis.delete(f"{RP_AI_CONTEXT}{user_id}")
+    background_tasks.add_task(storage_service.delete_objects, user_id, orphaned)
     return Msg(code=200, msg="User was updated")
 
 

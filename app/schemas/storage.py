@@ -1,5 +1,5 @@
 from fastapi_camelcase import CamelModel
-from app.enums import StorageUploadIntent
+from app.enums import StorageUploadIntent, WorkspacePage
 
 
 class PresignPutRequest(CamelModel):
@@ -9,7 +9,7 @@ class PresignPutRequest(CamelModel):
     day_timestamp: int | None = None
     year: int | None = None
     month: int | None = None
-    workspace_page_key: str | None = None
+    workspace_page_key: WorkspacePage | None = None
 
 
 class PresignPutResponse(CamelModel):

@@ -3,6 +3,7 @@ from .sorting import DaySortField, SortOrder
 from .emails import EmailTemplate
 from .storage import StorageUploadIntent
 from .provider import Provider
+from .workspace import WorkspacePage
 
 __all__ = [
     "DaySortField",
@@ -11,4 +12,5 @@ __all__ = [
     "EmailTemplate",
     "StorageUploadIntent",
     "Provider",
+    "WorkspacePage",
 ]

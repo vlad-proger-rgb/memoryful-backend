@@ -1,23 +1,20 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, StorageServiceDep
 from app.core.cache import cached, clear_cache
-from app.models import Workspace
-from app.schemas import Msg
-from app.schemas.workspace import WorkspaceBase, WorkspaceInDB
-from app.core.settings import (
-    DEFAULT_DASHBOARD_BACKGROUND,
-    DEFAULT_DAY_BACKGROUND,
-    DEFAULT_SEARCH_BACKGROUND,
-    DEFAULT_SETTINGS_BACKGROUND,
-    CACHE_TTL_USER_DATA,
-)
+from app.core.storage.service import StorageService
+from app.core.storage.utils import is_video_key
+from app.enums import WorkspacePage
+from app.models import WorkspaceBackground
+from app.schemas import Msg, ResolvedBackground
+from app.schemas.workspace import WorkspaceInDB, WorkspaceUpdate
+from app.core.settings import CACHE_TTL_USER_DATA
 
 
 router = APIRouter(
@@ -26,19 +23,37 @@ router = APIRouter(
 )
 
 
-async def _get_workspace(db: AsyncSession, user_id: UUID) -> Workspace | None:
-    return await db.scalar(select(Workspace).where(Workspace.user_id == user_id))
+async def _rows(
+    db: AsyncSession,
+    user_id: UUID,
+) -> list[WorkspaceBackground]:
+    result = await db.scalars(
+        select(WorkspaceBackground).where(WorkspaceBackground.user_id == user_id)
+    )
+    return list(result)
 
 
-def _effective_workspace(user_id: UUID, ws: Workspace | None) -> WorkspaceInDB:
-    return WorkspaceInDB(
-        user_id=user_id,
-        dashboard_background=(ws.dashboard_background if ws and ws.dashboard_background is not None else DEFAULT_DASHBOARD_BACKGROUND),
-        day_background=(ws.day_background if ws and ws.day_background is not None else DEFAULT_DAY_BACKGROUND),
-        search_background=(ws.search_background if ws and ws.search_background is not None else DEFAULT_SEARCH_BACKGROUND),
-        settings_background=(
-            ws.settings_background if ws and ws.settings_background is not None else DEFAULT_SETTINGS_BACKGROUND
-        ),
+async def _response(
+    storage: StorageService,
+    user_id: UUID,
+    rows: list[WorkspaceBackground],
+    msg: str,
+) -> Msg[WorkspaceInDB]:
+    known = {page.value for page in WorkspacePage}
+    backgrounds = {
+        row.page: ResolvedBackground(
+            key=row.object_key,
+            placeholder=row.placeholder,
+            url=await storage.resolve_url(user_id, row.object_key),
+            is_video=is_video_key(row.object_key),
+        )
+        for row in rows
+        if row.page in known
+    }
+    return Msg(
+        code=200,
+        msg=msg,
+        data=WorkspaceInDB(user_id=user_id, backgrounds=backgrounds),
     )
 
 
@@ -47,50 +62,49 @@ def _effective_workspace(user_id: UUID, ws: Workspace | None) -> WorkspaceInDB:
 async def get_my_workspace(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
+    storage_service: StorageServiceDep,
 ) -> Msg[WorkspaceInDB]:
-    ws = await _get_workspace(db, user_id)
-    return Msg(code=200, msg="Workspace retrieved", data=_effective_workspace(user_id, ws))
+    rows = await _rows(db, user_id)
+    return await _response(storage_service, user_id, rows, "Workspace retrieved")
 
 
 @router.put("/me", response_model=Msg[WorkspaceInDB])
 async def update_my_workspace(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
-    body: WorkspaceBase,
+    body: WorkspaceUpdate,
+    storage_service: StorageServiceDep,
+    background_tasks: BackgroundTasks,
 ) -> Msg[WorkspaceInDB]:
-    payload = body.model_dump(exclude_unset=True)
-    ws = await _get_workspace(db, user_id)
+    existing = {row.page: row for row in await _rows(db, user_id)}
+    orphaned: set[str] = set()
 
-    if ws is None:
-        if any(v is not None for v in payload.values()):
-            ws = Workspace(
-                user_id=user_id,
-                dashboard_background=None,
-                day_background=None,
-                search_background=None,
-                settings_background=None,
+    for page, background in body.backgrounds.items():
+        row = existing.get(page)
+
+        if row is not None and row.object_key != background.key:
+            orphaned.add(row.object_key)
+
+        if background.key is None:
+            if row is not None:
+                await db.delete(row)
+            continue
+
+        if row is None:
+            db.add(
+                WorkspaceBackground(
+                    user_id=user_id,
+                    page=page,
+                    object_key=background.key,
+                    placeholder=background.placeholder,
+                )
             )
-            db.add(ws)
         else:
-            return Msg(code=200, msg="Workspace updated", data=_effective_workspace(user_id, None))
-
-    for k, v in payload.items():
-        setattr(ws, k, v)
-
-    all_null = (
-        ws.dashboard_background is None
-        and ws.day_background is None
-        and ws.search_background is None
-        and ws.settings_background is None
-    )
-
-    if all_null:
-        await db.delete(ws)
-        await db.commit()
-        await clear_cache("workspaces")
-        return Msg(code=200, msg="Workspace updated", data=_effective_workspace(user_id, None))
+            row.object_key = background.key
+            row.placeholder = background.placeholder
 
     await db.commit()
-    await db.refresh(ws)
     await clear_cache("workspaces")
-    return Msg(code=200, msg="Workspace updated", data=_effective_workspace(user_id, ws))
+    background_tasks.add_task(storage_service.delete_objects, user_id, orphaned)
+
+    return await _response(storage_service, user_id, await _rows(db, user_id), "Workspace updated")

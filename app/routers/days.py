@@ -8,6 +8,7 @@ from fastapi import (
     HTTPException,
     Depends,
     Query,
+    BackgroundTasks,
 )
 from pydantic import ValidationError
 from sqlalchemy import select, update, delete, exists, func, and_
@@ -16,8 +17,9 @@ from sqlalchemy.orm import selectinload, load_only
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.storage.utils import as_key_set
 from app.models import Day, City, Tag, TrackableItem, TrackableProgress
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, StorageServiceDep
 from app.core.cache import cached, clear_cache
 from app.core.settings import CACHE_TTL_DAYS
 from app.enums.sorting import SortOrder, DaySortField
@@ -437,7 +439,7 @@ async def toggle_starred(
     await db.commit()
     await clear_cache("days_list")
     await clear_cache("days_detail")
-    return Msg(code=200, msg="Day updated")
+    return Msg(code=200, msg="Day starred")
 
 
 @router.put("/{timestamp}", response_model=Msg[None])
@@ -446,8 +448,9 @@ async def update_day(
     user_id: Annotated[UUID, Depends(get_current_user())],
     timestamp: int,
     data: DayUpdate,
+    storage_service: StorageServiceDep,
+    background_tasks: BackgroundTasks,
 ) -> Msg[None]:
-    print(f"UPDATE DAY {data=}")
 
     day_result = await db.execute(
         select(Day).options(selectinload(Day.tags)).where(Day.timestamp == timestamp, Day.user_id == user_id)
@@ -459,6 +462,15 @@ async def update_day(
     update_data = data.model_dump(exclude_unset=True)
     trackable_progresses: list[dict] = update_data.pop('trackable_progresses', None)
     tag_uuids = update_data.pop('tags', None)
+
+    # Both fields can hold the same key, so diff them together — differencing
+    # `main_image` alone would delete a photo still listed in `images`.
+    # Unsent fields keep their current value.
+    before = as_key_set(day.main_image) | as_key_set(day.images)
+    after = as_key_set(update_data.get("main_image", day.main_image)) | as_key_set(
+        update_data.get("images", day.images)
+    )
+    orphaned = before - after
 
     if update_data:
         stmt = (
@@ -499,6 +511,7 @@ async def update_day(
     await db.commit()
     await clear_cache("days_list")
     await clear_cache("days_detail")
+    background_tasks.add_task(storage_service.delete_objects, user_id, orphaned)
     return Msg(code=200, msg="Day updated")
 
 

@@ -14,6 +14,7 @@ class Month(Base):
     month: Mapped[int] = mapped_column(primary_key=True)
     description: Mapped[str | None]
     background_image: Mapped[str | None]
+    background_placeholder: Mapped[str | None]  #: ~32px WebP `data:` URI generated client-side at upload time
     top_day_timestamp: Mapped[int | None]
 
     user: Mapped["User"] = relationship(back_populates="months")

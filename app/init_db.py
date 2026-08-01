@@ -65,7 +65,6 @@ async def init_db(db: AsyncSession) -> None:
             last_name="Doe",
             age=30,
             bio="Some bio",
-            photo="me.jpg",
         )
         db.add(user)
         await db.commit()
@@ -146,7 +145,6 @@ async def init_db(db: AsyncSession) -> None:
                 month=prev_month,
                 year=prev_year,
                 description="The previous month",
-                background_image="month1.jpg",
                 top_day_timestamp=int(dt.datetime(prev_year, prev_month, 1).timestamp())
             ),
             Month(
@@ -154,7 +152,6 @@ async def init_db(db: AsyncSession) -> None:
                 month=today.month,
                 year=today.year,
                 description="The current month",
-                background_image="month2.jpg",
                 top_day_timestamp=int(dt.datetime(today.year, today.month, 2).timestamp())
             ),
             Month(
@@ -162,7 +159,6 @@ async def init_db(db: AsyncSession) -> None:
                 month=today.month % 12 + 1,
                 year=today.year if today.month < 12 else today.year + 1,
                 description="The next month",
-                background_image="month3.jpg",
                 top_day_timestamp=int(dt.datetime(today.year if today.month < 12 else today.year + 1, today.month % 12 + 1, 3).timestamp())
             ),
         ])
@@ -191,11 +187,6 @@ async def init_db(db: AsyncSession) -> None:
         # last_day = today + dt.timedelta(days=30)   # Next 30 days
 
         days = []
-        day_images = [
-            "animal1.jpg", "animal2.jpg", "animal3.jpg", "animal4.jpg",
-            "krakow.jpg", "kyiv.jpg", "kyiv2.jpg",
-            "car1.jpg", "car2.jpg", "car3.jpg", "car4.jpg",
-        ]
 
         # Generate days for the 3-month period
         current_date = first_day
@@ -307,10 +298,10 @@ async def init_db(db: AsyncSession) -> None:
                 content=day_content,
                 steps=steps,
                 starred=random.random() > 0.9,  # 10% chance to be starred
-                main_image=random.choice(day_images) if random.random() > 0.3 else None,  # 70% chance to have an image
+                main_image=None,
                 tags=day_tags,
                 trackable_progresses=trackable_progresses,
-                images=[random.choice(day_images) for _ in range(random.randint(0, 3))]
+                images=[]
             )
 
             days.append(day)
@@ -338,8 +329,8 @@ As the sun began to set, I stopped for a few minutes just to take in the view â€
 
         steps = 20403
         starred = True
-        main_image = "demo_kyiv1.jpg"
-        images = ["demo_kyiv2.jpg", "demo_kyiv3.jpg", "demo_kyiv4.jpg", "demo_kyiv5.jpg"]
+        main_image = None
+        images = []
         tags = [
             (await db.scalars(select(Tag).where(Tag.name == "Nature"))).one(),
             (await db.scalars(select(Tag).where(Tag.name == "Travel"))).one(),

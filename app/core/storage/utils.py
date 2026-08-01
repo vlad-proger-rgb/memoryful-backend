@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 
 from fastapi import HTTPException
 
+from app.constants import VIDEO_EXTENSIONS
 from app.core.settings import S3_PUBLIC_BASE_URL
 from app.enums import StorageUploadIntent
 
@@ -74,6 +75,32 @@ def validate_content_type(intent: StorageUploadIntent, content_type: str) -> Non
         if content_type.startswith("image/") or content_type.startswith("video/"):
             return
         raise HTTPException(400, "Only image/video uploads are allowed for workspace background")
+
+
+def is_video_key(object_key: str) -> bool:
+    return object_key.lower().endswith(VIDEO_EXTENSIONS)
+
+
+def as_key_set(value: str | list[str] | None) -> set[str]:
+    """Normalize a stored key field — scalar, list or unset — to a set."""
+    if not value:
+        return set()
+    if isinstance(value, str):
+        return {value}
+    return {key for key in value if key}
+
+
+def orphaned_keys(
+    before: str | list[str] | None,
+    after: str | list[str] | None,
+) -> set[str]:
+    """Keys that an update left unreferenced.
+
+    Pass every field that can hold the same key — a day's `main_image` and
+    `images` can point at one object, so differencing them separately would
+    delete something still in use.
+    """
+    return as_key_set(before) - as_key_set(after)
 
 
 def to_public_url(url: str) -> str:

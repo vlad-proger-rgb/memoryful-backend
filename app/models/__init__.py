@@ -14,7 +14,7 @@ from .user_token import UserToken
 from .trackable_type import TrackableType
 from .trackable_item import TrackableItem
 from .trackable_progress import TrackableProgress
-from .workspace import Workspace
+from .workspace import WorkspaceBackground
 
 
 __all__ = [
@@ -34,5 +34,5 @@ __all__ = [
     "TrackableType",
     "TrackableItem",
     "TrackableProgress",
-    "Workspace",
+    "WorkspaceBackground",
 ]
