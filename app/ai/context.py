@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # template's control lines from leaking blank lines into the rendered block.
 _env = Environment(
     loader=FileSystemLoader(prompts_dir()),
-    autoescape=False,
+    autoescape=False,  # noqa: S701  # prompts are not HTML; escaping would corrupt them
     trim_blocks=True,
     lstrip_blocks=True,
 )

@@ -133,7 +133,7 @@ else:
 # Redis prefixes
 # RP short for Redis Prefix
 RP_LOGIN_CODE = "login_code:"
-RP_BLACKLISTED_TOKEN = "blacklist:"
+RP_BLACKLISTED_TOKEN = "blacklist:"  # noqa: S105  # Redis key prefix, not a credential
 RP_AI_CONTEXT = "ai_context:"
 RP_CHAT = "chat:"
 RP_CHAT_LIST = "chat_list:"

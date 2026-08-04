@@ -40,7 +40,7 @@ def verify_refresh_token(token: str, hashed_token: str) -> bool:
 
 def create_token(
     data: dict,
-    token_type: str = "access",
+    token_type: str = "access",  # noqa: S107  # a token *kind*, not a secret
     expires_delta: dt.timedelta | None = None,
     jti: str | None = None,
 ) -> tuple[str, str]:
@@ -89,8 +89,8 @@ async def create_and_store_tokens(
 ) -> Token:
     data = {"sub": str(user.id)}
     session_id = str(uuid4())
-    access_token, _ = create_token(data=data, token_type="access", jti=session_id)
-    refresh_token, _ = create_token(data=data, token_type="refresh", jti=session_id)
+    access_token, _ = create_token(data=data, token_type="access", jti=session_id)  # noqa: S106  # a token *kind*, not a secret
+    refresh_token, _ = create_token(data=data, token_type="refresh", jti=session_id)  # noqa: S106  # a token *kind*, not a secret
 
     token_db = UserToken(
         id=session_id,
@@ -109,5 +109,5 @@ async def create_and_store_tokens(
     return Token(
         access_token=access_token,
         refresh_token=refresh_token,
-        token_type="bearer",
+        token_type="bearer",  # noqa: S106  # the OAuth2 scheme name, not a secret
     )

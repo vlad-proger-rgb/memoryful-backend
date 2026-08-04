@@ -48,7 +48,7 @@ def _mask(text: str) -> str:
 
 def _run(cmd: list[str], **kwargs) -> None:
     print("»", " ".join(_mask(c) for c in cmd))
-    subprocess.run(cmd, check=True, **kwargs)
+    subprocess.run(cmd, check=True, **kwargs)  # noqa: S603  # argv list built in this module, never shell-interpolated
 
 
 def _source_url(cli_url: str | None) -> str:

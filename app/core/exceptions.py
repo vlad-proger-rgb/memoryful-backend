@@ -28,9 +28,7 @@ def log_exception(
         if isinstance(exc, IntegrityError) and hasattr(exc, "orig") and exc.orig is not None:
             error_details["orig_error"] = str(exc.orig)
 
-        logger.error(
-            f"Exception occurred: {exc.__class__.__name__} - {exc!s}", extra=error_details
-        )
+        logger.error(f"Exception occurred: {exc.__class__.__name__} - {exc!s}", extra=error_details)
         return await func(request, exc)
 
     return cast(Callable[[Request, ExcT], Awaitable[JSONResponse]], wrapper)

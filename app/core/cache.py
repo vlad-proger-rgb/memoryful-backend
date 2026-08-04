@@ -28,7 +28,9 @@ def cache_key_builder(
     kwargs = kwargs or {}
     filtered_kwargs = {k: v for k, v in kwargs.items() if k not in _EXCLUDED_CACHE_KWARGS}
     key_data = f"{func.__module__}:{func.__name__}:{args}:{filtered_kwargs}"
-    return f"{namespace}:{hashlib.md5(key_data.encode()).hexdigest()}"
+    # usedforsecurity=False: md5 here is a cache-key digest, not a security primitive.
+    # Declaring that is also what stops it tripping the insecure-hash lint.
+    return f"{namespace}:{hashlib.md5(key_data.encode(), usedforsecurity=False).hexdigest()}"
 
 
 def cached(*, expire: int, namespace: str) -> Callable:
