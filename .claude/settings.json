@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "//": "Applies when Claude Code is launched from inside this repo. Working from the Memoryful workspace root instead? The root .claude/settings.json is what loads — settings are read from the launch directory only, they are not hierarchical like CLAUDE.md.",
+
+  "permissions": {
+    "allow": [
+      "Bash(docker compose -p memoryful --env-file .env.local -f docker/docker-compose.local.yml:*)",
+      "Bash(docker ps:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker exec memoryful-app-local mypy:*)",
+      "Bash(docker exec memoryful-mcp-local pytest:*)",
+      "Bash(curl http://localhost:8000/*)",
+      "Bash(curl http://localhost:3001/*)",
+      "Bash(mypy:*)",
+      "Bash(black:*)",
+      "Bash(isort:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(alembic history:*)",
+      "Bash(alembic current:*)",
+      "Bash(alembic heads:*)"
+    ],
+
+    "ask": [
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(alembic upgrade:*)",
+      "Bash(alembic downgrade:*)",
+      "Bash(python scripts/python/manage_backup.py:*)",
+      "Bash(pip install:*)"
+    ],
+
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.local.secrets)",
+      "Read(./secrets/**)",
+      "Read(./backups/**)",
+      "Read(./mcp_server/.env)",
+      "Read(./scripts/python/.env)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)",
+      "Edit(./alembic/versions/**)",
+      "Bash(git push --force:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(rm -rf:*)"
+    ]
+  },
+
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/../.claude/hooks/protect_prod.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
