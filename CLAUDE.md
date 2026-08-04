@@ -31,8 +31,15 @@ Containers: `memoryful-{app,mcp,db,redis,rabbitmq,celery,flower,minio,ollama}-lo
 Swagger at `http://localhost:8000/docs`. Flower at `:5555`. MinIO console at `:9001`.
 The local DB is published on **5444**, not 5432.
 
-Format with `black` + `isort` (a hook does this automatically on edit). `app/` has no test
-suite — only `mcp_server/` does.
+**Lint and format with `ruff`** — it replaces black, isort and flake8. `ruff format` for
+layout, `ruff check --fix` for imports and lint. A hook runs both on edit. Config is in
+`pyproject.toml`: line length **100**, and pycodestyle (`E`/`W`) deliberately not selected —
+the formatter owns layout, and `E402`/`E712` misfire on deferred model imports and
+SQLAlchemy filters like `Model.is_deleted == False`, where `not Model.is_deleted` would
+silently change the SQL.
+
+`app/` has no test suite — only `mcp_server/` does, which uses `respx` to mock the API at the
+httpx layer. There's an open task to build one for the core app.
 
 ## Conventions
 

@@ -1,0 +1,30 @@
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+# F pyflakes · I import sorting · UP modern syntax · B bugbear · SIM simplify.
+# pycodestyle (E/W) is deliberately absent: the formatter owns layout, and its
+# E402/E711/E712 rules misfire on deferred model imports and SQLAlchemy filters.
+select = ["F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "mcp_server"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI puts these in argument defaults by design; B008 would flag every route.
+extend-immutable-calls = [
+    "fastapi.Body",
+    "fastapi.Cookie",
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Query",
+    "fastapi.Security",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Alembic revisions are generated; leave their style alone.
+"alembic/versions/*" = ["ALL"]
