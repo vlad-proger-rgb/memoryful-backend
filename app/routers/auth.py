@@ -1,35 +1,30 @@
-from typing import Annotated, Sequence
 import datetime as dt
+from collections.abc import Sequence
+from typing import Annotated
 from uuid import UUID
 
-from sqlalchemy import select, update, delete
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Cookie,
+    Depends,
+    Header,
+    HTTPException,
+    Request,
+    Response,
+)
+from jose import JWTError, jwt
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from jose import jwt, JWTError
-from fastapi import (
-    BackgroundTasks,
-    APIRouter,
-    HTTPException,
-    Response,
-    Header,
-    Depends,
-    Request,
-    Cookie,
-)
 
-from app.models import User, UserToken, Country, City
-from app.tasks import send_email_task
-from app.enums import EmailTemplate
-from app.core.database import get_db
-from app.core.config import redis
-from app.core.utils import generate_activation_code
-from app.core.deps import get_current_user, StorageServiceDep
-from app.core.storage.utils import orphaned_keys
 from app.core.cache import cached, clear_cache
-
+from app.core.config import redis
+from app.core.database import get_db
+from app.core.deps import StorageServiceDep, get_current_user
 from app.core.security import (
-    oauth2_scheme,
     create_and_store_tokens,
+    oauth2_scheme,
     verify_code_form,
     verify_refresh_token,
 )
@@ -37,27 +32,31 @@ from app.core.settings import (
     ACCESS_SECRET_KEY,
     ACCESS_TOKEN_EXPIRE_MINUTES,
     ALGORITHM,
-    TRUSTED_EMAILS,
-    VERIFICATION_CODE_EXPIRE_MINUTES,
-    RP_LOGIN_CODE,
-    RP_BLACKLISTED_TOKEN,
-    RP_AI_CONTEXT,
+    CACHE_TTL_USER_DATA,
+    ENVIRONMENT,
     REFRESH_SECRET_KEY,
     REFRESH_TOKEN_EXPIRE_MINUTES,
-    ENVIRONMENT,
-    CACHE_TTL_USER_DATA,
+    RP_AI_CONTEXT,
+    RP_BLACKLISTED_TOKEN,
+    RP_LOGIN_CODE,
+    TRUSTED_EMAILS,
+    VERIFICATION_CODE_EXPIRE_MINUTES,
 )
+from app.core.storage.utils import orphaned_keys
+from app.core.utils import generate_activation_code
+from app.enums import EmailTemplate
+from app.models import City, Country, User, UserToken
 from app.schemas import (
-    Msg,
+    AuthResponse,
     Email,
+    Msg,
     Session,
-    VerifyCodeForm,
+    Token,
     UserBase,
     UserInDB,
-    Token,
-    AuthResponse,
+    VerifyCodeForm,
 )
-
+from app.tasks import send_email_task
 
 router = APIRouter(
     prefix="/auth",
@@ -183,7 +182,9 @@ async def refresh_token(
 
         user_id = payload.get("sub")
         if not user_id:
-            raise HTTPException(401, "Invalid token format - missing user ID", {"WWW-Authenticate": "Bearer"})
+            raise HTTPException(
+                401, "Invalid token format - missing user ID", {"WWW-Authenticate": "Bearer"}
+            )
 
     except JWTError:
         raise HTTPException(401, "Invalid token format", {"WWW-Authenticate": "Bearer"})
@@ -193,7 +194,7 @@ async def refresh_token(
         raise HTTPException(401, "Token not found", {"WWW-Authenticate": "Bearer"})
 
     if not verify_refresh_token(refresh_token, token_db.refresh_token_hash):
-        raise HTTPException(401, "Invalid token", {"WWW-Authenticate": "Bearer"}) 
+        raise HTTPException(401, "Invalid token", {"WWW-Authenticate": "Bearer"})
 
     if token_db.expires_at < dt.datetime.now(dt.UTC):
         await db.delete(token_db)
@@ -212,7 +213,9 @@ async def refresh_token(
         raise HTTPException(401, "User is disabled", {"WWW-Authenticate": "Bearer"})
 
     if token_db.ip_address and request.client and request.client.host != token_db.ip_address:
-        print(f"AUTH GET /refresh Warning: Token used from different IP: {token_db.ip_address} vs {request.client.host}")
+        print(
+            f"AUTH GET /refresh Warning: Token used from different IP: {token_db.ip_address} vs {request.client.host}"
+        )
         # Uncomment below to enforce IP validation
         # raise HTTPException(401, "Suspicious activity detected", {"WWW-Authenticate": "Bearer"})
 
@@ -285,7 +288,7 @@ async def update_me(
         update(User)
         .where(User.id == user_id)
         .values(**update_data)
-    )
+    )  # fmt: skip
     await db.execute(stmt)
     await db.commit()
 
@@ -386,7 +389,7 @@ async def list_sessions(
             ),
         )
         for token in tokens
-    ]
+    ]  # fmt: skip
 
     return Msg(code=200, msg="Sessions retrieved", data=sessions)
 

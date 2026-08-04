@@ -7,7 +7,9 @@ from ..utils.api_client import APIClient
 from ..utils.validators import validate_non_empty_string
 
 
-async def get_trackables(ctx: Context, type_id: str | None = None, search: str | None = None) -> list[dict[str, object]]:
+async def get_trackables(
+    ctx: Context, type_id: str | None = None, search: str | None = None
+) -> list[dict[str, object]]:
     """Get trackable items from Memoryful API, optionally filtered by type or search query"""
     validate_non_empty_string(type_id, "type_id")
     validate_non_empty_string(search, "search")

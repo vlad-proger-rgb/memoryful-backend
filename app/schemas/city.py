@@ -1,6 +1,7 @@
 from uuid import UUID
-from pydantic import ConfigDict
+
 from fastapi_camelcase import CamelModel
+from pydantic import ConfigDict
 
 
 class CityBase(CamelModel):
@@ -11,7 +12,9 @@ class CityBase(CamelModel):
 class CityInDB(CityBase):
     id: UUID
 
+
 class CityDetail(CityInDB):
     country: "CountryInDB"
+
 
 from .country import CountryInDB

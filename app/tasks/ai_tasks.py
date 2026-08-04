@@ -1,15 +1,15 @@
 import asyncio
 import datetime as dt
-from typing import Any, Coroutine
+from collections.abc import Coroutine
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import and_, select
 
+from app.ai.services.day import generate_daily_insights_and_suggestions_for_day
 from app.core.celery_app import celery
 from app.core.database import AsyncSessionLocal
-from app.ai.services.day import generate_daily_insights_and_suggestions_for_day
 from app.models import Day
-
 
 _celery_async_loop: asyncio.AbstractEventLoop | None = None
 
@@ -30,7 +30,9 @@ def _date_to_day_timestamp(d: dt.date) -> int:
 
 @celery.task(queue="ai_queue")
 def generate_day_ai(user_id: str, timestamp: int) -> None:
-    _run_async(generate_daily_insights_and_suggestions_for_day(user_id=UUID(user_id), timestamp=timestamp))
+    _run_async(
+        generate_daily_insights_and_suggestions_for_day(user_id=UUID(user_id), timestamp=timestamp)
+    )
 
 
 async def _enqueue_fallback_for_yesterday() -> None:
@@ -47,7 +49,7 @@ async def _enqueue_fallback_for_yesterday() -> None:
                 )
             )
             .order_by(Day.user_id.asc())
-        )
+        )  # fmt: skip
         days = (await db.execute(stmt)).scalars().all()
 
     for day in days:

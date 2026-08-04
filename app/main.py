@@ -1,9 +1,9 @@
-from typing import AsyncIterator, Callable
 import asyncio
 import logging
 import sys
-
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_cache import FastAPICache
@@ -15,33 +15,29 @@ sys.path.append("..")
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
 )
 
 # Set specific logger for AI operations to be more verbose
-ai_logger = logging.getLogger('app.ai')
+ai_logger = logging.getLogger("app.ai")
 ai_logger.setLevel(logging.DEBUG)
 
-from app.init_db import init_db
 from app.ai.catalog import sync_chat_models
-from app.schemas import Msg
-from app.core.exceptions import register_exception_handlers
-from app.core.database import Base, AsyncSessionLocal, engine
-from app.core.config import cache_redis
 from app.core.cache import CACHE_PREFIX
+from app.core.config import cache_redis
+from app.core.database import AsyncSessionLocal
+from app.core.exceptions import register_exception_handlers
 from app.core.settings import (
-    ALLOWED_ORIGINS,
     ALLOW_CREDENTIALS,
     ALLOWED_HEADERS,
     ALLOWED_METHODS,
+    ALLOWED_ORIGINS,
     ENVIRONMENT,
     SEED_DB_ON_EMPTY,
 )
+from app.init_db import init_db
 from app.models import User
-
 from app.routers import (
     ai,
     auth,
@@ -55,16 +51,16 @@ from app.routers import (
     storage,
     suggestions,
     tags,
-    trackables,
     trackable_types,
+    trackables,
     workspaces,
 )
-
+from app.schemas import Msg
 
 
 async def run_migrations() -> None:
-    from alembic.config import Config
     from alembic import command
+    from alembic.config import Config
 
     def _upgrade() -> None:
         alembic_cfg = Config("alembic.ini")

@@ -1,11 +1,12 @@
-from uuid import UUID
 import datetime as dt
+from uuid import UUID
 
-from pydantic import ConfigDict, EmailStr
 from fastapi_camelcase import CamelModel
+from pydantic import ConfigDict, EmailStr
 
-from app.schemas.country import CountryInDB
 from app.schemas.city import CityInDB
+from app.schemas.country import CountryInDB
+
 
 class UserBase(CamelModel):
     country: CountryInDB | None = None
@@ -15,6 +16,7 @@ class UserBase(CamelModel):
     age: int | None = None
     bio: str | None = None
     photo: str | None = None
+
 
 class UserInDB(UserBase):
     model_config = ConfigDict(from_attributes=True)

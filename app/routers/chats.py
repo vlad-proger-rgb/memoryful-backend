@@ -3,25 +3,24 @@ from uuid import UUID
 
 from fastapi import (
     APIRouter,
-    HTTPException,
     Depends,
+    HTTPException,
     Query,
 )
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload, load_only
+from sqlalchemy.orm import load_only, selectinload
 
 from app.core.database import get_db
-from app.models import Chat, ChatModel
 from app.core.deps import get_current_user
+from app.models import Chat, ChatModel
 from app.schemas import (
-    Msg,
-    ChatListItem,
-    ChatDetail,
     ChatCreate,
+    ChatDetail,
+    ChatListItem,
     ChatUpdate,
+    Msg,
 )
-
 
 router = APIRouter(
     prefix="/chats",
@@ -44,15 +43,13 @@ async def get_chats(
         .order_by(Chat.created_at.desc())
         .limit(limit)
         .offset(offset)
-    )
+    )  # fmt: skip
 
     if query:
         stmt = stmt.where(Chat.title.ilike(f"%{query}%"))
 
     if view == "list":
-        stmt = stmt.options(
-            load_only(Chat.id, Chat.title, Chat.created_at)
-        )
+        stmt = stmt.options(load_only(Chat.id, Chat.title, Chat.created_at))
     else:
         stmt = stmt.options(selectinload(Chat.chat_model))
 
@@ -63,7 +60,7 @@ async def get_chats(
     return Msg(
         code=200,
         msg="Chats retrieved",
-        data=[response_model.model_validate(chat) for chat in chats]
+        data=[response_model.model_validate(chat) for chat in chats],
     )
 
 
@@ -77,7 +74,7 @@ async def get_chat(
         select(Chat)
         .options(selectinload(Chat.chat_model))
         .where(Chat.id == id, Chat.user_id == user_id, Chat.is_deleted == False)
-    )
+    )  # fmt: skip
     result = await db.execute(stmt)
     chat = result.scalar_one_or_none()
 
@@ -117,7 +114,7 @@ async def update_chat(
         update(Chat)
         .where(Chat.id == id, Chat.user_id == user_id)
         .values(**data.model_dump(exclude_unset=True))
-    )
+    )  # fmt: skip
     await db.execute(stmt)
     await db.commit()
 
@@ -134,9 +131,8 @@ async def delete_chat(
         update(Chat)
         .where(Chat.id == id, Chat.user_id == user_id)
         .values(is_deleted=True)
-    )
+    )  # fmt: skip
     await db.execute(stmt)
     await db.commit()
 
     return Msg(code=200, msg="Chat deleted")
-

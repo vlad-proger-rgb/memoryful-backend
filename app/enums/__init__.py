@@ -1,8 +1,8 @@
-from .font_awesome import IconStyle
-from .sorting import DaySortField, SortOrder
 from .emails import EmailTemplate
-from .storage import StorageUploadIntent
+from .font_awesome import IconStyle
 from .provider import Provider
+from .sorting import DaySortField, SortOrder
+from .storage import StorageUploadIntent
 from .workspace import WorkspacePage
 
 __all__ = [

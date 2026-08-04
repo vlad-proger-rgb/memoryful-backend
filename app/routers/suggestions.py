@@ -10,16 +10,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import schemas
+from app.core.cache import cached
+from app.core.database import get_db
+from app.core.deps import get_current_user
+from app.core.settings import CACHE_TTL_AI_CONTENT
+from app.models import Suggestion
 from app.schemas import (
     Msg,
     SuggestionInDB,
 )
-from app.core.database import get_db
-from app.models import Suggestion
-from app.core.deps import get_current_user
-from app.core.cache import cached
-from app.core.settings import CACHE_TTL_AI_CONTENT
-
 
 router = APIRouter(
     prefix="/suggestions",
@@ -39,10 +38,14 @@ async def get_suggestions(
     stmt = (
         select(Suggestion)
         .where(Suggestion.user_id == user_id)
-    )
+    )  # fmt: skip
     if timestamp is not None:
         stmt = stmt.where(Suggestion.timestamp == timestamp)
     stmt = stmt.order_by(Suggestion.date.desc()).limit(limit).offset(offset)
     result = await db.execute(stmt)
     suggestions = result.scalars().all()
-    return Msg(code=200, msg="Suggestions retrieved", data=[SuggestionInDB.model_validate(s) for s in suggestions])
+    return Msg(
+        code=200,
+        msg="Suggestions retrieved",
+        data=[SuggestionInDB.model_validate(s) for s in suggestions],
+    )

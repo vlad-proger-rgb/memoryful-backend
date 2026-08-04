@@ -1,7 +1,7 @@
 from celery import Celery
 from celery.schedules import crontab
-from app.core.settings import CELERY_BROKER_URL, CELERY_RESULT_BACKEND
 
+from app.core.settings import CELERY_BROKER_URL, CELERY_RESULT_BACKEND
 
 # Configure broker transport options for PubSub
 broker_transport_options = {}

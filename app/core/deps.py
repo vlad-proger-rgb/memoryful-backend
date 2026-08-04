@@ -1,25 +1,28 @@
-from typing import Annotated, Callable, Awaitable
-from uuid import UUID
 import logging
+from collections.abc import Awaitable, Callable
 from functools import lru_cache
+from typing import Annotated
+from uuid import UUID
 
-from fastapi import HTTPException, Depends
-from sqlalchemy.orm import Load
-from sqlalchemy.ext.asyncio import AsyncSession
-from jose import jwt, JWTError
+from fastapi import Depends, HTTPException
+from jose import JWTError, jwt
 from pydantic import ValidationError
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Load
 
+from app.core.config import redis
 from app.core.database import get_db
 from app.core.security import oauth2_scheme
-from app.core.config import redis
-from app.core.settings import ALGORITHM, ACCESS_SECRET_KEY, RP_BLACKLISTED_TOKEN
+from app.core.settings import ACCESS_SECRET_KEY, ALGORITHM, RP_BLACKLISTED_TOKEN
 from app.core.storage.service import StorageService
 from app.models import User
 
-
 logger = logging.getLogger(__name__)
 
-def get_current_user(load_user: bool = False, *load_options: type[Load]) -> Callable[[AsyncSession, str], Awaitable[User | UUID]]:
+
+def get_current_user(
+    load_user: bool = False, *load_options: type[Load]
+) -> Callable[[AsyncSession, str], Awaitable[User | UUID]]:
 
     async def dependency(
         db: Annotated[AsyncSession, Depends(get_db)],
@@ -27,8 +30,9 @@ def get_current_user(load_user: bool = False, *load_options: type[Load]) -> Call
     ) -> User | UUID:
         logger.debug(f"get_current_user dependency {token=}")
 
-        credentials_exception = HTTPException(401, "Could not validate credentials",
-                                                {"WWW-Authenticate": "Bearer"})
+        credentials_exception = HTTPException(
+            401, "Could not validate credentials", {"WWW-Authenticate": "Bearer"}
+        )
 
         user_id: UUID | None = None
         try:
@@ -61,9 +65,10 @@ def get_current_user(load_user: bool = False, *load_options: type[Load]) -> Call
     return dependency
 
 
-@lru_cache()
+@lru_cache
 def get_storage_service() -> StorageService:
     """Get singleton StorageService instance"""
     return StorageService()
+
 
 StorageServiceDep = Annotated[StorageService, Depends(get_storage_service)]

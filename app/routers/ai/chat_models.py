@@ -3,21 +3,20 @@ from uuid import UUID
 
 from fastapi import (
     APIRouter,
-    HTTPException,
     Depends,
+    HTTPException,
 )
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schemas import (
-    Msg,
-    ChatModelInDB as C,
-)
-from app.core.database import get_db
 from app.core.cache import cached
+from app.core.database import get_db
 from app.core.settings import CACHE_TTL_STATIC
 from app.models import ChatModel
-
+from app.schemas import (
+    ChatModelInDB as C,
+    Msg,
+)
 
 router = APIRouter(
     prefix="/chat-models",
@@ -36,11 +35,13 @@ async def get_chat_models(
         select(ChatModel)
         .where(ChatModel.is_active == True)  # noqa: E712
         .order_by(ChatModel.sort_order.asc())
-    )
+    )  # fmt: skip
     result = await db.execute(stmt)
     chat_models = result.scalars().all()
 
-    return Msg(code=200, msg="Chat Models retrieved", data=[C.model_validate(m) for m in chat_models])
+    return Msg(
+        code=200, msg="Chat Models retrieved", data=[C.model_validate(m) for m in chat_models]
+    )
 
 
 @router.get("/{id}", response_model=Msg[C])

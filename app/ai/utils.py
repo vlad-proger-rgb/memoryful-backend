@@ -1,26 +1,26 @@
 import logging
 import os
 
-from pydantic import SecretStr
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_openai import ChatOpenAI
+from pydantic import SecretStr
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import ChatModel
-from app.enums.provider import Provider
 from app.core.settings import (
-    LLM_MODE,
+    ANTHROPIC_API_KEY,
     DEFAULT_TEMPERATURE,
     GCP_PROJECT_ID,
-    VERTEX_LOCATION,
+    LLM_MODE,
+    LOCAL_LLM_API_KEY,
     LOCAL_LLM_BASE_URL,
     LOCAL_LLM_MODEL,
-    LOCAL_LLM_API_KEY,
     OPENAI_API_KEY,
-    ANTHROPIC_API_KEY,
+    VERTEX_LOCATION,
 )
+from app.enums.provider import Provider
+from app.models import ChatModel
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ def prompts_dir() -> str:
 def load_prompt(filename: str) -> str:
     """Load a prompt file from the prompts directory."""
     path = os.path.join(prompts_dir(), filename)
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return f.read().strip()
 
 
@@ -110,13 +110,19 @@ class _VertexMaaSChatOpenAI(ChatOpenAI):
         return padded
 
     def _generate(self, messages, stop=None, run_manager=None, **kwargs):
-        return super()._generate(self._pad_tool_call_messages(messages), stop=stop, run_manager=run_manager, **kwargs)
+        return super()._generate(
+            self._pad_tool_call_messages(messages), stop=stop, run_manager=run_manager, **kwargs
+        )
 
     async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
-        return await super()._agenerate(self._pad_tool_call_messages(messages), stop=stop, run_manager=run_manager, **kwargs)
+        return await super()._agenerate(
+            self._pad_tool_call_messages(messages), stop=stop, run_manager=run_manager, **kwargs
+        )
 
     def _stream(self, messages, stop=None, run_manager=None, **kwargs):
-        return super()._stream(self._pad_tool_call_messages(messages), stop=stop, run_manager=run_manager, **kwargs)
+        return super()._stream(
+            self._pad_tool_call_messages(messages), stop=stop, run_manager=run_manager, **kwargs
+        )
 
     async def _astream(self, messages, stop=None, run_manager=None, **kwargs):
         async for chunk in super()._astream(
@@ -173,7 +179,9 @@ def build_chat_model(model: ChatModel) -> BaseChatModel:
 
         # Newer Claude models removed the sampling parameters: sending
         # temperature to them returns a 400. Older ones still accept it.
-        sampling = {} if model.name.startswith(_ANTHROPIC_NO_SAMPLING) else {"temperature": temperature}
+        sampling = (
+            {} if model.name.startswith(_ANTHROPIC_NO_SAMPLING) else {"temperature": temperature}
+        )
         return ChatAnthropic(
             model=model.name,
             api_key=SecretStr(ANTHROPIC_API_KEY),

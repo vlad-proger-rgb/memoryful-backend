@@ -7,6 +7,7 @@ from app.core.database import Base
 from app.models._mixins import IDMixin
 from app.models.custom_types import PydanticType
 from app.schemas.font_awesome import FAIcon
+
 from .day import days_tags
 
 
@@ -23,8 +24,9 @@ class Tag(Base, IDMixin):
         secondary=days_tags,
         primaryjoin="Tag.id==days_tags.c.tag_id",
         secondaryjoin="and_(Day.timestamp==days_tags.c.day_timestamp, Day.user_id==days_tags.c.user_id)",
-        back_populates="tags"
+        back_populates="tags",
     )
 
-from .user import User
+
 from .day import Day
+from .user import User

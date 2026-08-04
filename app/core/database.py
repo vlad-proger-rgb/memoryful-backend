@@ -1,15 +1,16 @@
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
-from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase
+
 from app.core.settings import (
-    MAIN_DATABASE_URL, 
-    POSTGRES_SSLMODE,
-    POSTGRES_HOST,
-    POSTGRES_USER,
-    POSTGRES_PASSWORD,
+    ENVIRONMENT,
+    MAIN_DATABASE_URL,
     POSTGRES_DB,
-    ENVIRONMENT
+    POSTGRES_HOST,
+    POSTGRES_PASSWORD,
+    POSTGRES_SSLMODE,
+    POSTGRES_USER,
 )
 
 
@@ -48,9 +49,7 @@ def get_engine() -> AsyncEngine:
             pool_recycle=300,
             connect_args={
                 "ssl": POSTGRES_SSLMODE,
-                "server_settings": {
-                    "application_name": "memoryful-backend"
-                },
+                "server_settings": {"application_name": "memoryful-backend"},
                 # Required for Neon's pooled (-pooler) endpoint: PgBouncer's
                 # transaction pooling mode is incompatible with asyncpg's
                 # server-side prepared statement cache.
@@ -61,13 +60,16 @@ def get_engine() -> AsyncEngine:
 
 engine: AsyncEngine = get_engine()
 
+
 class Base(DeclarativeBase):
     pass
+
 
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
     expire_on_commit=False,
 )
+
 
 async def get_db() -> AsyncGenerator:
     async with AsyncSessionLocal() as db:

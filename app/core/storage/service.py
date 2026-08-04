@@ -1,11 +1,12 @@
 import asyncio
 import logging
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 from uuid import UUID
 
 from botocore.exceptions import ClientError
 
-from app.core.config import s3_client, cache_redis
+from app.core.config import cache_redis, s3_client
 from app.core.settings import S3_BUCKET, S3_REGION
 from app.core.storage.utils import (
     build_object_key,
@@ -14,8 +15,8 @@ from app.core.storage.utils import (
 )
 from app.schemas.storage import (
     PresignGetRequest,
-    PresignPutRequest,
     PresignGetResponse,
+    PresignPutRequest,
     PresignPutResponse,
 )
 
@@ -61,8 +62,8 @@ class StorageService:
             raise
 
     async def generate_presigned_put(
-        self, 
-        user_id: UUID, 
+        self,
+        user_id: UUID,
         request: PresignPutRequest,
     ) -> PresignPutResponse:
         """Generate presigned URL for uploading a file"""
@@ -88,8 +89,8 @@ class StorageService:
         return PresignPutResponse(upload_url=upload_url, object_key=object_key)
 
     async def generate_presigned_get(
-        self, 
-        user_id: UUID, 
+        self,
+        user_id: UUID,
         request: PresignGetRequest,
     ) -> PresignGetResponse:
         """Generate presigned URL for downloading a file"""
@@ -156,9 +157,7 @@ class StorageService:
             try:
                 # boto3 is synchronous; off-thread so a slow delete can't stall
                 # the event loop. Removing a large object can take tens of seconds.
-                await asyncio.to_thread(
-                    self.client.delete_object, Bucket=S3_BUCKET, Key=object_key
-                )
+                await asyncio.to_thread(self.client.delete_object, Bucket=S3_BUCKET, Key=object_key)
             except ClientError:
                 logger.exception(f"Failed to delete object: {object_key}")
                 continue

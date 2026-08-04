@@ -1,16 +1,15 @@
 import pytest
 import respx
+from fastmcp import Context
 from httpx import Response
 
-from fastmcp import Context
-
-from .conftest import api_url
 from ..tools.trackables import (
-    get_trackables,
     get_trackable_by_id,
-    get_trackable_types,
     get_trackable_type_by_id,
+    get_trackable_types,
+    get_trackables,
 )
+from .conftest import api_url
 
 _FAKE_TR_ID = "00000000-0000-0000-0000-000000000001"
 _FAKE_TT_ID = "00000000-0000-0000-0000-000000000010"

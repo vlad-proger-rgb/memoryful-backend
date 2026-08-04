@@ -1,11 +1,10 @@
 import pytest
 import respx
+from fastmcp import Context
 from httpx import Response
 
-from fastmcp import Context
-
+from ..tools.days import get_day_by_timestamp, get_days, get_random_day
 from .conftest import api_url
-from ..tools.days import get_days, get_day_by_timestamp, get_random_day
 
 _FAKE_CITY_ID = "00000000-0000-0000-0000-000000000010"
 _FAKE_COUNTRY_ID = "00000000-0000-0000-0000-000000000020"

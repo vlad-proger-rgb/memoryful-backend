@@ -1,5 +1,5 @@
+from datetime import UTC, datetime
 from typing import Any
-from datetime import datetime, timezone
 from urllib.parse import urlparse, urlunparse
 from uuid import UUID, uuid4
 
@@ -17,7 +17,7 @@ def safe_filename(filename: str) -> str:
 
 def day_parts(day_timestamp: int) -> tuple[str, str, str]:
     """Extract year, month, day from timestamp"""
-    dt = datetime.fromtimestamp(day_timestamp, tz=timezone.utc)
+    dt = datetime.fromtimestamp(day_timestamp, tz=UTC)
     return (dt.strftime("%Y"), dt.strftime("%m"), dt.strftime("%d"))
 
 
@@ -46,7 +46,9 @@ def build_object_key(user_id: UUID, body: dict[str, Any]) -> str:
     if body["intent"] == StorageUploadIntent.WORKSPACE_ASSET:
         if not body.get("workspace_page_key"):
             raise HTTPException(400, "workspacePageKey is required")
-        return f"users/{user_id}/workspace/pages/{body['workspace_page_key']}/{asset_id}_{safe_name}"
+        return (
+            f"users/{user_id}/workspace/pages/{body['workspace_page_key']}/{asset_id}_{safe_name}"
+        )
 
     raise HTTPException(400, "Invalid upload intent")
 
@@ -62,7 +64,11 @@ def validate_content_type(intent: StorageUploadIntent, content_type: str) -> Non
         return
 
     if intent in (StorageUploadIntent.DAY_MAIN, StorageUploadIntent.DAY_IMAGE):
-        if content_type.startswith("image/") or content_type.startswith("video/") or content_type.startswith("audio/"):
+        if (
+            content_type.startswith("image/")
+            or content_type.startswith("video/")
+            or content_type.startswith("audio/")
+        ):
             return
         raise HTTPException(400, "Only image/video/audio uploads are allowed for days")
 

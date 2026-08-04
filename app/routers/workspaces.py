@@ -5,17 +5,16 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
-from app.core.deps import get_current_user, StorageServiceDep
 from app.core.cache import cached, clear_cache
+from app.core.database import get_db
+from app.core.deps import StorageServiceDep, get_current_user
+from app.core.settings import CACHE_TTL_USER_DATA
 from app.core.storage.service import StorageService
 from app.core.storage.utils import is_video_key
 from app.enums import WorkspacePage
 from app.models import WorkspaceBackground
 from app.schemas import Msg, ResolvedBackground
 from app.schemas.workspace import WorkspaceInDB, WorkspaceUpdate
-from app.core.settings import CACHE_TTL_USER_DATA
-
 
 router = APIRouter(
     prefix="/workspaces",
@@ -49,7 +48,7 @@ async def _response(
         )
         for row in rows
         if row.page in known
-    }
+    }  # fmt: skip
     return Msg(
         code=200,
         msg=msg,

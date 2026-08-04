@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
-from app.core.deps import get_current_user, StorageServiceDep
+from app.core.deps import StorageServiceDep, get_current_user
 from app.schemas import (
     Msg,
     PresignGetRequest,
@@ -12,11 +12,11 @@ from app.schemas import (
     PresignPutResponse,
 )
 
-
 router = APIRouter(
     prefix="/storage",
     tags=["Storage"],
 )
+
 
 @router.post("/presign-put", response_model=Msg[PresignPutResponse])
 async def presign_put(

@@ -10,10 +10,10 @@ from sqlalchemy.orm import selectinload
 
 from app.core.config import redis
 from app.core.settings import (
-    RP_CHAT,
-    RP_CHAT_LIST,
     CACHE_TTL_CHAT_HOT,
     CACHE_TTL_USER_DATA,
+    RP_CHAT,
+    RP_CHAT_LIST,
 )
 from app.models import Chat, ChatModel
 from app.schemas import ChatDetail, ChatListItem
@@ -50,7 +50,7 @@ class ChatStore:
             select(Chat)
             .options(selectinload(Chat.chat_model))
             .where(Chat.id == chat_id, Chat.user_id == user_id, Chat.is_deleted == False)
-        )
+        )  # fmt: skip
         chat = await self.db.scalar(stmt)
         if not chat:
             raise HTTPException(404, "Chat not found")
@@ -90,7 +90,7 @@ class ChatStore:
             .order_by(Chat.created_at.desc())
             .limit(limit)
             .offset(offset)
-        )
+        )  # fmt: skip
         if query:
             stmt = stmt.where(Chat.title.ilike(f"%{query}%"))
 
@@ -125,7 +125,7 @@ class ChatStore:
             update(Chat)
             .where(Chat.id == chat_id, Chat.user_id == user_id, Chat.is_deleted == False)
             .values(title=title)
-        )
+        )  # fmt: skip
         result = await self.db.execute(stmt)
         if result.rowcount == 0:
             raise HTTPException(404, "Chat not found")
@@ -136,7 +136,9 @@ class ChatStore:
         await self._invalidate_list(user_id)
 
     async def delete(self, chat_id: UUID, user_id: UUID) -> None:
-        stmt = update(Chat).where(Chat.id == chat_id, Chat.user_id == user_id).values(is_deleted=True)
+        stmt = (
+            update(Chat).where(Chat.id == chat_id, Chat.user_id == user_id).values(is_deleted=True)
+        )
         await self.db.execute(stmt)
         await self.db.commit()
 

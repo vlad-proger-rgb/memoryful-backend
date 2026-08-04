@@ -3,23 +3,22 @@ from uuid import UUID
 
 from fastapi import (
     APIRouter,
-    HTTPException,
     Depends,
+    HTTPException,
 )
-from sqlalchemy import select, update, delete
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
-from app.models import Tag
-from app.core.deps import get_current_user
 from app.core.cache import cached, clear_cache
+from app.core.database import get_db
+from app.core.deps import get_current_user
 from app.core.settings import CACHE_TTL_USER_DATA
+from app.models import Tag
 from app.schemas import (
     Msg,
-    TagInDB as T,
     TagBase,
+    TagInDB as T,
 )
-
 
 router = APIRouter(
     prefix="/tags",
@@ -80,7 +79,7 @@ async def update_tag(
         update(Tag)
         .where(Tag.id == id, Tag.user_id == user_id)
         .values(**data.model_dump())
-    )
+    )  # fmt: skip
     await db.execute(stmt)
     await db.commit()
 
@@ -92,7 +91,7 @@ async def update_tag(
     return Msg(code=200, msg="Tag updated")
 
 
-@router.delete("/{id}",response_model=Msg[None])
+@router.delete("/{id}", response_model=Msg[None])
 async def delete_tag(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
@@ -106,4 +105,3 @@ async def delete_tag(
     await clear_cache("days_list")
     await clear_cache("days_detail")
     return Msg(code=200, msg="Tag deleted")
-

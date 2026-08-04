@@ -1,10 +1,9 @@
 import datetime as dt
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import DateTime, ForeignKey, String, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models._mixins import IDMixin, TimestampMixin
@@ -41,5 +40,6 @@ class UserToken(Base, IDMixin, TimestampMixin):
             return None
 
         return token_db
+
 
 from .user import User

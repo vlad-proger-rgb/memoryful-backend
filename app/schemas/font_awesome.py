@@ -1,9 +1,14 @@
-from pydantic import BaseModel, field_validator, Field
+from pydantic import BaseModel, Field, field_validator
+
 from app.enums import IconStyle
+
 
 class FAIcon(BaseModel):
     name: str = Field(description="Font Awesome icon name")
-    style: IconStyle = Field(default=IconStyle.fas, description="Font Awesome icon style (short name, .e.g. fas, fab, etc.)")
+    style: IconStyle = Field(
+        default=IconStyle.fas,
+        description="Font Awesome icon style (short name, .e.g. fas, fab, etc.)",
+    )
 
     @field_validator("style", mode="before")
     @classmethod

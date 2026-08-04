@@ -1,16 +1,19 @@
-from typing import Callable, TypeVar, Awaitable, cast
 import logging
+from collections.abc import Awaitable, Callable
 from functools import wraps
-from fastapi import Request, FastAPI
+from typing import TypeVar, cast
+
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from sqlalchemy.exc import NoResultFound, MultipleResultsFound, IntegrityError
+from sqlalchemy.exc import IntegrityError, MultipleResultsFound, NoResultFound
 
 logger = logging.getLogger(__name__)
 
-ExcT = TypeVar('ExcT', bound=Exception)
+ExcT = TypeVar("ExcT", bound=Exception)
+
 
 def log_exception(
-    func: Callable[[Request, ExcT], Awaitable[JSONResponse]]
+    func: Callable[[Request, ExcT], Awaitable[JSONResponse]],
 ) -> Callable[[Request, ExcT], Awaitable[JSONResponse]]:
     @wraps(func)
     async def wrapper(request: Request, exc: ExcT) -> JSONResponse:
@@ -22,15 +25,16 @@ def log_exception(
             "handler": func.__name__,
         }
 
-        if isinstance(exc, IntegrityError) and hasattr(exc, 'orig') and exc.orig is not None:
-            error_details['orig_error'] = str(exc.orig)
+        if isinstance(exc, IntegrityError) and hasattr(exc, "orig") and exc.orig is not None:
+            error_details["orig_error"] = str(exc.orig)
 
         logger.error(
-            f"Exception occurred: {exc.__class__.__name__} - {str(exc)}",
-            extra=error_details
+            f"Exception occurred: {exc.__class__.__name__} - {str(exc)}", extra=error_details
         )
         return await func(request, exc)
+
     return cast(Callable[[Request, ExcT], Awaitable[JSONResponse]], wrapper)
+
 
 def register_exception_handlers(app: FastAPI) -> None:
 
@@ -42,7 +46,9 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(MultipleResultsFound)
     @log_exception
     async def multiple_results_handler(_: Request, __: MultipleResultsFound) -> JSONResponse:
-        return JSONResponse(status_code=400, content={"detail": "Multiple records found when only one was expected"})
+        return JSONResponse(
+            status_code=400, content={"detail": "Multiple records found when only one was expected"}
+        )
 
     @app.exception_handler(IntegrityError)
     @log_exception

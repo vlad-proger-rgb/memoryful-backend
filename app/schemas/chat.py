@@ -1,12 +1,14 @@
-from uuid import UUID
 import datetime as dt
 from typing import Literal
-from pydantic import ConfigDict
+from uuid import UUID
+
 from fastapi_camelcase import CamelModel
+from pydantic import ConfigDict
 
 
 class ToolCallSchema(CamelModel):
     """A tool the assistant ran while producing a message."""
+
     name: str
     args: dict = {}
 

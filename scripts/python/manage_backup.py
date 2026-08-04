@@ -65,7 +65,7 @@ def _source_url(cli_url: str | None) -> str:
         if url:
             return url
     sys.exit(
-        "No source database URL. Pass --url \"postgresql://...\" or set "
+        'No source database URL. Pass --url "postgresql://..." or set '
         "BACKUP_SOURCE_URL in .env (get it from the Neon dashboard)."
     )
 
@@ -78,13 +78,23 @@ def backup(args: argparse.Namespace) -> None:
 
     # pg_dump runs inside the postgres image; ./backups is mounted at /backups.
     # -Fc = compressed custom format (restore is version-tolerant and selective).
-    _run([
-        "docker", "run", "--rm",
-        "-v", f"{BACKUPS_DIR}:/backups",
-        PG_IMAGE,
-        "pg_dump", url, "-Fc", "--no-owner", "--no-privileges",
-        "-f", f"/backups/{timestamped}",
-    ])
+    _run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            f"{BACKUPS_DIR}:/backups",
+            PG_IMAGE,
+            "pg_dump",
+            url,
+            "-Fc",
+            "--no-owner",
+            "--no-privileges",
+            "-f",
+            f"/backups/{timestamped}",
+        ]
+    )
 
     # Update the "latest" pointer the restore command and init script use.
     # copy2 streams the file instead of loading the whole dump into memory.
@@ -104,17 +114,30 @@ def restore(args: argparse.Namespace) -> None:
 
     print(f"Restoring backups/{dump_name} -> {LOCAL_DB_CONTAINER} ({db}) ...")
     # --clean --if-exists drops existing objects first so restore is idempotent.
-    _run([
-        "docker", "exec", LOCAL_DB_CONTAINER,
-        "pg_restore", "-U", user, "-d", db,
-        "--clean", "--if-exists", "--no-owner", "--no-privileges",
-        f"/backups/{dump_name}",
-    ])
+    _run(
+        [
+            "docker",
+            "exec",
+            LOCAL_DB_CONTAINER,
+            "pg_restore",
+            "-U",
+            user,
+            "-d",
+            db,
+            "--clean",
+            "--if-exists",
+            "--no-owner",
+            "--no-privileges",
+            f"/backups/{dump_name}",
+        ]
+    )
     print("\n✓ Local database restored from prod dump.")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_backup = sub.add_parser("backup", help="Dump the prod (Neon) database into ./backups")

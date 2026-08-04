@@ -1,18 +1,18 @@
 import datetime as dt
 import logging
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Chat
-from app.schemas import MessageSchema, ToolCallSchema
-from app.ai.utils import build_chat_model
 from app.ai.context import ChatContextBuilder
 from app.ai.mcp import load_mcp_tools
 from app.ai.services.chats import ChatStore
+from app.ai.utils import build_chat_model
+from app.models import Chat
+from app.schemas import MessageSchema, ToolCallSchema
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +106,9 @@ class ChatAgent:
         else:
             chat = await self.store.load(chat_id, user_id)
 
-        user_message = MessageSchema(role="user", content=content, created_at=dt.datetime.now(dt.UTC))
+        user_message = MessageSchema(
+            role="user", content=content, created_at=dt.datetime.now(dt.UTC)
+        )
         chat.messages = [*chat.messages, _dump(user_message)]
 
         reply_text = await self._generate_reply(chat, access_token)
@@ -141,7 +143,9 @@ class ChatAgent:
         else:
             chat = await self.store.load(chat_id, user_id)
 
-        user_message = MessageSchema(role="user", content=content, created_at=dt.datetime.now(dt.UTC))
+        user_message = MessageSchema(
+            role="user", content=content, created_at=dt.datetime.now(dt.UTC)
+        )
         chat.messages = [*chat.messages, _dump(user_message)]
 
         yield {
@@ -206,7 +210,10 @@ class ChatAgent:
             except Exception:
                 logger.exception("MCP agent stream failed (emitted=%s)", emitted)
                 if emitted:
-                    yield {"type": "error", "message": "The assistant stopped early. Please try again."}
+                    yield {
+                        "type": "error",
+                        "message": "The assistant stopped early. Please try again.",
+                    }
                     return
 
         async for event in self._stream_plain(llm, system_prompt, history):

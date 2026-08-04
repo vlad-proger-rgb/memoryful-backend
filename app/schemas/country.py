@@ -1,6 +1,7 @@
 from uuid import UUID
-from pydantic import ConfigDict
+
 from fastapi_camelcase import CamelModel
+from pydantic import ConfigDict
 
 
 class CountryInDB(CamelModel):

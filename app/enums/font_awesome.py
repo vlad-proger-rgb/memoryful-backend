@@ -1,5 +1,6 @@
 from enum import StrEnum
 
+
 class IconStyle(StrEnum):
     fas = "fas"  # Solid (default)
     far = "far"  # Regular

@@ -1,9 +1,9 @@
-from uuid import UUID
 import datetime as dt
+from uuid import UUID
 
-from pydantic import ConfigDict, Field, field_validator
-from fastapi_camelcase import CamelModel
 from dateutil.parser import parse
+from fastapi_camelcase import CamelModel
+from pydantic import ConfigDict, Field, field_validator
 
 from app.schemas.media import ResolvedBackground
 
@@ -31,6 +31,7 @@ class MonthBase(CamelModel):
         if value is None:
             return None
         return float(value)
+
 
 class MonthInDB(MonthBase):
     model_config = ConfigDict(from_attributes=True)

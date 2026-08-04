@@ -42,7 +42,9 @@ async def get_day_by_timestamp(ctx: Context, timestamp: int) -> dict[str, object
     return cast(dict[str, object], await client.get(f"/days/{timestamp}"))
 
 
-async def get_random_day(ctx: Context, timestampStart: int | None = None, timestampEnd: int | None = None) -> dict[str, object]:
+async def get_random_day(
+    ctx: Context, timestampStart: int | None = None, timestampEnd: int | None = None
+) -> dict[str, object]:
     """Get a random day with optional date range"""
     if timestampStart is not None:
         validate_non_negative_int(timestampStart, "timestampStart")

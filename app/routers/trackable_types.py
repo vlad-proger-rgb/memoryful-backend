@@ -1,17 +1,17 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Depends
-from sqlalchemy import select, update, delete
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
-from app.models import TrackableType
-from app.core.deps import get_current_user
 from app.core.cache import cached, clear_cache
+from app.core.database import get_db
+from app.core.deps import get_current_user
 from app.core.settings import CACHE_TTL_USER_DATA
+from app.models import TrackableType
 from app.schemas import Msg
-from app.schemas.trackable_type import TrackableTypeInDB, TrackableTypeCreate, TrackableTypeUpdate
+from app.schemas.trackable_type import TrackableTypeCreate, TrackableTypeInDB, TrackableTypeUpdate
 
 router = APIRouter(
     prefix="/trackable-types",
@@ -48,7 +48,7 @@ async def get_trackable_type(
     if not trackable_type:
         raise HTTPException(404, "Trackable type not found")
 
-    return Msg( 
+    return Msg(
         code=200,
         msg="Trackable type retrieved",
         data=TrackableTypeInDB.model_validate(trackable_type),
@@ -84,7 +84,7 @@ async def update_trackable_type(
         update(TrackableType)
         .where(TrackableType.id == id, TrackableType.user_id == user_id)
         .values(**update_data)
-    )
+    )  # fmt: skip
     result = await db.execute(stmt)
     await db.commit()
 

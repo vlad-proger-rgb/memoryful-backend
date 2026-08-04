@@ -1,11 +1,10 @@
 import pytest
 import respx
+from fastmcp import Context
 from httpx import Response
 
-from fastmcp import Context
-
-from .conftest import api_url
 from ..tools.workspaces import get_my_workspace
+from .conftest import api_url
 
 _FAKE_USER_ID = "00000000-0000-0000-0000-000000000001"
 

@@ -5,8 +5,9 @@ from typing import Any
 import httpx
 from fastmcp import Context
 from fastmcp.server.dependencies import get_http_headers
-from ..settings import MEMORYFUL_API_BASE_URL
+
 from ..schemas import Msg
+from ..settings import MEMORYFUL_API_BASE_URL
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,7 @@ class APIClient:
         if not endpoint:
             raise ValueError("endpoint cannot be empty")
 
-        endpoint = endpoint.lstrip('/')
+        endpoint = endpoint.lstrip("/")
         if not endpoint:
             raise ValueError("endpoint cannot be empty after normalization")
 
@@ -84,7 +85,11 @@ class APIClient:
 
             msg: Msg[object] = Msg.model_validate(raw)
             if msg.data is None:
-                logger.debug("API returned null data for %s %s - this may be valid for empty datasets", method, endpoint)
+                logger.debug(
+                    "API returned null data for %s %s - this may be valid for empty datasets",
+                    method,
+                    endpoint,
+                )
             return msg.data
 
     async def get(self, endpoint: str) -> Any:
@@ -93,7 +98,9 @@ class APIClient:
             return await self._make_request("GET", endpoint)
         except httpx.HTTPStatusError as e:
             url = f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
-            logger.error("HTTP error on GET %s: %s - %s", url, e.response.status_code, e.response.text)
+            logger.error(
+                "HTTP error on GET %s: %s - %s", url, e.response.status_code, e.response.text
+            )
             await self.ctx.error(f"HTTP error {e.response.status_code} on {url}: {e.response.text}")
             raise
         except Exception as e:

@@ -1,10 +1,10 @@
-import resend
 from pathlib import Path
+
+import resend
 from jinja2 import Environment, FileSystemLoader
 from pydantic import EmailStr
 
-from app.core.settings import RESEND_API_KEY, MAIL_FROM, MAIL_FROM_NAME
-
+from app.core.settings import MAIL_FROM, MAIL_FROM_NAME, RESEND_API_KEY
 
 resend.api_key = RESEND_API_KEY
 

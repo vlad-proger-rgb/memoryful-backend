@@ -1,16 +1,20 @@
-from uuid import UUID
 import datetime as dt
+from uuid import UUID
+
 from fastapi_camelcase import CamelModel
+
 
 class Token(CamelModel):
     access_token: str
     refresh_token: str | None = None
     token_type: str
 
+
 class AuthResponse(CamelModel):
     tokens: Token
     is_new_user: bool
     user_id: UUID
+
 
 class Session(CamelModel):
     id: UUID

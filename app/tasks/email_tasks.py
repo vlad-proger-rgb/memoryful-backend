@@ -7,8 +7,8 @@ from app.core.email_templates import EMAIL_TEMPLATES
 from app.core.resend_service import send_resend_email
 from app.enums import EmailTemplate
 
-
 logger = logging.getLogger(__name__)
+
 
 @celery.task(queue="email_queue")
 def send_email_task(email_type: EmailTemplate, recipients: list[EmailStr], body: dict) -> None:

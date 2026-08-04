@@ -1,11 +1,10 @@
 import pytest
 import respx
+from fastmcp import Context
 from httpx import Response
 
-from fastmcp import Context
-
+from ..tools.tags import get_tag_by_id, get_tags
 from .conftest import api_url
-from ..tools.tags import get_tags, get_tag_by_id
 
 _FAKE_TAG_ID = "00000000-0000-0000-0000-000000000001"
 _FAKE_TAG_ID_2 = "00000000-0000-0000-0000-000000000002"

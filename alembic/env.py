@@ -2,10 +2,9 @@ from logging.config import fileConfig
 
 from alembic import context
 
-from app.core.settings import MAIN_DATABASE_URL
-from app.core.database import Base
 import app.models  # noqa: F401
-
+from app.core.database import Base
+from app.core.settings import MAIN_DATABASE_URL
 
 config = context.config
 
@@ -39,6 +38,7 @@ async def run_migrations_online() -> None:
     connectable = get_engine()
 
     async with connectable.connect() as connection:
+
         def do_run_migrations(sync_connection) -> None:
             context.configure(
                 connection=sync_connection,

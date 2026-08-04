@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 
 from app.core.utils import get_secret
@@ -89,11 +90,11 @@ TRUSTED_EMAILS = {
     e.strip().lower()
     for e in os.getenv("TRUSTED_EMAILS", "").split(",")
     if e.strip()
-}
+}  # fmt: skip
 
 # CORS
-_allowed_origins_raw = os.getenv('ALLOWED_ORIGINS', '')
-ALLOWED_ORIGINS = [o.strip() for o in _allowed_origins_raw.split(',') if o.strip()]
+_allowed_origins_raw = os.getenv("ALLOWED_ORIGINS", "")
+ALLOWED_ORIGINS = [o.strip() for o in _allowed_origins_raw.split(",") if o.strip()]
 if not ALLOWED_ORIGINS and ENVIRONMENT == "development":
     ALLOWED_ORIGINS = [
         "http://localhost:5173",
@@ -102,13 +103,13 @@ if not ALLOWED_ORIGINS and ENVIRONMENT == "development":
         "http://127.0.0.1:3000",
     ]
 
-_allow_credentials_raw = os.getenv('ALLOW_CREDENTIALS')
+_allow_credentials_raw = os.getenv("ALLOW_CREDENTIALS")
 if _allow_credentials_raw is None:
     ALLOW_CREDENTIALS = ENVIRONMENT == "development"
 else:
-    ALLOW_CREDENTIALS = _allow_credentials_raw.lower() == 'true'
-ALLOWED_METHODS = os.getenv('ALLOWED_METHODS', '*').split(',')
-ALLOWED_HEADERS = os.getenv('ALLOWED_HEADERS', '*').split(',')
+    ALLOW_CREDENTIALS = _allow_credentials_raw.lower() == "true"
+ALLOWED_METHODS = os.getenv("ALLOWED_METHODS", "*").split(",")
+ALLOWED_HEADERS = os.getenv("ALLOWED_HEADERS", "*").split(",")
 
 # S3 / MinIO (now GCS-compatible) - Environment-based configuration
 if ENVIRONMENT == "development":
@@ -122,7 +123,9 @@ else:
     # Production with GCS - ensure endpoint is always set
     S3_ENDPOINT_URL = os.getenv("S3_ENDPOINT_URL", "https://storage.googleapis.com")
     S3_ACCESS_KEY_ID = get_secret("S3_ACCESS_KEY_ID") or os.getenv("S3_ACCESS_KEY_ID", "")
-    S3_SECRET_ACCESS_KEY = get_secret("S3_SECRET_ACCESS_KEY") or os.getenv("S3_SECRET_ACCESS_KEY", "")
+    S3_SECRET_ACCESS_KEY = get_secret("S3_SECRET_ACCESS_KEY") or os.getenv(
+        "S3_SECRET_ACCESS_KEY", ""
+    )
     S3_REGION = os.getenv("S3_REGION", "europe-central2")
     S3_BUCKET = os.getenv("S3_BUCKET", "memoryful")
     S3_PUBLIC_BASE_URL = os.getenv("S3_PUBLIC_BASE_URL", "https://storage.googleapis.com")
@@ -137,11 +140,13 @@ RP_CHAT_LIST = "chat_list:"
 
 # Cache TTLs (seconds)
 CACHE_ENABLED = os.getenv("CACHE_ENABLED", "true").lower() == "true"
-CACHE_TTL_STATIC = 60 * 60 * 6       # global reference data: countries, cities, chat models
-CACHE_TTL_USER_DATA = 60 * 5         # small per-user data mutable via API: tags, trackable types, workspace
-CACHE_TTL_DAYS = 60 * 10             # days / months
+CACHE_TTL_STATIC = 60 * 60 * 6  # global reference data: countries, cities, chat models
+CACHE_TTL_USER_DATA = (
+    60 * 5
+)  # small per-user data mutable via API: tags, trackable types, workspace
+CACHE_TTL_DAYS = 60 * 10  # days / months
 CACHE_TTL_AI_CONTENT = 60 * 60 * 24  # AI-generated insights/suggestions, immutable once generated
-CACHE_TTL_CHAT_HOT = 60 * 60         # hot chat cache (write-through; DB remains source of truth)
+CACHE_TTL_CHAT_HOT = 60 * 60  # hot chat cache (write-through; DB remains source of truth)
 
 # LLM Configuration
 #

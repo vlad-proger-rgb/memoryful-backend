@@ -1,5 +1,6 @@
 import hashlib
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from fastapi_cache.decorator import cache
 
@@ -36,10 +37,12 @@ def cached(*, expire: int, namespace: str) -> Callable:
     `cache_key_builder` and can be globally disabled via the `CACHE_ENABLED`
     setting (env var `CACHE_ENABLED=false`) to A/B compare with/without caching.
     """
+
     def decorator(func: Callable) -> Callable:
         if not CACHE_ENABLED:
             return func
         return cache(expire=expire, namespace=namespace, key_builder=cache_key_builder)(func)
+
     return decorator
 
 

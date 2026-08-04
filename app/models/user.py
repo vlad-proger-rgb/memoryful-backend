@@ -33,24 +33,23 @@ class User(Base, IDMixin, TimestampWithUpdateMixin):
     trackable_types: Mapped[list["TrackableType"]] = relationship(back_populates="user")
     trackable_items: Mapped[list["TrackableItem"]] = relationship(back_populates="user")
     trackable_progresses: Mapped[list["TrackableProgress"]] = relationship(
-        back_populates="user", 
-        overlaps="day,trackable_progresses"
+        back_populates="user", overlaps="day,trackable_progresses"
     )
 
     workspace_backgrounds: Mapped[list["WorkspaceBackground"]] = relationship(back_populates="user")
 
 
-from .user_token import UserToken
-from .month import Month
-from .day import Day
-from .tag import Tag
-from .search_history import SearchHistory
 from .chat import Chat
-from .insight import Insight
-from .suggestion import Suggestion
-from .country import Country
 from .city import City
-from .trackable_type import TrackableType
+from .country import Country
+from .day import Day
+from .insight import Insight
+from .month import Month
+from .search_history import SearchHistory
+from .suggestion import Suggestion
+from .tag import Tag
 from .trackable_item import TrackableItem
 from .trackable_progress import TrackableProgress
+from .trackable_type import TrackableType
+from .user_token import UserToken
 from .workspace import WorkspaceBackground

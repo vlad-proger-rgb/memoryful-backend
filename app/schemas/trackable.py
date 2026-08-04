@@ -1,7 +1,7 @@
 from uuid import UUID
 
-from pydantic import ConfigDict
 from fastapi_camelcase import CamelModel
+from pydantic import ConfigDict
 
 
 class TrackableBase(CamelModel):
@@ -10,16 +10,20 @@ class TrackableBase(CamelModel):
     description: str | None = None
     icon: "FAIcon | None" = None
 
+
 class TrackableInDB(TrackableBase):
     id: UUID
     type_id: UUID
 
+
 class TrackableDetail(TrackableInDB):
     meta: dict | None = None
+
 
 class TrackableCreate(TrackableBase):
     type_id: UUID
     meta: dict | None = None
+
 
 class TrackableUpdate(CamelModel):
     title: str | None = None
@@ -27,5 +31,6 @@ class TrackableUpdate(CamelModel):
     icon: "FAIcon | None" = None
     meta: dict | None = None
     type_id: UUID | None = None
+
 
 from .font_awesome import FAIcon

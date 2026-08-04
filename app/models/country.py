@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.core.database import Base
 from app.models._mixins import IDMixin
 
@@ -11,6 +12,7 @@ class Country(Base, IDMixin):
 
     cities: Mapped[list["City"]] = relationship(back_populates="country")
     users: Mapped[list["User"]] = relationship(back_populates="country")
+
 
 from .city import City
 from .user import User

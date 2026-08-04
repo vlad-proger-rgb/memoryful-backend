@@ -1,18 +1,17 @@
 import logging
-from typing import Type, Optional
 
-from sqlalchemy import TypeDecorator, JSON
-from sqlalchemy.engine import Dialect
 from pydantic import BaseModel, ValidationError
-
+from sqlalchemy import JSON, TypeDecorator
+from sqlalchemy.engine import Dialect
 
 logger = logging.getLogger(__name__)
+
 
 class PydanticType[T: BaseModel](TypeDecorator):
     impl = JSON
     cache_ok = True
 
-    def __init__(self, pydantic_model: Type[T], *args: object, **kwargs: object) -> None:
+    def __init__(self, pydantic_model: type[T], *args: object, **kwargs: object) -> None:
         self.pydantic_model = pydantic_model
         super().__init__(*args, **kwargs)
 
@@ -32,7 +31,7 @@ class PydanticType[T: BaseModel](TypeDecorator):
 
         return value
 
-    def process_result_value(self, value: Optional[dict], dialect: Dialect) -> Optional[T]:
+    def process_result_value(self, value: dict | None, dialect: Dialect) -> T | None:
         if value is None:
             return None
 

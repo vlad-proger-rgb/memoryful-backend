@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from . import chats, completions, chat_models
+from . import chat_models, chats, completions
 
 router = APIRouter(prefix="/ai")
 router.include_router(chats.router)

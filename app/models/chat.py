@@ -1,10 +1,10 @@
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, JSON
+from sqlalchemy import JSON, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
-from app.models._mixins import IDMixin, TimestampWithUpdateMixin, SoftDeleteMixin
+from app.models._mixins import IDMixin, SoftDeleteMixin, TimestampWithUpdateMixin
 
 
 class Chat(Base, IDMixin, TimestampWithUpdateMixin, SoftDeleteMixin):
@@ -18,5 +18,6 @@ class Chat(Base, IDMixin, TimestampWithUpdateMixin, SoftDeleteMixin):
     user: Mapped["User"] = relationship(back_populates="chats")
     chat_model: Mapped["ChatModel"] = relationship(back_populates="chats")
 
-from .user import User
+
 from .chat_model import ChatModel
+from .user import User

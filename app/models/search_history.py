@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, ARRAY, String
+from sqlalchemy import ARRAY, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -15,5 +15,6 @@ class SearchHistory(Base, IDMixin, TimestampMixin):
     results: Mapped[list[str]] = mapped_column(ARRAY(String))
 
     user: Mapped["User"] = relationship(back_populates="search_history")
+
 
 from .user import User

@@ -1,13 +1,14 @@
 from fastapi import APIRouter, HTTPException
 
-from app.tasks.email_tasks import send_email_task
-from app.schemas import Msg, EmailSchema
 from app.enums import EmailTemplate
+from app.schemas import EmailSchema, Msg
+from app.tasks.email_tasks import send_email_task
 
 router = APIRouter(
     prefix="/email-sender",
     tags=["Email Sender"],
 )
+
 
 @router.post("/send-email", response_model=Msg[None])
 async def send_email(data: EmailSchema) -> Msg[None]:

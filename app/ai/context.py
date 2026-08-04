@@ -14,10 +14,10 @@ from jinja2 import Environment, FileSystemLoader
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.utils import load_prompt, prompts_dir
 from app.core.config import redis
-from app.core.settings import RP_AI_CONTEXT, CACHE_TTL_USER_DATA
+from app.core.settings import CACHE_TTL_USER_DATA, RP_AI_CONTEXT
 from app.models import User
-from app.ai.utils import prompts_dir, load_prompt
 
 logger = logging.getLogger(__name__)
 

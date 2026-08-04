@@ -29,12 +29,12 @@ class TrackableProgress(Base, IDMixin):
 
     __table_args__ = (
         ForeignKeyConstraint(
-            ["timestamp", "user_id"], 
+            ["timestamp", "user_id"],
             ["days.timestamp", "days.user_id"],
         ),
     )
 
 
-from .user import User
 from .day import Day
 from .trackable_item import TrackableItem
+from .user import User

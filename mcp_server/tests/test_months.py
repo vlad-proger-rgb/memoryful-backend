@@ -1,11 +1,10 @@
 import pytest
 import respx
+from fastmcp import Context
 from httpx import Response
 
-from fastmcp import Context
-
+from ..tools.months import get_month_by_year_and_month_number, get_months_by_year
 from .conftest import api_url
-from ..tools.months import get_months_by_year, get_month_by_year_and_month_number
 
 _FAKE_USER_ID = "00000000-0000-0000-0000-000000000001"
 

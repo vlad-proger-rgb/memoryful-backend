@@ -1,7 +1,8 @@
-from uuid import UUID
 import datetime as dt
-from pydantic import ConfigDict, Field
+from uuid import UUID
+
 from fastapi_camelcase import CamelModel
+from pydantic import ConfigDict, Field
 
 
 class DayBase(CamelModel):
@@ -30,10 +31,16 @@ class DayDetail(DayBase):
     completed_at: dt.datetime | None = None
     ai_generated_at: dt.datetime | None = None
     images: list[str] | None = Field(default_factory=list)
-    trackable_progresses: list["TrackableTypeWithProgress"] = Field(default_factory=list, description="List of trackable types with their associated progresses")
+    trackable_progresses: list["TrackableTypeWithProgress"] = Field(
+        default_factory=list, description="List of trackable types with their associated progresses"
+    )
     tags: list["TagInDB"] | None = Field(default_factory=list)
-    insights: list["InsightInDB"] | None = Field(default_factory=list, description="List of insights for this day")
-    suggestions: list["SuggestionInDB"] | None = Field(default_factory=list, description="List of suggestions for this day")
+    insights: list["InsightInDB"] | None = Field(
+        default_factory=list, description="List of insights for this day"
+    )
+    suggestions: list["SuggestionInDB"] | None = Field(
+        default_factory=list, description="List of suggestions for this day"
+    )
 
 
 class DayCreate(CamelModel):
@@ -61,6 +68,7 @@ class DayUpdate(CamelModel):
 
 class DayFilters(CamelModel):
     """Advanced filters for days querying."""
+
     model_config = ConfigDict(
         populate_by_name=True,
         from_attributes=True,
@@ -73,15 +81,9 @@ class DayFilters(CamelModel):
         None,
         description="Filter by description. Operators: like, eq, ne. Example: {'like': 'park'}",
     )
-    starred: bool | None = Field(
-        None, description="Filter by starred status"
-    )
-    city_id: UUID | None = Field(
-        None, description="Filter by city ID", alias="cityId"
-    )
-    country_id: str | None = Field(
-        None, description="Filter by country ID", alias="countryId"
-    )
+    starred: bool | None = Field(None, description="Filter by starred status")
+    city_id: UUID | None = Field(None, description="Filter by city ID", alias="cityId")
+    country_id: str | None = Field(None, description="Filter by country ID", alias="countryId")
     created_after: int | None = Field(
         None, description="Filter by creation timestamp (after)", alias="createdAfter"
     )
@@ -90,8 +92,12 @@ class DayFilters(CamelModel):
     )
 
 
-from .city import CityInDB, CityDetail
-from .tag import TagInDB
-from .day_trackable_progress import DayTrackableProgress, DayTrackableProgressUpdate, TrackableTypeWithProgress
+from .city import CityDetail, CityInDB
+from .day_trackable_progress import (
+    DayTrackableProgress,
+    DayTrackableProgressUpdate,
+    TrackableTypeWithProgress,
+)
 from .insight import InsightInDB
 from .suggestion import SuggestionInDB
+from .tag import TagInDB

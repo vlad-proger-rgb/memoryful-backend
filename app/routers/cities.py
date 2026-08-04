@@ -3,24 +3,23 @@ from uuid import UUID
 
 from fastapi import (
     APIRouter,
-    HTTPException,
     Depends,
+    HTTPException,
     Query,
 )
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.schemas import (
-    Msg,
-    CityInDB,
-    CityDetail,
-)
-from app.core.database import get_db
 from app.core.cache import cached
+from app.core.database import get_db
 from app.core.settings import CACHE_TTL_STATIC
-from app.models import Country, City
-
+from app.models import City, Country
+from app.schemas import (
+    CityDetail,
+    CityInDB,
+    Msg,
+)
 
 router = APIRouter(
     prefix="/cities",
@@ -46,7 +45,7 @@ async def get_cities_by_country_id(
         .where(City.country_id == country_id)
         .limit(limit)
         .offset(offset)
-    )
+    )  # fmt: skip
 
     if query:
         stmt = stmt.where(City.name.ilike(f"%{query}%"))
@@ -68,4 +67,3 @@ async def get_city_by_id(
         raise HTTPException(404, "City not found")
 
     return Msg(code=200, msg="City retrieved", data=CityDetail.model_validate(city))
-

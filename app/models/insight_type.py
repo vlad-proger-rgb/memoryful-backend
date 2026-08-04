@@ -15,4 +15,5 @@ class InsightType(Base, IDMixin):
 
     insights: Mapped[list["Insight"]] = relationship(back_populates="insight_type")
 
+
 from .insight import Insight

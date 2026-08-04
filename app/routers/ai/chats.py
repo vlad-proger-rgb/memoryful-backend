@@ -2,13 +2,12 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.services.chats import ChatStore
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.ai.services.chats import ChatStore
-from app.schemas import Msg, ChatListItem, ChatDetail, ChatCreate, ChatUpdate
+from app.schemas import ChatCreate, ChatDetail, ChatListItem, ChatUpdate, Msg
 
 router = APIRouter(
     prefix="/chats",

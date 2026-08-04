@@ -1,21 +1,21 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Depends, Query
-from sqlalchemy import select, exists, update, delete, or_
-from sqlalchemy.orm import selectinload
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import delete, exists, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.core.database import get_db
-from app.models import TrackableItem, TrackableType
-from app.core.deps import get_current_user
 from app.core.cache import cached, clear_cache
+from app.core.database import get_db
+from app.core.deps import get_current_user
 from app.core.settings import CACHE_TTL_USER_DATA
+from app.models import TrackableItem, TrackableType
 from app.schemas import Msg
 from app.schemas.trackable import (
+    TrackableCreate,
     TrackableDetail,
     TrackableInDB,
-    TrackableCreate,
     TrackableUpdate,
 )
 
@@ -43,14 +43,16 @@ async def get_trackables(
         stmt = stmt.where(
             or_(
                 TrackableItem.title.ilike(search_term),
-                TrackableItem.description.ilike(search_term) if TrackableItem.description is not None else False,
+                TrackableItem.description.ilike(search_term)
+                if TrackableItem.description is not None
+                else False,
             )
         )
 
     trackables = await db.scalars(stmt)
     return Msg(
-        code=200, 
-        msg="Trackable items retrieved", 
+        code=200,
+        msg="Trackable items retrieved",
         data=[TrackableInDB.model_validate(t) for t in trackables],
     )
 
@@ -62,17 +64,23 @@ async def get_trackable(
     user_id: Annotated[UUID, Depends(get_current_user())],
     id: UUID,
 ) -> Msg[TrackableDetail]:
-    stmt = select(TrackableItem).where(
-        TrackableItem.id == id, 
-        TrackableItem.user_id == user_id,
-    ).options(
-        selectinload(TrackableItem.type),
+    stmt = (
+        select(TrackableItem)
+        .where(
+            TrackableItem.id == id,
+            TrackableItem.user_id == user_id,
+        )
+        .options(
+            selectinload(TrackableItem.type),
+        )
     )
     trackable = await db.scalar(stmt)
     if not trackable:
         raise HTTPException(404, "Trackable item not found")
 
-    return Msg(code=200, msg="Trackable item retrieved", data=TrackableDetail.model_validate(trackable))
+    return Msg(
+        code=200, msg="Trackable item retrieved", data=TrackableDetail.model_validate(trackable)
+    )
 
 
 @router.post("/", response_model=Msg[UUID])
@@ -89,10 +97,12 @@ async def create_trackable(
     if not type_result:
         raise HTTPException(404, "Trackable type not found")
 
-    exists_stmt = select(exists().where(
-        TrackableItem.title == data.title,
-        TrackableItem.user_id == user_id,
-    ))
+    exists_stmt = select(
+        exists().where(
+            TrackableItem.title == data.title,
+            TrackableItem.user_id == user_id,
+        )
+    )
     exists_result = await db.execute(exists_stmt)
     if exists_result.scalar_one_or_none():
         raise HTTPException(409, "Trackable item with the same title already exists")
@@ -113,10 +123,12 @@ async def update_trackable(
     data: TrackableUpdate,
     id: UUID,
 ) -> Msg[None]:
-    stmt = select(exists().where(
-        TrackableItem.id == id, 
-        TrackableItem.user_id == user_id,
-    ))
+    stmt = select(
+        exists().where(
+            TrackableItem.id == id,
+            TrackableItem.user_id == user_id,
+        )
+    )
     result = await db.execute(stmt)
     if not result.scalar_one_or_none():
         raise HTTPException(404, "Trackable item not found")
@@ -138,7 +150,7 @@ async def update_trackable(
         update(TrackableItem)
         .where(TrackableItem.id == id, TrackableItem.user_id == user_id)
         .values(**update_data)
-    )
+    )  # fmt: skip
     await db.commit()
 
     await clear_cache("trackables")
@@ -156,7 +168,7 @@ async def delete_trackable(
     id: UUID,
 ) -> Msg[None]:
     stmt = delete(TrackableItem).where(
-        TrackableItem.id == id, 
+        TrackableItem.id == id,
         TrackableItem.user_id == user_id,
     )
     result = await db.execute(stmt)

@@ -2,20 +2,19 @@ import datetime as dt
 import logging
 from uuid import UUID
 
+from langchain_core.messages import HumanMessage, SystemMessage
+from openai import OpenAIError
 from pydantic import BaseModel
 from sqlalchemy import and_, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from openai import OpenAIError
 
-from langchain_core.messages import HumanMessage, SystemMessage
-
-from app.core.database import AsyncSessionLocal
+from app.ai.services.day.parsing import extract_json_array, sanitize_items
+from app.ai.utils import build_chat_model, get_default_chat_model, load_prompt
 from app.core.cache import clear_cache
+from app.core.database import AsyncSessionLocal
 from app.core.settings import LLM_MODE, LOCAL_LLM_MODEL
 from app.models import Day, Insight, InsightType, Suggestion
 from app.schemas.font_awesome import FAIcon
-from app.ai.utils import load_prompt, build_chat_model, get_default_chat_model
-from app.ai.services.day.parsing import extract_json_array, sanitize_items
 
 
 def handle_openai_model_error(e: OpenAIError) -> None:
@@ -40,8 +39,9 @@ class _AIItemList(BaseModel):
     items: list[_AIItem]
 
 
-
-async def _get_or_create_insight_type(db: AsyncSession, name: str, duration: dt.timedelta) -> InsightType:
+async def _get_or_create_insight_type(
+    db: AsyncSession, name: str, duration: dt.timedelta
+) -> InsightType:
     existing = await db.scalar(select(InsightType).where(InsightType.name == name))
     if existing:
         return existing
@@ -62,9 +62,13 @@ async def _replace_daily_insights(
     date_begin: dt.date,
     items: list[dict],
 ) -> None:
-    logging.info(f"Replacing daily insights for user {user_id} on {date_begin} with {len(items)} items")
+    logging.info(
+        f"Replacing daily insights for user {user_id} on {date_begin} with {len(items)} items"
+    )
 
-    insight_type = await _get_or_create_insight_type(db, name="daily", duration=dt.timedelta(days=1))
+    insight_type = await _get_or_create_insight_type(
+        db, name="daily", duration=dt.timedelta(days=1)
+    )
 
     await db.execute(
         delete(Insight).where(
@@ -78,7 +82,9 @@ async def _replace_daily_insights(
 
     insights_to_create = []
     for i, item in enumerate(items):
-        logging.info(f"Creating insight {i+1}: description='{item.get('description', '')[:50]}...', icon={item.get('icon')}")
+        logging.info(
+            f"Creating insight {i + 1}: description='{item.get('description', '')[:50]}...', icon={item.get('icon')}"
+        )
         insights_to_create.append(
             Insight(
                 user_id=user_id,
@@ -106,7 +112,9 @@ async def _replace_daily_suggestions(
     date: dt.date,
     items: list[dict],
 ) -> None:
-    logging.info(f"Replacing daily suggestions for user {user_id} on {date} with {len(items)} items")
+    logging.info(
+        f"Replacing daily suggestions for user {user_id} on {date} with {len(items)} items"
+    )
 
     await db.execute(
         delete(Suggestion).where(
@@ -119,7 +127,9 @@ async def _replace_daily_suggestions(
 
     suggestions_to_create = []
     for i, item in enumerate(items):
-        logging.info(f"Creating suggestion {i+1}: description='{item.get('description', '')[:50]}...', icon={item.get('icon')}")
+        logging.info(
+            f"Creating suggestion {i + 1}: description='{item.get('description', '')[:50]}...', icon={item.get('icon')}"
+        )
         suggestions_to_create.append(
             Suggestion(
                 user_id=user_id,
@@ -162,22 +172,34 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
         date = dt.datetime.fromtimestamp(timestamp, tz=dt.UTC).date()
 
         existing_insights = (
-            await db.execute(
-                select(Insight).where(and_(
-                    Insight.user_id == user_id, 
-                    Insight.timestamp == timestamp,
-                ))
+            (
+                await db.execute(
+                    select(Insight).where(
+                        and_(
+                            Insight.user_id == user_id,
+                            Insight.timestamp == timestamp,
+                        )
+                    )
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
         existing_suggestions = (
-            await db.execute(
-                select(Suggestion).where(and_(
-                    Suggestion.user_id == user_id,
-                    Suggestion.timestamp == timestamp,
-                ))
+            (
+                await db.execute(
+                    select(Suggestion).where(
+                        and_(
+                            Suggestion.user_id == user_id,
+                            Suggestion.timestamp == timestamp,
+                        )
+                    )
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
         existing_section_lines: list[str] = []
         if existing_insights:
@@ -203,7 +225,9 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
         async def _invoke_items(*, prompt: str, context: str) -> list[dict]:
             structured_llm = llm.with_structured_output(_AIItemList)
             try:
-                logging.info(f"Attempting structured output generation for {len(context)} characters of context")
+                logging.info(
+                    f"Attempting structured output generation for {len(context)} characters of context"
+                )
                 parsed = await structured_llm.ainvoke(
                     [
                         SystemMessage(content=system_base),
@@ -214,7 +238,9 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
                 result = [i.model_dump() for i in parsed.items]  # type: ignore
                 logging.info(f"Structured output succeeded, generated {len(result)} items")
                 for i, item in enumerate(result):
-                    logging.info(f"Item {i+1}: description='{item.get('description', '')[:50]}...', icon={item.get('icon')}")
+                    logging.info(
+                        f"Item {i + 1}: description='{item.get('description', '')[:50]}...', icon={item.get('icon')}"
+                    )
                 return result
             except Exception as e:
                 logging.warning(f"Structured output failed: {e}. Falling back to text parsing")
@@ -234,7 +260,9 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
                     result = extract_json_array(raw_content)
                     logging.info(f"Text parsing succeeded, extracted {len(result)} items")
                     for i, item in enumerate(result):
-                        logging.info(f"Item {i+1}: description='{item.get('description', '')[:50]}...', icon={item.get('icon')}")
+                        logging.info(
+                            f"Item {i + 1}: description='{item.get('description', '')[:50]}...', icon={item.get('icon')}"
+                        )
                     return result
                 except Exception as parse_error:
                     logging.error(f"Text parsing also failed: {parse_error}")
@@ -264,7 +292,9 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
         )
 
         try:
-            suggestion_items = await _invoke_items(prompt=suggestions_prompt, context=suggestions_context)
+            suggestion_items = await _invoke_items(
+                prompt=suggestions_prompt, context=suggestions_context
+            )
         except OpenAIError as e:
             handle_openai_model_error(e)
 
@@ -285,4 +315,6 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
         await clear_cache("days_detail")
         await clear_cache("days_list")
 
-        logging.info(f"AI generation completed successfully for user {user_id}, timestamp {timestamp}")
+        logging.info(
+            f"AI generation completed successfully for user {user_id}, timestamp {timestamp}"
+        )

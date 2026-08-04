@@ -1,43 +1,42 @@
-from typing import Annotated, Literal
 import datetime as dt
-from uuid import UUID
 from collections import defaultdict
+from typing import Annotated, Literal
+from uuid import UUID
 
 from fastapi import (
     APIRouter,
-    HTTPException,
-    Depends,
-    Query,
     BackgroundTasks,
+    Depends,
+    HTTPException,
+    Query,
 )
 from pydantic import ValidationError
-from sqlalchemy import select, update, delete, exists, func, and_
-from sqlalchemy.sql import Select
-from sqlalchemy.orm import selectinload, load_only
+from sqlalchemy import and_, delete, exists, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import load_only, selectinload
+from sqlalchemy.sql import Select
 
-from app.core.database import get_db
-from app.core.storage.utils import as_key_set
-from app.models import Day, City, Tag, TrackableItem, TrackableProgress
-from app.core.deps import get_current_user, StorageServiceDep
 from app.core.cache import cached, clear_cache
+from app.core.database import get_db
+from app.core.deps import StorageServiceDep, get_current_user
 from app.core.settings import CACHE_TTL_DAYS
-from app.enums.sorting import SortOrder, DaySortField
-from app.tasks.ai_tasks import generate_day_ai
+from app.core.storage.utils import as_key_set
+from app.enums.sorting import DaySortField, SortOrder
+from app.models import City, Day, Tag, TrackableItem, TrackableProgress
 from app.schemas import (
-    Msg,
-    DayListItem,
-    DayDetail,
     DayCreate,
-    DayUpdate,
+    DayDetail,
     DayFilters,
+    DayListItem,
     DayTrackableProgress,
-    TrackableTypeWithProgress,
-    TrackableTypeInDB,
+    DayUpdate,
     InsightInDB,
+    Msg,
     SuggestionInDB,
+    TrackableTypeInDB,
+    TrackableTypeWithProgress,
 )
-
+from app.tasks.ai_tasks import generate_day_ai
 
 router = APIRouter(
     prefix="/days",
@@ -45,14 +44,19 @@ router = APIRouter(
 )
 
 
-def _apply_filters(stmt: Select, filters: DayFilters | None, tag_names: list[str] | None = None, user_id: UUID | None = None) -> Select:
+def _apply_filters(
+    stmt: Select,
+    filters: DayFilters | None,
+    tag_names: list[str] | None = None,
+    user_id: UUID | None = None,
+) -> Select:
     if tag_names:
         # Subquery: find days that have ALL the specified tags
         tag_select = (
             select(Day.timestamp, Day.user_id)
             .join(Day.tags)
             .where(Tag.name.in_(tag_names))
-        )
+        )  # fmt: skip
         if user_id:
             tag_select = tag_select.where(Tag.user_id == user_id)
         tag_subquery = (
@@ -60,12 +64,9 @@ def _apply_filters(stmt: Select, filters: DayFilters | None, tag_names: list[str
             .group_by(Day.timestamp, Day.user_id)
             .having(func.count(Tag.id) == len(tag_names))
             .subquery()
-        )
+        )  # fmt: skip
         stmt = stmt.where(
-            and_(
-                Day.timestamp == tag_subquery.c.timestamp,
-                Day.user_id == tag_subquery.c.user_id
-            )
+            and_(Day.timestamp == tag_subquery.c.timestamp, Day.user_id == tag_subquery.c.user_id)
         )
 
     if not filters:
@@ -86,26 +87,26 @@ def _apply_filters(stmt: Select, filters: DayFilters | None, tag_names: list[str
 
     if filters.steps:
         for op, steps in filters.steps.items():
-            if op == 'gt':
+            if op == "gt":
                 conditions.append(Day.steps > steps)
-            elif op == 'lt':
+            elif op == "lt":
                 conditions.append(Day.steps < steps)
-            elif op == 'gte':
+            elif op == "gte":
                 conditions.append(Day.steps >= steps)
-            elif op == 'lte':
+            elif op == "lte":
                 conditions.append(Day.steps <= steps)
-            elif op == 'eq':
+            elif op == "eq":
                 conditions.append(Day.steps == steps)
-            elif op == 'ne':
+            elif op == "ne":
                 conditions.append(Day.steps != steps)
 
     if filters.description:
         for op, description in filters.description.items():
-            if op == 'like':
-                conditions.append(Day.description.ilike(f'%{description}%'))
-            elif op == 'eq':
+            if op == "like":
+                conditions.append(Day.description.ilike(f"%{description}%"))
+            elif op == "eq":
                 conditions.append(Day.description == description)
-            elif op == 'ne':
+            elif op == "ne":
                 conditions.append(Day.description != description)
 
     if conditions:
@@ -114,7 +115,9 @@ def _apply_filters(stmt: Select, filters: DayFilters | None, tag_names: list[str
     return stmt
 
 
-def _apply_sorting(stmt: Select, sort_field: DaySortField | None, sort_order: SortOrder = SortOrder.DESC) -> Select:
+def _apply_sorting(
+    stmt: Select, sort_field: DaySortField | None, sort_order: SortOrder = SortOrder.DESC
+) -> Select:
     if not sort_field:
         return stmt.order_by(Day.timestamp.desc())
 
@@ -179,7 +182,7 @@ async def get_days(
         name.strip() 
         for name in (tag_names.split(",") if tag_names else []) 
         if name.strip()
-    ]
+    ]  # fmt: skip
 
     stmt = select(Day).where(Day.user_id == user_id)
 
@@ -205,7 +208,7 @@ async def get_days(
             selectinload(Day.trackable_progresses)
                 .selectinload(TrackableProgress.trackable_item)
                 .selectinload(TrackableItem.type),
-        )
+        )  # fmt: skip
     else:
         stmt = stmt.options(
             selectinload(Day.tags),
@@ -214,16 +217,14 @@ async def get_days(
             selectinload(Day.trackable_progresses)
                 .selectinload(TrackableProgress.trackable_item)
                 .selectinload(TrackableItem.type),
-        )
+        )  # fmt: skip
 
     result = await db.execute(stmt)
     days = list(result.scalars().unique())
 
     response_model = DayDetail if view == "detail" else DayListItem
     return Msg(
-        code=200,
-        msg="Days retrieved",
-        data=[response_model.model_validate(day) for day in days]
+        code=200, msg="Days retrieved", data=[response_model.model_validate(day) for day in days]
     )
 
 
@@ -249,7 +250,7 @@ async def get_random_day(
         )
         .order_by(func.random())
         .limit(1)
-    )
+    )  # fmt: skip
 
     if timestamp_start:
         stmt = stmt.where(Day.timestamp >= timestamp_start)
@@ -276,13 +277,13 @@ async def get_random_day(
             progresses=progresses
         )
         for type_id, progresses in progresses_by_type.items()
-    ]
+    ]  # fmt: skip
 
     insights = [InsightInDB.model_validate(i) for i in day.insights]
     suggestions = [SuggestionInDB.model_validate(s) for s in day.suggestions]
 
     day_data = {
-        **{k: v for k, v in day.__dict__.items() if not k.startswith('_')},
+        **{k: v for k, v in day.__dict__.items() if not k.startswith("_")},
         "trackable_progresses": trackable_progresses,
         "insights": insights,
         "suggestions": suggestions,
@@ -313,7 +314,7 @@ async def get_day(
             selectinload(Day.suggestions),
         )
         .where(Day.timestamp == timestamp, Day.user_id == user_id)
-    )
+    )  # fmt: skip
     day = await db.scalar(stmt)
     if not day:
         raise HTTPException(404, "Day not found")
@@ -332,13 +333,13 @@ async def get_day(
             progresses=progresses
         )
         for type_id, progresses in progresses_by_type.items()
-    ]
+    ]  # fmt: skip
 
     insights = [InsightInDB.model_validate(i) for i in day.insights]
     suggestions = [SuggestionInDB.model_validate(s) for s in day.suggestions]
 
     day_data = {
-        **{k: v for k, v in day.__dict__.items() if not k.startswith('_')},
+        **{k: v for k, v in day.__dict__.items() if not k.startswith("_")},
         "trackable_progresses": trackable_progresses,
         "insights": insights,
         "suggestions": suggestions,
@@ -379,25 +380,28 @@ async def create_day(
         if found_count != len(trackable_item_ids):
             raise HTTPException(404, "One or more trackable items not found")
 
-    db.add(Day(
-        timestamp=timestamp,
-        user_id=user_id,
-        city_id=data.city_id,
-        description=data.description,
-        content=data.content,
-        steps=data.steps,
-        main_image=data.main_image,
-        images=data.images,
-        trackable_progresses=[
-            TrackableProgress(
-                user_id=user_id,
-                timestamp=timestamp,
-                trackable_item_id=progress.trackable_item_id,
-                value=progress.value,
-                description=progress.description,
-            ) for progress in data.trackable_progresses
-        ],
-    ))
+    db.add(
+        Day(
+            timestamp=timestamp,
+            user_id=user_id,
+            city_id=data.city_id,
+            description=data.description,
+            content=data.content,
+            steps=data.steps,
+            main_image=data.main_image,
+            images=data.images,
+            trackable_progresses=[
+                TrackableProgress(
+                    user_id=user_id,
+                    timestamp=timestamp,
+                    trackable_item_id=progress.trackable_item_id,
+                    value=progress.value,
+                    description=progress.description,
+                )
+                for progress in data.trackable_progresses
+            ],
+        )
+    )
     await db.commit()
 
     await clear_cache("days_list")
@@ -453,15 +457,17 @@ async def update_day(
 ) -> Msg[None]:
 
     day_result = await db.execute(
-        select(Day).options(selectinload(Day.tags)).where(Day.timestamp == timestamp, Day.user_id == user_id)
+        select(Day)
+        .options(selectinload(Day.tags))
+        .where(Day.timestamp == timestamp, Day.user_id == user_id)
     )
     day: Day | None = day_result.scalar_one_or_none()
     if not day:
         raise HTTPException(404, "Day not found")
 
     update_data = data.model_dump(exclude_unset=True)
-    trackable_progresses: list[dict] = update_data.pop('trackable_progresses', None)
-    tag_uuids = update_data.pop('tags', None)
+    trackable_progresses: list[dict] = update_data.pop("trackable_progresses", None)
+    tag_uuids = update_data.pop("tags", None)
 
     # Both fields can hold the same key, so diff them together — differencing
     # `main_image` alone would delete a photo still listed in `images`.
@@ -477,7 +483,7 @@ async def update_day(
             update(Day)
             .where(Day.user_id == user_id, Day.timestamp == timestamp)
             .values(**update_data)
-        )
+        )  # fmt: skip
         await db.execute(stmt)
 
     if tag_uuids is not None:
@@ -515,7 +521,6 @@ async def update_day(
     return Msg(code=200, msg="Day updated")
 
 
-
 # ???
 # @router.delete("/{timestamp}", response_model=Msg[None])
 # async def delete_day(
@@ -528,4 +533,3 @@ async def update_day(
 #     await db.commit()
 
 #     return Msg(code=200, msg="Day deleted")
-

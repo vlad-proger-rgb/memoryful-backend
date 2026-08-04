@@ -23,23 +23,15 @@ class Suggestion(Base, IDMixin):
     date: Mapped[dt.date]
 
     __table_args__ = (
-        ForeignKeyConstraint(
-            ['user_id'],
-            ['users.id']
-        ),
-        ForeignKeyConstraint(
-            ['timestamp', 'user_id'],
-            ['days.timestamp', 'days.user_id']
-        ),
+        ForeignKeyConstraint(["user_id"], ["users.id"]),
+        ForeignKeyConstraint(["timestamp", "user_id"], ["days.timestamp", "days.user_id"]),
     )
 
     user: Mapped["User"] = relationship(back_populates="suggestions")
     chat_model: Mapped["ChatModel"] = relationship(back_populates="suggestions")
-    day: Mapped["Day"] = relationship(
-        back_populates="suggestions",
-        overlaps="user,suggestions"
-    )
+    day: Mapped["Day"] = relationship(back_populates="suggestions", overlaps="user,suggestions")
 
-from .day import Day
+
 from .chat_model import ChatModel
+from .day import Day
 from .user import User

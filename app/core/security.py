@@ -1,28 +1,26 @@
 import datetime as dt
-from uuid import uuid4
 import hashlib
 import hmac
+from uuid import uuid4
 
 from fastapi import HTTPException, Request
 from fastapi.security import OAuth2PasswordBearer
-from passlib.context import CryptContext
-from sqlalchemy.ext.asyncio import AsyncSession
 from jose import jwt
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import redis
-from app.models import User, UserToken
-from app.schemas import VerifyCodeForm, Token
 from app.core.settings import (
-    ALGORITHM,
     ACCESS_SECRET_KEY,
-    REFRESH_SECRET_KEY,
     ACCESS_TOKEN_EXPIRE_MINUTES,
+    ALGORITHM,
+    REFRESH_SECRET_KEY,
     REFRESH_TOKEN_EXPIRE_MINUTES,
 )
-
+from app.models import User, UserToken
+from app.schemas import Token, VerifyCodeForm
 
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl = "/auth/login",
+    tokenUrl="/auth/login",
 )
 
 TOKEN_SETTINGS = {
@@ -30,8 +28,10 @@ TOKEN_SETTINGS = {
     "refresh": (REFRESH_SECRET_KEY, REFRESH_TOKEN_EXPIRE_MINUTES),
 }
 
+
 def hash_refresh_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
 
 def verify_refresh_token(token: str, hashed_token: str) -> bool:
     digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
@@ -83,8 +83,8 @@ async def verify_code_form(
 
 
 async def create_and_store_tokens(
-    db: AsyncSession, 
-    user: User, 
+    db: AsyncSession,
+    user: User,
     request: Request | None = None,
 ) -> Token:
     data = {"sub": str(user.id)}
@@ -111,4 +111,3 @@ async def create_and_store_tokens(
         refresh_token=refresh_token,
         token_type="bearer",
     )
-

@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, JSON
+from sqlalchemy import JSON, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -24,6 +24,6 @@ class TrackableItem(Base, IDMixin):
     progresses: Mapped[list["TrackableProgress"]] = relationship(back_populates="trackable_item")
 
 
-from .user import User
-from .trackable_type import TrackableType
 from .trackable_progress import TrackableProgress
+from .trackable_type import TrackableType
+from .user import User

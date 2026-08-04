@@ -1,18 +1,17 @@
 from fastmcp import FastMCP
+
 from .settings import MCP_HOST, MCP_PORT, MCP_TRANSPORT
 from .tools import (
     days,
-    months,
     insights,
+    months,
     suggestions,
     tags,
     trackables,
     workspaces,
 )
 
-mcp = FastMCP(
-    name="Memoryful MCP Server"
-)
+mcp = FastMCP(name="Memoryful MCP Server")
 
 # days tools
 mcp.tool()(days.get_days)

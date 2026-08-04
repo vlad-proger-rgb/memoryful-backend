@@ -1,17 +1,18 @@
 import json
 import logging
-from typing import Annotated, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db, AsyncSessionLocal
+from app.ai.services.completions import ChatAgent
+from app.core.database import AsyncSessionLocal, get_db
 from app.core.deps import get_current_user
 from app.core.security import oauth2_scheme
-from app.ai.services.completions import ChatAgent
-from app.schemas import Msg, CompletionCreate, CompletionResponse
+from app.schemas import CompletionCreate, CompletionResponse, Msg
 
 logger = logging.getLogger(__name__)
 
@@ -87,11 +88,13 @@ async def stream_completion(
                 yield _sse({"type": "error", "message": e.detail})
             except Exception:
                 logger.exception("Streamed completion failed for user %s", user_id)
-                yield _sse({
-                    "type": "error",
-                    "message": "The AI provider could not complete this request. "
-                               "Please try again, or pick a different model.",
-                })
+                yield _sse(
+                    {
+                        "type": "error",
+                        "message": "The AI provider could not complete this request. "
+                        "Please try again, or pick a different model.",
+                    }
+                )
 
     return StreamingResponse(
         event_stream(),

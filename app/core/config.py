@@ -1,12 +1,12 @@
-from redis.asyncio import Redis
 import boto3
 from botocore.config import Config
+from redis.asyncio import Redis
 
 from app.core.settings import (
-    REDIS_HOST,
-    REDIS_PORT,
     REDIS_DB,
+    REDIS_HOST,
     REDIS_PASSWORD,
+    REDIS_PORT,
     REDIS_SSL,
     S3_ACCESS_KEY_ID,
     S3_ENDPOINT_URL,
@@ -43,7 +43,7 @@ s3_client = boto3.client(
     region_name=S3_REGION,
     config=Config(
         s3={"addressing_style": "path"},
-        retries={'max_attempts': 3},
+        retries={"max_attempts": 3},
         max_pool_connections=50,
-    )
+    ),
 )

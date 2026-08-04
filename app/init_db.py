@@ -1,46 +1,62 @@
-import random
 import datetime as dt
+import random
 
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.settings import MAIL_FROM
 from app.enums.font_awesome import IconStyle
-from app.schemas.font_awesome import FAIcon
 from app.models import (
-    Country,
     City,
-    User,
-    Tag,
-    TrackableType,
-    TrackableItem,
-    TrackableProgress,
+    Country,
     Day,
     Month,
+    Tag,
+    TrackableItem,
+    TrackableProgress,
+    TrackableType,
+    User,
 )
+from app.schemas.font_awesome import FAIcon
 
 
 async def init_db(db: AsyncSession) -> None:
 
     # countries and cities
     if not (await db.scalar(select(Country.id).limit(1))):
-        united_states = Country(name="United States", code="US", cities=[
-            City(name="New York"),
-            City(name="Los Angeles"),
-        ])
-        ukraine = Country(name="Ukraine", code="UA", cities=[
-            City(name="Kyiv"),
-            City(name="Kharkiv"),
-        ])
-        poland = Country(name="Poland", code="PL", cities=[
-            City(name="Warsaw"),
-            City(name="Krakow"),
-        ])
-        germany = Country(name="Germany", code="DE", cities=[
-            City(name="Berlin"),
-            City(name="DÃ¼sseldorf"),
-        ])
+        united_states = Country(
+            name="United States",
+            code="US",
+            cities=[
+                City(name="New York"),
+                City(name="Los Angeles"),
+            ],
+        )
+        ukraine = Country(
+            name="Ukraine",
+            code="UA",
+            cities=[
+                City(name="Kyiv"),
+                City(name="Kharkiv"),
+            ],
+        )
+        poland = Country(
+            name="Poland",
+            code="PL",
+            cities=[
+                City(name="Warsaw"),
+                City(name="Krakow"),
+            ],
+        )
+        germany = Country(
+            name="Germany",
+            code="DE",
+            cities=[
+                City(name="Berlin"),
+                City(name="DÃ¼sseldorf"),
+            ],
+        )
 
         db.add_all([united_states, ukraine, poland, germany])
         await db.commit()
@@ -72,58 +88,81 @@ async def init_db(db: AsyncSession) -> None:
     # tags
     if not (await db.scalar(select(Tag.id).limit(1))):
         user_id = (await db.scalars(select(User.id).limit(1))).one()
-        db.add_all([
-            Tag(name="Work", icon=FAIcon(name="briefcase"), color="#ff0000", user_id=user_id),
-            Tag(name="Travel", icon=FAIcon(name="plane"), color="#0000ff", user_id=user_id),
-            Tag(name="Study", icon=FAIcon(name="book"), color="#008000", user_id=user_id),
-            Tag(name="Nature", icon=FAIcon(name="tree"), color="#ffff00", user_id=user_id),
-            Tag(name="Architecture", icon=FAIcon(name="archway"), color="#ffa500", user_id=user_id),
-        ])
+        db.add_all(
+            [
+                Tag(name="Work", icon=FAIcon(name="briefcase"), color="#ff0000", user_id=user_id),
+                Tag(name="Travel", icon=FAIcon(name="plane"), color="#0000ff", user_id=user_id),
+                Tag(name="Study", icon=FAIcon(name="book"), color="#008000", user_id=user_id),
+                Tag(name="Nature", icon=FAIcon(name="tree"), color="#ffff00", user_id=user_id),
+                Tag(
+                    name="Architecture",
+                    icon=FAIcon(name="archway"),
+                    color="#ffa500",
+                    user_id=user_id,
+                ),
+            ]
+        )
         await db.commit()
 
     # trackable types
     if not (await db.scalar(select(TrackableType.id).limit(1))):
         user_id = (await db.scalars(select(User.id).limit(1))).one()
-        db.add_all([
-            TrackableType(user_id=user_id, name="learning", description="Learning", value_type="minutes", icon=FAIcon(name="book").model_dump()),
-            TrackableType(user_id=user_id, name="activity", description="Activity", value_type="km", icon=FAIcon(name="person-walking").model_dump()),
-        ])
+        db.add_all(
+            [
+                TrackableType(
+                    user_id=user_id,
+                    name="learning",
+                    description="Learning",
+                    value_type="minutes",
+                    icon=FAIcon(name="book").model_dump(),
+                ),
+                TrackableType(
+                    user_id=user_id,
+                    name="activity",
+                    description="Activity",
+                    value_type="km",
+                    icon=FAIcon(name="person-walking").model_dump(),
+                ),
+            ]
+        )
         await db.commit()
 
     # trackable items
     if not (await db.scalar(select(TrackableItem.id).limit(1))):
         user_id = (await db.scalars(select(User.id).limit(1))).one()
         trackable_types = (await db.scalars(select(TrackableType))).all()
-        db.add_all([
-            TrackableItem(
-                title="Python",
-                description="Python programming language",
-                icon=FAIcon(name="python", style=IconStyle.fab).model_dump(),
-                user_id=user_id,
-                type=trackable_types[0],
-            ),
-            TrackableItem(
-                title="JavaScript",
-                description="JavaScript programming language",
-                icon=FAIcon(name="js", style=IconStyle.fab).model_dump(),
-                user_id=user_id,
-                type=trackable_types[0],
-            ),
-            TrackableItem(
-                title="Running",
-                description="Morning run",
-                icon=FAIcon(name="person-walking", style=IconStyle.fas).model_dump(),
-                user_id=user_id,
-                type=trackable_types[1],
-            ),
-            TrackableItem(
-                title="Photography",
-                description="Photography",
-                icon=FAIcon(name="camera", style=IconStyle.fas).model_dump(),
-                user_id=user_id,
-                type=trackable_types[1],
-            ),
-        ])
+        db.add_all(
+            [
+                TrackableItem(
+                    title="Python",
+                    description="Python programming language",
+                    icon=FAIcon(name="python", style=IconStyle.fab).model_dump(),
+                    user_id=user_id,
+                    type=trackable_types[0],
+                ),
+                TrackableItem(
+                    title="JavaScript",
+                    description="JavaScript programming language",
+                    icon=FAIcon(name="js", style=IconStyle.fab).model_dump(),
+                    user_id=user_id,
+                    type=trackable_types[0],
+                ),
+                TrackableItem(
+                    title="Running",
+                    description="Morning run",
+                    icon=FAIcon(name="person-walking", style=IconStyle.fas).model_dump(),
+                    user_id=user_id,
+                    type=trackable_types[1],
+                ),
+                TrackableItem(
+                    title="Photography",
+                    description="Photography",
+                    icon=FAIcon(name="camera", style=IconStyle.fas).model_dump(),
+                    user_id=user_id,
+                    type=trackable_types[1],
+                ),
+            ]
+        )
         await db.commit()
 
     # months
@@ -139,29 +178,37 @@ async def init_db(db: AsyncSession) -> None:
             prev_month = today.month - 1
             prev_year = today.year
 
-        db.add_all([
-            Month(
-                user_id=user_id,
-                month=prev_month,
-                year=prev_year,
-                description="The previous month",
-                top_day_timestamp=int(dt.datetime(prev_year, prev_month, 1).timestamp())
-            ),
-            Month(
-                user_id=user_id,
-                month=today.month,
-                year=today.year,
-                description="The current month",
-                top_day_timestamp=int(dt.datetime(today.year, today.month, 2).timestamp())
-            ),
-            Month(
-                user_id=user_id,
-                month=today.month % 12 + 1,
-                year=today.year if today.month < 12 else today.year + 1,
-                description="The next month",
-                top_day_timestamp=int(dt.datetime(today.year if today.month < 12 else today.year + 1, today.month % 12 + 1, 3).timestamp())
-            ),
-        ])
+        db.add_all(
+            [
+                Month(
+                    user_id=user_id,
+                    month=prev_month,
+                    year=prev_year,
+                    description="The previous month",
+                    top_day_timestamp=int(dt.datetime(prev_year, prev_month, 1).timestamp()),
+                ),
+                Month(
+                    user_id=user_id,
+                    month=today.month,
+                    year=today.year,
+                    description="The current month",
+                    top_day_timestamp=int(dt.datetime(today.year, today.month, 2).timestamp()),
+                ),
+                Month(
+                    user_id=user_id,
+                    month=today.month % 12 + 1,
+                    year=today.year if today.month < 12 else today.year + 1,
+                    description="The next month",
+                    top_day_timestamp=int(
+                        dt.datetime(
+                            today.year if today.month < 12 else today.year + 1,
+                            today.month % 12 + 1,
+                            3,
+                        ).timestamp()
+                    ),
+                ),
+            ]
+        )
         await db.commit()
 
     # days
@@ -169,7 +216,9 @@ async def init_db(db: AsyncSession) -> None:
         user_id = (await db.scalars(select(User.id).limit(1))).one()
         cities = (await db.scalars(select(City))).all()
         tags = (await db.scalars(select(Tag).where(Tag.user_id == user_id))).all()
-        trackable_items = (await db.scalars(select(TrackableItem).options(selectinload(TrackableItem.type)))).all()
+        trackable_items = (
+            await db.scalars(select(TrackableItem).options(selectinload(TrackableItem.type)))
+        ).all()
 
         today = dt.date.today()
         print(f"\n=== DEBUG: Today's date: {today}")
@@ -177,7 +226,9 @@ async def init_db(db: AsyncSession) -> None:
         # First day of previous month
         first_day = (today.replace(day=1) - dt.timedelta(days=1)).replace(day=1)
         # Last day of current month
-        last_day = (today.replace(day=28) + dt.timedelta(days=4)).replace(day=1) - dt.timedelta(days=1)
+        last_day = (today.replace(day=28) + dt.timedelta(days=4)).replace(day=1) - dt.timedelta(
+            days=1
+        )
 
         print(f"DEBUG: Date range - First day: {first_day}, Last day: {last_day}")
         print(f"DEBUG: Will skip dates after: {today}")
@@ -235,22 +286,30 @@ async def init_db(db: AsyncSession) -> None:
                 else:  # HABIT
                     value = 1  # Binary completion
 
-                trackable_progresses.append(TrackableProgress(
-                    user_id=user_id,
-                    trackable_item_id=item.id,
-                    timestamp=timestamp,
-                    value=value,
-                ))
+                trackable_progresses.append(
+                    TrackableProgress(
+                        user_id=user_id,
+                        trackable_item_id=item.id,
+                        timestamp=timestamp,
+                        value=value,
+                    )
+                )
 
             # Create day description based on the day of week and random activities
             activities = [
-                "Worked on the project", "Met with friends", "Went for a walk", 
-                "Visited a cafe", "Had a productive day", "Relaxed at home",
-                "Explored the city", "Had a meeting", "Worked out"
+                "Worked on the project",
+                "Met with friends",
+                "Went for a walk",
+                "Visited a cafe",
+                "Had a productive day",
+                "Relaxed at home",
+                "Explored the city",
+                "Had a meeting",
+                "Worked out",
             ]
 
             # Create day content with more details
-            day_content = f"""**Day Summary - {current_date.strftime('%A, %B %d, %Y')}**. Today was a {'great' if random.random() > 0.3 else 'good'} day."""
+            day_content = f"""**Day Summary - {current_date.strftime("%A, %B %d, %Y")}**. Today was a {"great" if random.random() > 0.3 else "good"} day."""
 
             if day_trackable_items:
                 day_content += "I made progress on "
@@ -259,7 +318,9 @@ async def init_db(db: AsyncSession) -> None:
 
                 # Add progress details
                 for progress in trackable_progresses:
-                    matching_items = [i for i in day_trackable_items if i.id == progress.trackable_item_id]
+                    matching_items = [
+                        i for i in day_trackable_items if i.id == progress.trackable_item_id
+                    ]
                     if matching_items:
                         item = matching_items[0]
                         if item.type.name == "learning":
@@ -301,7 +362,7 @@ async def init_db(db: AsyncSession) -> None:
                 main_image=None,
                 tags=day_tags,
                 trackable_progresses=trackable_progresses,
-                images=[]
+                images=[],
             )
 
             days.append(day)
@@ -309,7 +370,6 @@ async def init_db(db: AsyncSession) -> None:
 
         db.add_all(days)
         await db.commit()
-
 
     # for demo
     try:
@@ -340,13 +400,21 @@ As the sun began to set, I stopped for a few minutes just to take in the view â€
         trackable_progresses = [
             TrackableProgress(
                 user_id=user_id,
-                trackable_item_id=(await db.scalars(select(TrackableItem.id).where(TrackableItem.title == "Running"))).one(),
+                trackable_item_id=(
+                    await db.scalars(
+                        select(TrackableItem.id).where(TrackableItem.title == "Running")
+                    )
+                ).one(),
                 timestamp=timestamp,
                 value=120,
             ),
             TrackableProgress(
                 user_id=user_id,
-                trackable_item_id=(await db.scalars(select(TrackableItem.id).where(TrackableItem.title == "Photography"))).one(),
+                trackable_item_id=(
+                    await db.scalars(
+                        select(TrackableItem.id).where(TrackableItem.title == "Photography")
+                    )
+                ).one(),
                 timestamp=timestamp,
                 value=60,
             ),
@@ -371,4 +439,3 @@ As the sun began to set, I stopped for a few minutes just to take in the view â€
 
     except Exception as e:
         print(f"Error initializing demo data: {e}")
-

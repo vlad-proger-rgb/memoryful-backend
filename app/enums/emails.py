@@ -1,5 +1,6 @@
 from enum import StrEnum
 
+
 class EmailTemplate(StrEnum):
     CONFIRMATION_CODE = "confirmation_code"
     SUCCESSFUL_REGISTRATION = "successful_registration"

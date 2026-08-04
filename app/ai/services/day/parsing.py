@@ -53,27 +53,29 @@ def sanitize_items(items: list[dict[str, object]]) -> list[dict[str, object]]:
     sanitized: list[dict[str, object]] = []
     for i, item in enumerate(items):
         if not isinstance(item, dict):
-            logging.warning(f"Item {i+1} is not a dict: {type(item)}")
+            logging.warning(f"Item {i + 1} is not a dict: {type(item)}")
             continue
 
         icon = item.get("icon")
         if icon is not None:
-            logging.info(f"Item {i+1} has icon: {icon} (type: {type(icon)})")
+            logging.info(f"Item {i + 1} has icon: {icon} (type: {type(icon)})")
             try:
                 if isinstance(icon, FAIcon):
                     item["icon"] = icon
-                    logging.info(f"Item {i+1}: Icon is already valid FAIcon")
+                    logging.info(f"Item {i + 1}: Icon is already valid FAIcon")
                 elif isinstance(icon, dict):
                     item["icon"] = FAIcon(**icon)
-                    logging.info(f"Item {i+1}: Icon converted from dict to FAIcon")
+                    logging.info(f"Item {i + 1}: Icon converted from dict to FAIcon")
                 else:
-                    logging.warning(f"Item {i+1}: Invalid icon type {type(icon)}, setting to None")
+                    logging.warning(
+                        f"Item {i + 1}: Invalid icon type {type(icon)}, setting to None"
+                    )
                     item["icon"] = None
             except ValidationError as e:
-                logging.error(f"Item {i+1}: Icon validation failed: {e}, setting to None")
+                logging.error(f"Item {i + 1}: Icon validation failed: {e}, setting to None")
                 item["icon"] = None
         else:
-            logging.info(f"Item {i+1}: No icon provided")
+            logging.info(f"Item {i + 1}: No icon provided")
 
         sanitized.append(item)
 

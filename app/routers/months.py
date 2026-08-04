@@ -3,27 +3,26 @@ from uuid import UUID
 
 from fastapi import (
     APIRouter,
-    HTTPException,
-    Depends,
     BackgroundTasks,
+    Depends,
+    HTTPException,
 )
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
-from app.models import Month
-from app.core.deps import get_current_user, StorageServiceDep
 from app.core.cache import cached, clear_cache
+from app.core.database import get_db
+from app.core.deps import StorageServiceDep, get_current_user
 from app.core.settings import CACHE_TTL_DAYS
 from app.core.storage.service import StorageService
 from app.core.storage.utils import is_video_key, orphaned_keys
+from app.models import Month
 from app.schemas import (
-    Msg,
-    MonthInDB as M,
     MonthBase,
+    MonthInDB as M,
+    Msg,
     ResolvedBackground,
 )
-
 
 router = APIRouter(
     prefix="/months",
@@ -97,15 +96,17 @@ async def create_month(
     user_id: Annotated[UUID, Depends(get_current_user())],
     data: MonthBase,
 ) -> Msg[None]:
-    db.add(Month(
-        year=data.year,
-        month=data.month,
-        user_id=user_id,
-        description=data.description,
-        background_image=data.background_image,
-        background_placeholder=data.background_placeholder,
-        top_day_timestamp=data.top_day_timestamp,
-    ))
+    db.add(
+        Month(
+            year=data.year,
+            month=data.month,
+            user_id=user_id,
+            description=data.description,
+            background_image=data.background_image,
+            background_placeholder=data.background_placeholder,
+            top_day_timestamp=data.top_day_timestamp,
+        )
+    )
     await db.commit()
 
     await clear_cache("months")
@@ -134,10 +135,9 @@ async def update_month(
         update(Month)
         .where(Month.user_id == user_id, Month.year == data.year, Month.month == data.month)
         .values(**payload)
-    )
+    )  # fmt: skip
     await db.execute(stmt)
     await db.commit()
     await clear_cache("months")
     background_tasks.add_task(storage_service.delete_objects, user_id, orphaned)
     return Msg(code=200, msg="Month updated")
-

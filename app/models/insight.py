@@ -24,23 +24,15 @@ class Insight(Base, IDMixin, TimestampMixin):
     content: Mapped[str]
 
     __table_args__ = (
-        ForeignKeyConstraint(
-            ['user_id'],
-            ['users.id']
-        ),
-        ForeignKeyConstraint(
-            ['timestamp', 'user_id'],
-            ['days.timestamp', 'days.user_id']
-        ),
+        ForeignKeyConstraint(["user_id"], ["users.id"]),
+        ForeignKeyConstraint(["timestamp", "user_id"], ["days.timestamp", "days.user_id"]),
     )
 
     user: Mapped["User"] = relationship(back_populates="insights")
     chat_model: Mapped["ChatModel"] = relationship(back_populates="insights")
     insight_type: Mapped["InsightType"] = relationship(back_populates="insights")
-    day: Mapped["Day"] = relationship(
-        back_populates="insights",
-        overlaps="user,insights"
-    )
+    day: Mapped["Day"] = relationship(back_populates="insights", overlaps="user,insights")
+
 
 from .chat_model import ChatModel
 from .day import Day

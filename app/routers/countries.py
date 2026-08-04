@@ -3,22 +3,21 @@ from uuid import UUID
 
 from fastapi import (
     APIRouter,
-    HTTPException,
     Depends,
+    HTTPException,
     Query,
 )
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schemas import (
-    Msg,
-    CountryInDB as C,
-)
-from app.core.database import get_db
 from app.core.cache import cached
+from app.core.database import get_db
 from app.core.settings import CACHE_TTL_STATIC
 from app.models import Country
-
+from app.schemas import (
+    CountryInDB as C,
+    Msg,
+)
 
 router = APIRouter(
     prefix="/countries",
@@ -38,7 +37,7 @@ async def get_countries(
         select(Country)
         .limit(limit)
         .offset(offset)
-    )
+    )  # fmt: skip
 
     if query:
         stmt = stmt.where(Country.name.ilike(f"%{query}%"))
@@ -60,4 +59,3 @@ async def get_country_by_id(
         raise HTTPException(404, "Country not found")
 
     return Msg(code=200, msg="Country retrieved", data=C.model_validate(country))
-

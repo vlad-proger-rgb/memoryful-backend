@@ -10,16 +10,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import schemas
-from app.schemas import (
-    Msg,
-    InsightInDB,
-)
-from app.core.database import get_db
-from app.models import Insight
-from app.core.deps import get_current_user
 from app.core.cache import cached
+from app.core.database import get_db
+from app.core.deps import get_current_user
 from app.core.settings import CACHE_TTL_AI_CONTENT
-
+from app.models import Insight
+from app.schemas import (
+    InsightInDB,
+    Msg,
+)
 
 router = APIRouter(
     prefix="/insights",
@@ -39,10 +38,12 @@ async def get_insights(
     stmt = (
         select(Insight)
         .where(Insight.user_id == user_id)
-    )
+    )  # fmt: skip
     if timestamp is not None:
         stmt = stmt.where(Insight.timestamp == timestamp)
     stmt = stmt.order_by(Insight.created_at.desc()).limit(limit).offset(offset)
     result = await db.execute(stmt)
     insights = result.scalars().all()
-    return Msg(code=200, msg="Insights retrieved", data=[InsightInDB.model_validate(i) for i in insights])
+    return Msg(
+        code=200, msg="Insights retrieved", data=[InsightInDB.model_validate(i) for i in insights]
+    )
