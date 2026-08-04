@@ -7,7 +7,7 @@ from .email_tasks import (
 )
 
 __all__ = [
-    "send_email_task",
     "generate_day_ai",
     "generate_yesterday_ai_fallback",
+    "send_email_task",
 ]

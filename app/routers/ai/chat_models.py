@@ -33,7 +33,7 @@ async def get_chat_models(
     # hidden from the selector.
     stmt = (
         select(ChatModel)
-        .where(ChatModel.is_active == True)  # noqa: E712
+        .where(ChatModel.is_active == True)
         .order_by(ChatModel.sort_order.asc())
     )  # fmt: skip
     result = await db.execute(stmt)

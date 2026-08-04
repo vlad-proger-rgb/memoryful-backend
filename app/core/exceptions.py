@@ -29,7 +29,7 @@ def log_exception(
             error_details["orig_error"] = str(exc.orig)
 
         logger.error(
-            f"Exception occurred: {exc.__class__.__name__} - {str(exc)}", extra=error_details
+            f"Exception occurred: {exc.__class__.__name__} - {exc!s}", extra=error_details
         )
         return await func(request, exc)
 

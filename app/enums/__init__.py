@@ -7,10 +7,10 @@ from .workspace import WorkspacePage
 
 __all__ = [
     "DaySortField",
-    "IconStyle",
-    "SortOrder",
     "EmailTemplate",
-    "StorageUploadIntent",
+    "IconStyle",
     "Provider",
+    "SortOrder",
+    "StorageUploadIntent",
     "WorkspacePage",
 ]

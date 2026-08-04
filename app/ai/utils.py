@@ -220,9 +220,9 @@ def build_chat_model(model: ChatModel) -> BaseChatModel:
 
 async def get_default_chat_model(db: AsyncSession) -> ChatModel:
     """Pick the fallback chat model for background jobs (insights/suggestions)."""
-    base = select(ChatModel).where(ChatModel.is_active == True)  # noqa: E712
+    base = select(ChatModel).where(ChatModel.is_active == True)
 
-    default = await db.scalar(base.where(ChatModel.is_default == True).limit(1))  # noqa: E712
+    default = await db.scalar(base.where(ChatModel.is_default == True).limit(1))
     if default:
         return default
 

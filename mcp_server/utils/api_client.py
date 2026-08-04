@@ -81,7 +81,7 @@ class APIClient:
                 raw = response.json()
             except Exception as e:
                 logger.error("Failed to parse JSON response from %s: %s", url, e)
-                raise ValueError(f"Invalid JSON response from API: {str(e)}")
+                raise ValueError(f"Invalid JSON response from API: {e!s}")
 
             msg: Msg[object] = Msg.model_validate(raw)
             if msg.data is None:
@@ -106,5 +106,5 @@ class APIClient:
         except Exception as e:
             url = f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
             logger.error("Request failed on GET %s: %s", url, e, exc_info=True)
-            await self.ctx.error(f"Request failed on {url}: {str(e)}")
+            await self.ctx.error(f"Request failed on {url}: {e!s}")
             raise

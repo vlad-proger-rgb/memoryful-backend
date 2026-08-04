@@ -176,7 +176,7 @@ async def get_days(
     try:
         filter_params = DayFilters.model_validate_json(filters) if filters else None
     except ValidationError as e:
-        raise HTTPException(400, f"Invalid filters: {str(e)}")
+        raise HTTPException(400, f"Invalid filters: {e!s}")
 
     tag_name_list = [
         name.strip() 
