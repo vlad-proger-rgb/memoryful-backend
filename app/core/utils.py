@@ -1,6 +1,6 @@
 import logging
 import os
-import random
+import secrets
 
 from google.cloud import secretmanager
 
@@ -10,7 +10,9 @@ logger = logging.getLogger(__name__)
 def generate_activation_code() -> str:
     from app.core.settings import VERIFICATION_CODE_LENGTH
 
-    return "".join(random.choices("0123456789", k=VERIFICATION_CODE_LENGTH))
+    # secrets, not random: this code is the only credential protecting an account,
+    # and Mersenne Twister output is predictable from a handful of observed values.
+    return "".join(secrets.choice("0123456789") for _ in range(VERIFICATION_CODE_LENGTH))
 
 
 def get_secret(secret_name: str) -> str:
