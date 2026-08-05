@@ -1,14 +1,18 @@
 from pathlib import Path
 
 import resend
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pydantic import EmailStr
 
 from app.core.settings import MAIL_FROM, MAIL_FROM_NAME, RESEND_API_KEY
 
 resend.api_key = RESEND_API_KEY
 
-template_env = Environment(loader=FileSystemLoader(Path("app/templates/email")))
+template_env = Environment(
+    loader=FileSystemLoader(Path("app/templates/email")),
+    # Jinja2 defaults to off. These render HTML mail from user-supplied values.
+    autoescape=select_autoescape(["html", "xml"]),
+)
 
 
 def send_resend_email(
