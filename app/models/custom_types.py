@@ -27,7 +27,7 @@ class PydanticType[T: BaseModel](TypeDecorator):
                 return validated.model_dump()
             except ValidationError as e:
                 logger.warning(f"Invalid {self.pydantic_model.__name__} data: {e}")
-                raise ValueError(f"Invalid {self.pydantic_model.__name__} format")
+                raise ValueError(f"Invalid {self.pydantic_model.__name__} format") from e
 
         return value
 

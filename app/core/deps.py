@@ -50,7 +50,7 @@ def get_current_user(
 
         except (JWTError, ValidationError) as e:
             logger.debug(f"get_current_user Token validation failed: {e}")
-            raise credentials_exception
+            raise credentials_exception from e
 
         if not load_user and user_id:
             return user_id

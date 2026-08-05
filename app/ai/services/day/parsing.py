@@ -43,8 +43,8 @@ def extract_json_array(text: str) -> list[dict[str, object]]:
         logging.info(f"Successfully extracted and parsed JSON array with {len(parsed)} items")
         return parsed
     except Exception as e:
-        logging.exception(f"Failed to parse extracted JSON: {e}")
-        raise ValueError(f"Failed to parse JSON array: {e}")
+        logging.exception("Failed to parse extracted JSON")
+        raise ValueError(f"Failed to parse JSON array: {e}") from e
 
 
 def sanitize_items(items: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -71,8 +71,8 @@ def sanitize_items(items: list[dict[str, object]]) -> list[dict[str, object]]:
                         f"Item {i + 1}: Invalid icon type {type(icon)}, setting to None"
                     )
                     item["icon"] = None
-            except ValidationError as e:
-                logging.exception(f"Item {i + 1}: Icon validation failed: {e}, setting to None")
+            except ValidationError:
+                logging.exception(f"Item {i + 1}: Icon validation failed, setting to None")
                 item["icon"] = None
         else:
             logging.info(f"Item {i + 1}: No icon provided")

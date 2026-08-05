@@ -186,8 +186,8 @@ async def refresh_token(
                 401, "Invalid token format - missing user ID", {"WWW-Authenticate": "Bearer"}
             )
 
-    except JWTError:
-        raise HTTPException(401, "Invalid token format", {"WWW-Authenticate": "Bearer"})
+    except JWTError as e:
+        raise HTTPException(401, "Invalid token format", {"WWW-Authenticate": "Bearer"}) from e
 
     token_db = await db.get(UserToken, jti)
     if not token_db:

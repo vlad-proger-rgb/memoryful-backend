@@ -5,6 +5,7 @@ from typing import Any
 from uuid import UUID
 
 from botocore.exceptions import ClientError
+from fastapi import HTTPException
 
 from app.core.config import cache_redis, s3_client
 from app.core.settings import S3_BUCKET, S3_REGION
@@ -58,7 +59,7 @@ class StorageService:
                 logger.info(f"Created bucket: {S3_BUCKET}")
                 self._bucket_verified = True
                 return
-            logger.error(f"Failed to ensure bucket exists: {e}")
+            logger.exception("Failed to ensure bucket exists")
             raise
 
     async def generate_presigned_put(
@@ -96,7 +97,7 @@ class StorageService:
         """Generate presigned URL for downloading a file"""
         if not request.object_key.startswith(f"users/{user_id}/"):
             logger.warning(f"Access denied for user {user_id} to object: {request.object_key}")
-            raise Exception("Access denied")
+            raise HTTPException(403, "Access denied")
 
         cache_key = f"presign_get:{request.object_key}"
         cached_url = await cache_redis.get(cache_key)

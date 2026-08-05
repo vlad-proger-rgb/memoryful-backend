@@ -26,7 +26,6 @@ def get_secret(secret_name: str) -> str:
         response = client.access_secret_version(name=name)
         return response.payload.data.decode("UTF-8")
 
-    except Exception as e:
-        logger.error(f"Failed to fetch secret {secret_name} from Secret Manager: {e}")
-        # Fallback to environment variable
+    except Exception:
+        logger.exception(f"Failed to fetch secret {secret_name} from Secret Manager")
         return os.getenv(secret_name) or ""

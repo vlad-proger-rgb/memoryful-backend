@@ -17,8 +17,8 @@ async def send_email(data: EmailSchema) -> Msg[None]:
         raise HTTPException(400, "Missing email type")
     try:
         email_type = EmailTemplate(email_type_str)
-    except ValueError:
-        raise HTTPException(400, "Invalid email type")
+    except ValueError as e:
+        raise HTTPException(400, "Invalid email type") from e
 
     send_email_task.delay(email_type, data.email, data.body)
     return Msg(code=200, msg="Email is being sent in the background")

@@ -264,9 +264,8 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
                             f"Item {i + 1}: description='{item.get('description', '')[:50]}...', icon={item.get('icon')}"
                         )
                     return result
-                except Exception as parse_error:
-                    logging.exception(f"Text parsing also failed: {parse_error}")
-                    logging.exception(f"Failed to parse JSON from: {raw_content}")
+                except Exception:
+                    logging.exception("Text parsing also failed. Raw content: %s", raw_content)
                     raise
 
         try:
