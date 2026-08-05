@@ -139,7 +139,7 @@ async def sync_chat_models(db: AsyncSession) -> None:
             setattr(row, field, spec.get(field, _OPTIONAL_DEFAULTS.get(field)))
         row.is_active = True
 
-    added = [ChatModel(**spec) for spec in pending.values()]  # type: ignore[arg-type]
+    added = [ChatModel(**spec) for spec in pending.values()]
     db.add_all(added)
     await db.commit()
 

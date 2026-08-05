@@ -7,3 +7,10 @@ httpx
 respx
 faker
 factory-boy
+
+# Type stubs for the dependencies that don't ship their own
+boto3-stubs[s3]
+celery-types
+types-python-jose
+types-python-dateutil
+types-protobuf
