@@ -206,7 +206,6 @@ class ChatAgent:
                 async for event in self._stream_agent(llm, system_prompt, history, access_token):
                     emitted = True
                     yield event
-                return
             except Exception:
                 logger.exception("MCP agent stream failed (emitted=%s)", emitted)
                 if emitted:
@@ -215,6 +214,8 @@ class ChatAgent:
                         "message": "The assistant stopped early. Please try again.",
                     }
                     return
+            else:
+                return
 
         async for event in self._stream_plain(llm, system_prompt, history):
             yield event

@@ -37,14 +37,19 @@ def extract_json_array(text: str) -> list[dict[str, object]]:
 
     try:
         parsed = json.loads(json_str)
-        if not isinstance(parsed, list):
-            logging.error(f"Parsed JSON is not an array: {type(parsed)}")
-            raise ValueError("LLM did not return a JSON array")
-        logging.info(f"Successfully extracted and parsed JSON array with {len(parsed)} items")
-        return parsed
     except Exception as e:
         logging.exception("Failed to parse extracted JSON")
         raise ValueError(f"Failed to parse JSON array: {e}") from e
+
+    if not isinstance(parsed, list):
+        logging.error(f"Parsed JSON is not an array: {type(parsed)}")
+        # ValueError, not TypeError: the no-match branch above raises ValueError for
+        # the same "LLM didn't give us an array" condition, and one failure mode
+        # should not surface as two exception types.
+        raise ValueError("LLM did not return a JSON array")  # noqa: TRY004
+
+    logging.info(f"Successfully extracted and parsed JSON array with {len(parsed)} items")
+    return parsed
 
 
 def sanitize_items(items: list[dict[str, object]]) -> list[dict[str, object]]:

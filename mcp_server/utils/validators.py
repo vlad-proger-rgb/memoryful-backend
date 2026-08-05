@@ -3,9 +3,8 @@
 
 def validate_non_empty_string(value: str | None, field_name: str) -> None:
     """Validate that a string parameter is not empty or just whitespace."""
-    if value is not None:
-        if not value.strip():
-            raise ValueError(f"{field_name} must be a non-empty string if provided")
+    if value is not None and not value.strip():
+        raise ValueError(f"{field_name} must be a non-empty string if provided")
 
 
 def validate_non_negative_int(value: int, field_name: str) -> None:

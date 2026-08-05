@@ -241,7 +241,6 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
                     logging.info(
                         f"Item {i + 1}: description='{item.get('description', '')[:50]}...', icon={item.get('icon')}"
                     )
-                return result
             except Exception as e:
                 logging.warning(f"Structured output failed: {e}. Falling back to text parsing")
                 resp = await llm.ainvoke(
@@ -263,10 +262,13 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
                         logging.info(
                             f"Item {i + 1}: description='{item.get('description', '')[:50]}...', icon={item.get('icon')}"
                         )
-                    return result
                 except Exception:
                     logging.exception("Text parsing also failed. Raw content: %s", raw_content)
                     raise
+                else:
+                    return result
+            else:
+                return result
 
         try:
             insight_items = await _invoke_items(prompt=insights_prompt, context=day_context)
