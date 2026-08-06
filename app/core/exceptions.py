@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Awaitable, Callable
 from functools import wraps
-from typing import TypeVar, cast
+from typing import cast
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -9,10 +9,8 @@ from sqlalchemy.exc import IntegrityError, MultipleResultsFound, NoResultFound
 
 logger = logging.getLogger(__name__)
 
-ExcT = TypeVar("ExcT", bound=Exception)
 
-
-def log_exception(
+def log_exception[ExcT: Exception](
     func: Callable[[Request, ExcT], Awaitable[JSONResponse]],
 ) -> Callable[[Request, ExcT], Awaitable[JSONResponse]]:
     @wraps(func)

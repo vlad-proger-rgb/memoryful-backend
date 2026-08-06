@@ -10,8 +10,7 @@ logger = logging.getLogger(__name__)
 def generate_activation_code() -> str:
     from app.core.settings import VERIFICATION_CODE_LENGTH
 
-    # secrets, not random: this code is the only credential protecting an account,
-    # and Mersenne Twister output is predictable from a handful of observed values.
+    # This code is the only credential protecting an account.
     return "".join(secrets.choice("0123456789") for _ in range(VERIFICATION_CODE_LENGTH))
 
 

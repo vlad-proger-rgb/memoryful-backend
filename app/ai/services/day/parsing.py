@@ -43,10 +43,7 @@ def extract_json_array(text: str) -> list[dict[str, object]]:
 
     if not isinstance(parsed, list):
         logging.error(f"Parsed JSON is not an array: {type(parsed)}")
-        # ValueError, not TypeError: the no-match branch above raises ValueError for
-        # the same "LLM didn't give us an array" condition, and one failure mode
-        # should not surface as two exception types.
-        raise ValueError("LLM did not return a JSON array")  # noqa: TRY004
+        raise ValueError("LLM did not return a JSON array")  # noqa: TRY004  # matches the branch above
 
     logging.info(f"Successfully extracted and parsed JSON array with {len(parsed)} items")
     return parsed

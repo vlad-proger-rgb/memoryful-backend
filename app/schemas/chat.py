@@ -10,7 +10,7 @@ class ToolCallSchema(CamelModel):
     """A tool the assistant ran while producing a message."""
 
     name: str
-    args: dict = {}
+    args: dict = {}  # noqa: RUF012  # Pydantic copies mutable defaults per instance
 
 
 class MessageSchema(CamelModel):
@@ -18,7 +18,7 @@ class MessageSchema(CamelModel):
     content: str
     # Both optional: messages stored before these existed simply don't have them
     # (the column is JSON, so there's nothing to migrate).
-    tools: list[ToolCallSchema] = []
+    tools: list[ToolCallSchema] = []  # noqa: RUF012
     created_at: dt.datetime | None = None
 
 

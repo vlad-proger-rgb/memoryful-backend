@@ -10,7 +10,7 @@ resend.api_key = RESEND_API_KEY
 
 template_env = Environment(
     loader=FileSystemLoader(Path("app/templates/email")),
-    # Jinja2 defaults to off. These render HTML mail from user-supplied values.
+    # Jinja2 defaults this to off.
     autoescape=select_autoescape(["html", "xml"]),
 )
 

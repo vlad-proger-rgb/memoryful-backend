@@ -1,5 +1,5 @@
 import logging
-import os
+from pathlib import Path
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage
@@ -25,16 +25,14 @@ from app.models import ChatModel
 logger = logging.getLogger(__name__)
 
 
-def prompts_dir() -> str:
+def prompts_dir() -> Path:
     """Get the directory path for AI prompt files."""
-    return os.path.join(os.path.dirname(__file__), "prompts")
+    return Path(__file__).parent / "prompts"
 
 
 def load_prompt(filename: str) -> str:
     """Load a prompt file from the prompts directory."""
-    path = os.path.join(prompts_dir(), filename)
-    with open(path, encoding="utf-8") as f:
-        return f.read().strip()
+    return (prompts_dir() / filename).read_text(encoding="utf-8").strip()
 
 
 # Providers served by Vertex Model Garden through the OpenAI-compatible endpoint
