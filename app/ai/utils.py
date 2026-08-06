@@ -1,8 +1,12 @@
 import logging
+from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
+from typing import Any
 
+from langchain_core.callbacks import AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.outputs import ChatGenerationChunk, ChatResult
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 from sqlalchemy import select
@@ -65,7 +69,10 @@ def _vertex_access_token() -> str:
         )
     if not _gcp_credentials.valid:
         _gcp_credentials.refresh(Request())
-    return _gcp_credentials.token
+    token = _gcp_credentials.token
+    if token is None:
+        raise RuntimeError("GCP credentials carry no access token after refresh")
+    return str(token)
 
 
 def _resolve_provider(model: ChatModel) -> Provider:
@@ -107,22 +114,46 @@ class _VertexMaaSChatOpenAI(ChatOpenAI):
             padded.append(msg)
         return padded
 
-    def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+    def _generate(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> ChatResult:
         return super()._generate(
             self._pad_tool_call_messages(messages), stop=stop, run_manager=run_manager, **kwargs
         )
 
-    async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
+    async def _agenerate(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: AsyncCallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> ChatResult:
         return await super()._agenerate(
             self._pad_tool_call_messages(messages), stop=stop, run_manager=run_manager, **kwargs
         )
 
-    def _stream(self, messages, stop=None, run_manager=None, **kwargs):
+    def _stream(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> Iterator[ChatGenerationChunk]:
         return super()._stream(
             self._pad_tool_call_messages(messages), stop=stop, run_manager=run_manager, **kwargs
         )
 
-    async def _astream(self, messages, stop=None, run_manager=None, **kwargs):
+    async def _astream(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: AsyncCallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[ChatGenerationChunk]:
         async for chunk in super()._astream(
             self._pad_tool_call_messages(messages), stop=stop, run_manager=run_manager, **kwargs
         ):
@@ -177,13 +208,20 @@ def build_chat_model(model: ChatModel) -> BaseChatModel:
 
         # Newer Claude models removed the sampling parameters: sending
         # temperature to them returns a 400. Older ones still accept it.
-        sampling = (
-            {} if model.name.startswith(_ANTHROPIC_NO_SAMPLING) else {"temperature": temperature}
-        )
+        # timeout/stop are aliases whose defaults mypy can't see; None is what it uses anyway.
+        if model.name.startswith(_ANTHROPIC_NO_SAMPLING):
+            return ChatAnthropic(
+                model_name=model.name,
+                api_key=SecretStr(ANTHROPIC_API_KEY),
+                timeout=None,
+                stop=None,
+            )
         return ChatAnthropic(
-            model=model.name,
+            model_name=model.name,
             api_key=SecretStr(ANTHROPIC_API_KEY),
-            **sampling,
+            temperature=temperature,
+            timeout=None,
+            stop=None,
         )
 
     # Vertex Model Garden partner models (xAI/Grok, Llama, Mistral, ...) have no
