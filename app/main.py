@@ -35,6 +35,7 @@ from app.core.settings import (
     ALLOWED_ORIGINS,
     ENVIRONMENT,
     SEED_DB_ON_EMPTY,
+    TRUSTED_EMAILS,
 )
 from app.init_db import init_db
 from app.models import User
@@ -73,6 +74,14 @@ async def run_migrations() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     FastAPICache.init(RedisBackend(cache_redis), prefix=CACHE_PREFIX)
+
+    if TRUSTED_EMAILS:
+        logging.warning(
+            "Login verification is bypassed for %d address(es) (ENVIRONMENT=%s)",
+            len(TRUSTED_EMAILS),
+            ENVIRONMENT,
+        )
+
     # await run_migrations()
     async with AsyncSessionLocal() as session:
         # Reference data: kept in sync in every environment, but never fatal —

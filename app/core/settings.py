@@ -86,11 +86,21 @@ MAIL_FROM = get_secret("MAIL_FROM") or os.getenv("MAIL_FROM")
 MAIL_FROM_NAME = os.getenv("MAIL_FROM_NAME")
 
 # Auth
-TRUSTED_EMAILS = {
-    e.strip().lower()
-    for e in os.getenv("TRUSTED_EMAILS", "").split(",")
-    if e.strip()
-}  # fmt: skip
+# These addresses skip login verification entirely, so the set stays empty outside
+# development no matter what the environment says.
+TRUSTED_EMAILS: frozenset[str] = frozenset()
+if ENVIRONMENT == "development":
+    TRUSTED_EMAILS = frozenset(
+        e.strip().lower()
+        for e in os.getenv("TRUSTED_EMAILS", "").split(",")
+        if e.strip()
+    )  # fmt: skip
+
+
+def is_trusted_email(email: str) -> bool:
+    """Normalizes the same way the set is built, so the two cannot drift apart."""
+    return email.strip().lower() in TRUSTED_EMAILS
+
 
 # CORS
 _allowed_origins_raw = os.getenv("ALLOWED_ORIGINS", "")

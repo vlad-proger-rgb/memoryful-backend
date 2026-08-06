@@ -39,8 +39,8 @@ from app.core.settings import (
     RP_AI_CONTEXT,
     RP_BLACKLISTED_TOKEN,
     RP_LOGIN_CODE,
-    TRUSTED_EMAILS,
     VERIFICATION_CODE_EXPIRE_MINUTES,
+    is_trusted_email,
 )
 from app.core.storage.utils import orphaned_keys
 from app.core.utils import generate_activation_code
@@ -88,7 +88,7 @@ async def request_code(email: Email) -> Msg[None]:
     print(f"AUTH POST /request-code {email.email=}")
     activation_code = generate_activation_code()
 
-    if email.email not in TRUSTED_EMAILS:
+    if not is_trusted_email(email.email):
         await redis.setex(
             f"{RP_LOGIN_CODE}{email.email}",
             VERIFICATION_CODE_EXPIRE_MINUTES * 60,
@@ -116,7 +116,7 @@ async def verify_code(
 ) -> Msg[AuthResponse]:
     print(f"AUTH POST /verify-code {code_form=}")
 
-    if code_form.email not in TRUSTED_EMAILS:
+    if not is_trusted_email(code_form.email):
         await verify_code_form(f"{RP_LOGIN_CODE}{code_form.email}", code_form)
 
     stmt = select(User).where(User.email == code_form.email)
