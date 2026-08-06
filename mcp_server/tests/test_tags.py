@@ -1,7 +1,7 @@
 import pytest
 import respx
 from fastmcp import Context
-from httpx import Response
+from httpx import HTTPStatusError, Response
 
 from ..tools.tags import get_tag_by_id, get_tags
 from .conftest import api_url
@@ -61,5 +61,5 @@ async def test_get_tag_by_id_not_found(ctx: Context) -> None:
         return_value=Response(404, json={"code": 404, "msg": "Not found", "data": None})
     )
 
-    with pytest.raises(Exception):
+    with pytest.raises(HTTPStatusError):
         await get_tag_by_id(ctx, "nonexistent")

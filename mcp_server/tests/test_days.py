@@ -1,7 +1,7 @@
 import pytest
 import respx
 from fastmcp import Context
-from httpx import Response
+from httpx import HTTPStatusError, Response
 
 from ..tools.days import get_day_by_timestamp, get_days, get_random_day
 from .conftest import api_url
@@ -105,7 +105,7 @@ async def test_get_day_by_timestamp_not_found(ctx: Context) -> None:
         return_value=Response(404, json={"code": 404, "msg": "Not found", "data": None})
     )
 
-    with pytest.raises(Exception):
+    with pytest.raises(HTTPStatusError):
         await get_day_by_timestamp(ctx, 9999999999)
 
 

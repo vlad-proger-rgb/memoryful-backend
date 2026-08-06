@@ -61,11 +61,7 @@ async def test_get_month_by_year_and_month_number(ctx: Context) -> None:
 
 
 @pytest.mark.asyncio
-@respx.mock
-async def test_get_month_by_year_and_month_number_not_found(ctx: Context) -> None:
-    respx.get(api_url("/months/2025/13")).mock(
-        return_value=Response(404, json={"code": 404, "msg": "Not found", "data": None})
-    )
-
-    with pytest.raises(Exception):
+async def test_get_month_by_year_and_month_number_rejects_invalid_month(ctx: Context) -> None:
+    # Rejected by validate_month_number before any request is made.
+    with pytest.raises(ValueError, match="month_number must be between 1 and 12"):
         await get_month_by_year_and_month_number(ctx, 2025, 13)
