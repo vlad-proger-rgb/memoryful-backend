@@ -106,7 +106,7 @@ app.add_middleware(
 
 
 @app.middleware("http")
-async def disable_http_caching(request: Request, call_next: Callable):
+async def disable_http_caching(request: Request, call_next: Callable) -> Response:
     """
     fastapi_cache's `cache` decorator always sets `Cache-Control: max-age=...`
     and an `ETag` on responses it wraps, which makes browsers cache GET

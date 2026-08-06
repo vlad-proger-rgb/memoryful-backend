@@ -35,7 +35,7 @@ PRESIGNED_GET_CACHE_TTL = PRESIGNED_GET_EXPIRES_IN // 2
 class StorageService:
     """Service layer for storage operations using S3/GCS compatible API"""
 
-    def __init__(self, client=None):
+    def __init__(self, client: Any = None) -> None:
         self.client = client or s3_client
         # Bucket existence rarely changes; avoid a `head_bucket` round trip
         # to S3/GCS on every single presign request.

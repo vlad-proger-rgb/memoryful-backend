@@ -14,7 +14,7 @@ from app.models import Day
 _celery_async_loop: asyncio.AbstractEventLoop | None = None
 
 
-def _run_async(coro: "Coroutine[Any, Any, None]"):
+def _run_async(coro: "Coroutine[Any, Any, None]") -> None:
     global _celery_async_loop
 
     if _celery_async_loop is None or _celery_async_loop.is_closed():

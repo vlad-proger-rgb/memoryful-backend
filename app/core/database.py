@@ -1,4 +1,5 @@
 from collections.abc import AsyncGenerator
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
@@ -22,7 +23,7 @@ def get_engine() -> AsyncEngine:
     if ENVIRONMENT == "production" and POSTGRES_HOST.startswith("/cloudsql/"):
         from google.cloud.sql.connector import Connector
 
-        async def getconn():
+        async def getconn() -> Any:
             connector = Connector()
             conn = await connector.connect_async(
                 POSTGRES_HOST.replace("/cloudsql/", ""),

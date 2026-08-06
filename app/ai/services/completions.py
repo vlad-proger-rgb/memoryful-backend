@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 from uuid import UUID
 
 from fastapi import HTTPException
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -221,7 +222,7 @@ class ChatAgent:
             yield event
 
     async def _stream_agent(
-        self, llm, system_prompt: str, history: list, access_token: str
+        self, llm: BaseChatModel, system_prompt: str, history: list, access_token: str
     ) -> AsyncIterator[dict]:
         from langchain.agents import create_agent
 
@@ -244,7 +245,9 @@ class ChatAgent:
             elif kind == "on_tool_end":
                 yield {"type": "toolResult", "name": event.get("name", "")}
 
-    async def _stream_plain(self, llm, system_prompt: str, history: list) -> AsyncIterator[dict]:
+    async def _stream_plain(
+        self, llm: BaseChatModel, system_prompt: str, history: list
+    ) -> AsyncIterator[dict]:
         async for chunk in llm.astream([SystemMessage(content=system_prompt), *history]):
             text = _extract_text(chunk.content)
             if text:
@@ -266,7 +269,9 @@ class ChatAgent:
         response = await llm.ainvoke([SystemMessage(content=system_prompt), *history])
         return _extract_text(response.content)
 
-    async def _run_agent(self, llm, system_prompt: str, history: list, access_token: str) -> str:
+    async def _run_agent(
+        self, llm: BaseChatModel, system_prompt: str, history: list, access_token: str
+    ) -> str:
         """Run the MCP tool loop over the (cached) tools for this bearer, which the
         MCP server executes as that user (per-user isolation)."""
         from langchain.agents import create_agent
