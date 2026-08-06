@@ -1,10 +1,11 @@
 import datetime as dt
 import json
 import logging
+from typing import Any, cast
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import select, update
+from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -126,7 +127,7 @@ class ChatStore:
             .where(Chat.id == chat_id, Chat.user_id == user_id, Chat.is_deleted == False)
             .values(title=title)
         )  # fmt: skip
-        result = await self.db.execute(stmt)
+        result = cast("CursorResult[Any]", await self.db.execute(stmt))
         if result.rowcount == 0:
             raise HTTPException(404, "Chat not found")
         await self.db.commit()

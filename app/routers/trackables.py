@@ -1,8 +1,8 @@
-from typing import Annotated
+from typing import Annotated, Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import delete, exists, or_, select, update
+from sqlalchemy import CursorResult, delete, exists, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -171,7 +171,7 @@ async def delete_trackable(
         TrackableItem.id == id,
         TrackableItem.user_id == user_id,
     )
-    result = await db.execute(stmt)
+    result = cast("CursorResult[Any]", await db.execute(stmt))
     await db.commit()
 
     if result.rowcount == 0:

@@ -1,8 +1,8 @@
-from typing import Annotated
+from typing import Annotated, Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import delete, select, update
+from sqlalchemy import CursorResult, delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cache import cached, clear_cache
@@ -85,7 +85,7 @@ async def update_trackable_type(
         .where(TrackableType.id == id, TrackableType.user_id == user_id)
         .values(**update_data)
     )  # fmt: skip
-    result = await db.execute(stmt)
+    result = cast("CursorResult[Any]", await db.execute(stmt))
     await db.commit()
 
     if result.rowcount == 0:
@@ -106,7 +106,7 @@ async def delete_trackable_type(
     id: UUID,
 ) -> Msg[None]:
     stmt = delete(TrackableType).where(TrackableType.id == id, TrackableType.user_id == user_id)
-    result = await db.execute(stmt)
+    result = cast("CursorResult[Any]", await db.execute(stmt))
     await db.commit()
 
     if result.rowcount == 0:
