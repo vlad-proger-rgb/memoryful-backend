@@ -8,7 +8,7 @@ from fastapi import Depends, HTTPException
 from jose import JWTError, jwt
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Load
+from sqlalchemy.orm.interfaces import ORMOption
 
 from app.core.config import redis
 from app.core.database import get_db
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_current_user(
-    load_user: bool = False, *load_options: type[Load]
+    load_user: bool = False, *load_options: ORMOption
 ) -> Callable[[AsyncSession, str], Awaitable[User | UUID]]:
 
     async def dependency(

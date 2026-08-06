@@ -8,13 +8,14 @@ layer (`app/ai/utils.py`).
 import json
 import logging
 import re
+from typing import Any
 
 from pydantic import ValidationError
 
 from app.schemas.font_awesome import FAIcon
 
 
-def extract_json_array(text: str) -> list[dict[str, object]]:
+def extract_json_array(text: str) -> list[Any]:
     """Extract a JSON array from text that may contain additional content."""
     logging.info(f"Attempting to extract JSON array from text of length {len(text)}")
     logging.debug(f"Text content: {text[:500]}...")
@@ -49,7 +50,7 @@ def extract_json_array(text: str) -> list[dict[str, object]]:
     return parsed
 
 
-def sanitize_items(items: list[dict[str, object]]) -> list[dict[str, object]]:
+def sanitize_items(items: list[Any]) -> list[dict[str, object]]:
     """Sanitize a list of items, ensuring proper icon handling."""
     logging.info(f"Sanitizing {len(items)} items")
     sanitized: list[dict[str, object]] = []

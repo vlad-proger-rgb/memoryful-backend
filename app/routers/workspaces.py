@@ -40,7 +40,7 @@ async def _response(
 ) -> Msg[WorkspaceInDB]:
     known = {page.value for page in WorkspacePage}
     backgrounds = {
-        row.page: ResolvedBackground(
+        WorkspacePage(row.page): ResolvedBackground(
             key=row.object_key,
             placeholder=row.placeholder,
             url=await storage.resolve_url(user_id, row.object_key),

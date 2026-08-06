@@ -100,7 +100,7 @@ class ChatAgent:
     ) -> tuple[Chat, MessageSchema]:
         is_new_chat = chat_id is None
 
-        if is_new_chat:
+        if chat_id is None:
             if not model_id:
                 raise HTTPException(400, "model_id is required to start a new chat")
             chat = await self.store.create(user_id, model_id, title=_derive_title(content))
@@ -137,23 +137,22 @@ class ChatAgent:
         """
         is_new_chat = chat_id is None
 
-        if is_new_chat:
+        if chat_id is None:
             if not model_id:
                 raise HTTPException(400, "model_id is required to start a new chat")
             chat = await self.store.create(user_id, model_id, title=_derive_title(content))
         else:
             chat = await self.store.load(chat_id, user_id)
 
-        user_message = MessageSchema(
-            role="user", content=content, created_at=dt.datetime.now(dt.UTC)
-        )
+        user_created_at = dt.datetime.now(dt.UTC)
+        user_message = MessageSchema(role="user", content=content, created_at=user_created_at)
         chat.messages = [*chat.messages, _dump(user_message)]
 
         yield {
             "type": "start",
             "chatId": str(chat.id),
             "title": chat.title,
-            "createdAt": user_message.created_at.isoformat(),
+            "createdAt": user_created_at.isoformat(),
         }
 
         # Text is collected per model turn: a turn that ends in a tool call is a
@@ -176,11 +175,12 @@ class ChatAgent:
             segments.append("".join(current))
         reply_text = "\n\n".join(s.strip() for s in segments if s.strip())
 
+        assistant_created_at = dt.datetime.now(dt.UTC)
         assistant_message = MessageSchema(
             role="assistant",
             content=reply_text,
             tools=tools,
-            created_at=dt.datetime.now(dt.UTC),
+            created_at=assistant_created_at,
         )
         chat.messages = [*chat.messages, _dump(assistant_message)]
         chat = await self.store.persist(chat, user_id, invalidate_list=is_new_chat)
@@ -190,7 +190,7 @@ class ChatAgent:
             "chatId": str(chat.id),
             "title": chat.title,
             "content": reply_text,
-            "createdAt": assistant_message.created_at.isoformat(),
+            "createdAt": assistant_created_at.isoformat(),
         }
 
     async def _stream_reply(self, chat: Chat, access_token: str | None) -> AsyncIterator[dict]:

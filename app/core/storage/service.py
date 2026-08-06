@@ -55,7 +55,8 @@ class StorageService:
                 # AWS requires LocationConstraint for most regions. us-east-1 must omit it.
                 if S3_REGION and S3_REGION != "us-east-1":
                     params["CreateBucketConfiguration"] = {"LocationConstraint": S3_REGION}
-                await asyncio.to_thread(self.client.create_bucket, **params)
+                create_bucket: Any = self.client.create_bucket
+                await asyncio.to_thread(create_bucket, **params)
                 logger.info(f"Created bucket: {S3_BUCKET}")
                 self._bucket_verified = True
                 return
@@ -102,7 +103,8 @@ class StorageService:
         cache_key = f"presign_get:{request.object_key}"
         cached_url = await cache_redis.get(cache_key)
         if cached_url is not None:
-            return PresignGetResponse(download_url=cached_url.decode())
+            url = cached_url.decode() if isinstance(cached_url, bytes) else cached_url
+            return PresignGetResponse(download_url=url)
 
         await self.ensure_bucket_exists()
 

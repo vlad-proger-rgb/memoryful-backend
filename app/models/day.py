@@ -17,7 +17,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 from app.models._mixins import TimestampWithUpdateMixin
 
-days_tags = Table(
+days_tags: Table = Table(
     "days_tags",
     Base.metadata,
     Column("day_timestamp", Integer, primary_key=True),

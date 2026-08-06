@@ -20,7 +20,7 @@ def send_resend_email(
     subject: str,
     template_name: str,
     template_body: dict,
-) -> dict:
+) -> resend.Emails.SendResponse:
     """
     Send an email using Resend with HTML template rendering.
 
@@ -36,12 +36,11 @@ def send_resend_email(
     template = template_env.get_template(template_name)
     html_content = template.render(**template_body)
 
-    params = {
+    params: resend.Emails.SendParams = {
         "from": f"{MAIL_FROM_NAME} <{MAIL_FROM}>",
         "to": recipients,
         "subject": subject,
         "html": html_content,
     }
 
-    response = resend.Emails.send(params)
-    return response
+    return resend.Emails.send(params)

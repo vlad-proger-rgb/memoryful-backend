@@ -390,7 +390,7 @@ As the sun began to set, I stopped for a few minutes just to take in the view â€
         steps = 20403
         starred = True
         main_image = None
-        images = []
+        images: list[str] = []
         tags = [
             (await db.scalars(select(Tag).where(Tag.name == "Nature"))).one(),
             (await db.scalars(select(Tag).where(Tag.name == "Travel"))).one(),
