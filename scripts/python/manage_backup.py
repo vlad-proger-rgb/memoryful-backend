@@ -30,8 +30,12 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from dotenv import dotenv_values
+
+# Lets the ✓ and » output survive a non-UTF-8 console.
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BACKUPS_DIR = REPO_ROOT / "backups"
@@ -46,7 +50,7 @@ def _mask(text: str) -> str:
     return re.sub(r"(://[^:/@\s]+:)[^@/\s]+(@)", r"\1***\2", text)
 
 
-def _run(cmd: list[str], **kwargs) -> None:
+def _run(cmd: list[str], **kwargs: Any) -> None:
     print("»", " ".join(_mask(c) for c in cmd))
     subprocess.run(cmd, check=True, **kwargs)  # noqa: S603  # argv list built in this module, never shell-interpolated
 
