@@ -42,7 +42,6 @@ from app.models import User
 from app.routers import (
     ai,
     auth,
-    chats,
     cities,
     countries,
     days,
@@ -133,7 +132,6 @@ async def disable_http_caching(request: Request, call_next: Callable) -> Respons
 
 app.include_router(ai.router)
 app.include_router(auth.router)
-app.include_router(chats.router)
 app.include_router(cities.router)
 app.include_router(countries.router)
 app.include_router(days.router)
