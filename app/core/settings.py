@@ -32,7 +32,6 @@ POSTGRES_HOST = str(os.getenv("POSTGRES_HOST") or get_secret("POSTGRES_HOST"))
 POSTGRES_PORT = os.getenv("POSTGRES_PORT", 5432)
 POSTGRES_DB = os.getenv("POSTGRES_DB", "memoryful")
 POSTGRES_SSLMODE = os.getenv("POSTGRES_SSLMODE", "require")
-# Logs every statement and its bound parameters, which includes user day content.
 SQL_ECHO = os.getenv("SQL_ECHO", "false").lower() == "true"
 
 MAIN_DATABASE_URL = (
@@ -51,13 +50,6 @@ ALGORITHM = "HS256"
 VERIFICATION_CODE_EXPIRE_MINUTES = 5
 VERIFICATION_CODE_LENGTH = 6
 
-# RabbitMQ
-RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
-RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", 5672))
-RABBITMQ_USER = os.getenv("RABBITMQ_DEFAULT_USER", "guest")
-RABBITMQ_PASS = os.getenv("RABBITMQ_DEFAULT_PASS", "guest")
-RABBITMQ_URL = f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASS}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/"
-
 # Redis
 REDIS_HOST = get_secret("REDIS_HOST") or os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
@@ -72,14 +64,8 @@ REDIS_URL = f"{redis_protocol}://{redis_auth}{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB
 if REDIS_SSL:
     REDIS_URL += "?ssl_cert_reqs=CERT_REQUIRED"
 
-# Celery
-if ENVIRONMENT == "development" and GCP_PUBSUB_EMULATOR_HOST:
-    # For emulator, PUBSUB_EMULATOR_HOST env var must be set (done in docker-compose)
-    CELERY_BROKER_URL = f"gcpubsub://projects/{GCP_PROJECT_ID}"
-elif ENVIRONMENT == "production":
-    CELERY_BROKER_URL = f"gcpubsub://projects/{GCP_PUBSUB_PROJECT_ID}"
-else:
-    CELERY_BROKER_URL = RABBITMQ_URL
+# Celery & Pub/Sub
+CELERY_BROKER_URL = f"gcpubsub://projects/{GCP_PUBSUB_PROJECT_ID}"
 CELERY_RESULT_BACKEND = REDIS_URL
 
 # Resend Email
@@ -171,13 +157,13 @@ CACHE_TTL_CHAT_HOT = 60 * 60  # hot chat cache (write-through; DB remains source
 LLM_MODE = os.getenv("LLM_MODE", "local").strip().lower()
 
 # Vertex AI region. "global" routes across regions and is the widest-availability
-# option вЂ” partner models (Claude, Grok) are often only offered there.
+# option — partner models (Claude, Grok) are often only offered there.
 # GCP_PROJECT_ID is defined above; ADC comes from GCP_CREDENTIALS_PATH.
 VERTEX_LOCATION = os.getenv("VERTEX_LOCATION", "global")
 
 # MCP server (streamable-HTTP) the in-app agent loads its tools from. Defaults to
 # the compose sidecar's internal address. FastMCP's canonical path is /mcp with
-# NO trailing slash вЂ” /mcp/ 307-redirects to it, doubling every round-trip.
+# NO trailing slash — /mcp/ 307-redirects to it, doubling every round-trip.
 MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://mcp:3001/mcp")
 
 # Applied to every provider unless the model rejects it.

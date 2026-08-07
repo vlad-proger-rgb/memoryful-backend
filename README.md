@@ -41,8 +41,8 @@ Memoryful is an intelligent life journaling platform that combines personal data
 - **Framework**: FastAPI
 - **Database**: PostgreSQL with Async SQLAlchemy 2.0
 - **Caching**: Redis
-- **Message Broker**: RabbitMQ
-- **Task Queue**: Celery with Flower monitoring
+- **Message Broker**: GCP Pub/Sub (emulator locally)
+- **Task Queue**: Celery
 - **Authentication**: JWT (Access + Refresh tokens)
 - **API Documentation**: OpenAPI/Swagger
 
@@ -104,7 +104,7 @@ This project supports two distinct environments:
 
 - All services run locally in Docker containers
 - No external dependencies or cloud services
-- Uses local PostgreSQL, Redis, RabbitMQ, MinIO, Ollama
+- Uses local PostgreSQL, Redis, Pub/Sub emulator, MinIO, Ollama
 - Perfect for development and testing
 
 #### **Production** (`.env.prod`)

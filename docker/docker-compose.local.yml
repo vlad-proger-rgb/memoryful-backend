@@ -19,8 +19,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
       celery:
         condition: service_started
       pubsub-emulator:
@@ -103,23 +101,6 @@ services:
       timeout: 1s
       retries: 5
 
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    container_name: memoryful-rabbitmq-local
-    restart: always
-    ports:
-      - "5672:5672"
-      - "15673:15672"
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
-    healthcheck:
-      test: ["CMD", "rabbitmqctl", "status"]
-      interval: 3s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-
   celery:
     build:
       context: ..
@@ -151,17 +132,6 @@ services:
         celery -A app.core.celery_app worker -Q notifications_queue --loglevel=info --hostname=celery@notifications_worker &
         celery -A app.core.celery_app worker -Q system_queue --loglevel=info --hostname=celery@system_worker &
         wait"
-
-  flower:
-    image: mher/flower
-    container_name: memoryful-flower-local
-    restart: on-failure
-    command: celery --broker=amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@${RABBITMQ_HOST}:${RABBITMQ_PORT}// flower
-    ports:
-      - "5555:5555"
-    depends_on:
-      - celery
-      - rabbitmq
 
   pubsub-emulator:
     image: google/cloud-sdk:latest
