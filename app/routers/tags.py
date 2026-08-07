@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any, cast
 from uuid import UUID
 
 from fastapi import (
@@ -6,7 +6,7 @@ from fastapi import (
     Depends,
     HTTPException,
 )
-from sqlalchemy import delete, select, update
+from sqlalchemy import CursorResult, delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cache import cached, clear_cache
@@ -14,6 +14,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.settings import CACHE_TTL_USER_DATA
 from app.models import Tag
+from app.models.day import days_tags
 from app.schemas import (
     Msg,
     TagBase,
@@ -64,7 +65,7 @@ async def create_tag(
     await db.commit()
     await db.refresh(tag)
 
-    await clear_cache("tags")
+    await clear_cache("tags", user_id)
     return Msg(code=200, msg="Tag created", data=tag.id)
 
 
@@ -80,14 +81,17 @@ async def update_tag(
         .where(Tag.id == id, Tag.user_id == user_id)
         .values(**data.model_dump())
     )  # fmt: skip
-    await db.execute(stmt)
+    result = cast("CursorResult[Any]", await db.execute(stmt))
     await db.commit()
 
-    await clear_cache("tags")
+    if result.rowcount == 0:
+        raise HTTPException(404, "Tag not found")
+
+    await clear_cache("tags", user_id)
     # `DayDetail`/`DayBase` embed the full tag object by value, so cached
     # days would otherwise keep showing the old name/color/icon.
-    await clear_cache("days_list")
-    await clear_cache("days_detail")
+    await clear_cache("days_list", user_id)
+    await clear_cache("days_detail", user_id)
     return Msg(code=200, msg="Tag updated")
 
 
@@ -97,11 +101,19 @@ async def delete_tag(
     user_id: Annotated[UUID, Depends(get_current_user())],
     id: UUID,
 ) -> Msg[None]:
+    # days_tags has no ON DELETE CASCADE, and a bulk delete bypasses the ORM that
+    # would otherwise clear the association rows.
+    owned = select(Tag.id).where(Tag.id == id, Tag.user_id == user_id)
+    await db.execute(delete(days_tags).where(days_tags.c.tag_id.in_(owned)))
+
     stmt = delete(Tag).where(Tag.id == id, Tag.user_id == user_id)
-    await db.execute(stmt)
+    result = cast("CursorResult[Any]", await db.execute(stmt))
     await db.commit()
 
-    await clear_cache("tags")
-    await clear_cache("days_list")
-    await clear_cache("days_detail")
+    if result.rowcount == 0:
+        raise HTTPException(404, "Tag not found")
+
+    await clear_cache("tags", user_id)
+    await clear_cache("days_list", user_id)
+    await clear_cache("days_detail", user_id)
     return Msg(code=200, msg="Tag deleted")
