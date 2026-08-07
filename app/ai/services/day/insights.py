@@ -311,10 +311,10 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
         day.ai_generated_at = dt.datetime.now(dt.UTC)
         await db.commit()
 
-        await clear_cache("insights")
-        await clear_cache("suggestions")
-        await clear_cache("days_detail")
-        await clear_cache("days_list")
+        await clear_cache("insights", user_id)
+        await clear_cache("suggestions", user_id)
+        await clear_cache("days_detail", user_id)
+        await clear_cache("days_list", user_id)
 
         logging.info(
             f"AI generation completed successfully for user {user_id}, timestamp {timestamp}"

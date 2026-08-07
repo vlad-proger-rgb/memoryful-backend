@@ -109,7 +109,7 @@ async def create_month(
     )
     await db.commit()
 
-    await clear_cache("months")
+    await clear_cache("months", user_id)
     return Msg(code=200, msg="Month created")
 
 
@@ -138,6 +138,6 @@ async def update_month(
     )  # fmt: skip
     await db.execute(stmt)
     await db.commit()
-    await clear_cache("months")
+    await clear_cache("months", user_id)
     background_tasks.add_task(storage_service.delete_objects, user_id, orphaned)
     return Msg(code=200, msg="Month updated")

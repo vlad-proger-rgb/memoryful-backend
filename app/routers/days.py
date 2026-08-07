@@ -404,8 +404,8 @@ async def create_day(
     )
     await db.commit()
 
-    await clear_cache("days_list")
-    await clear_cache("days_detail")
+    await clear_cache("days_list", user_id)
+    await clear_cache("days_detail", user_id)
     return Msg(code=201, msg="Day created")
 
 
@@ -422,8 +422,8 @@ async def complete_day(
     if day.completed_at is None:
         day.completed_at = dt.datetime.now(dt.UTC)
         await db.commit()
-        await clear_cache("days_list")
-        await clear_cache("days_detail")
+        await clear_cache("days_list", user_id)
+        await clear_cache("days_detail", user_id)
 
     generate_day_ai.delay(str(user_id), timestamp)
     return Msg(code=200, msg="Day marked as complete")
@@ -441,8 +441,8 @@ async def toggle_starred(
 
     day.starred = not day.starred
     await db.commit()
-    await clear_cache("days_list")
-    await clear_cache("days_detail")
+    await clear_cache("days_list", user_id)
+    await clear_cache("days_detail", user_id)
     return Msg(code=200, msg="Day starred")
 
 
@@ -515,8 +515,8 @@ async def update_day(
             db.add(new_progress)
 
     await db.commit()
-    await clear_cache("days_list")
-    await clear_cache("days_detail")
+    await clear_cache("days_list", user_id)
+    await clear_cache("days_detail", user_id)
     background_tasks.add_task(storage_service.delete_objects, user_id, orphaned)
     return Msg(code=200, msg="Day updated")
 

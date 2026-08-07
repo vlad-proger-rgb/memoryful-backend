@@ -103,7 +103,7 @@ async def update_my_workspace(
             row.placeholder = background.placeholder
 
     await db.commit()
-    await clear_cache("workspaces")
+    await clear_cache("workspaces", user_id)
     background_tasks.add_task(storage_service.delete_objects, user_id, orphaned)
 
     return await _response(storage_service, user_id, await _rows(db, user_id), "Workspace updated")

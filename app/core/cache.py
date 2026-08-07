@@ -1,18 +1,13 @@
 import hashlib
 from collections.abc import Callable
 from typing import Any
+from uuid import UUID
 
 from fastapi_cache.decorator import cache
 
+from app.constants import CACHE_PREFIX, EXCLUDED_CACHE_KWARGS, GLOBAL_SCOPE
 from app.core.config import redis
 from app.core.settings import CACHE_ENABLED
-
-CACHE_PREFIX = "fastapi-cache"
-
-# The default key builder repr()s each kwarg, which for injected dependencies
-# bakes in a memory address: `db` differs every request (missing the cache
-# every call), and `storage_service` differs per process restart.
-_EXCLUDED_CACHE_KWARGS = {"db", "request", "response", "storage_service"}
 
 
 def cache_key_builder(
@@ -26,10 +21,13 @@ def cache_key_builder(
     # (see fastapi_cache.decorator.cache), i.e. it already includes CACHE_PREFIX.
     # Don't prepend CACHE_PREFIX again or the key won't match `clear_cache`'s scan pattern.
     kwargs = kwargs or {}
-    filtered_kwargs = {k: v for k, v in kwargs.items() if k not in _EXCLUDED_CACHE_KWARGS}
+    filtered_kwargs = {k: v for k, v in kwargs.items() if k not in EXCLUDED_CACHE_KWARGS}
     key_data = f"{func.__module__}:{func.__name__}:{args}:{filtered_kwargs}"
+    # Outside the digest so `clear_cache` can scan by user.
+    scope = kwargs.get("user_id") or GLOBAL_SCOPE
     # A cache-key digest, not a security primitive.
-    return f"{namespace}:{hashlib.md5(key_data.encode(), usedforsecurity=False).hexdigest()}"
+    digest = hashlib.md5(key_data.encode(), usedforsecurity=False).hexdigest()
+    return f"{namespace}:{scope}:{digest}"
 
 
 def cached(*, expire: int, namespace: str) -> Callable:
@@ -47,15 +45,18 @@ def cached(*, expire: int, namespace: str) -> Callable:
     return decorator
 
 
-async def clear_cache(namespace: str) -> None:
+async def clear_cache(namespace: str, user_id: UUID | str | None = None) -> None:
     """
-    Delete every cached entry under the given namespace directly via Redis.
+    Delete cached entries under the given namespace directly via Redis.
+
+    `user_id` scopes the cleanup to one user; omitting it clears the whole namespace.
 
     Uses the shared `redis` client instead of `FastAPICache.clear()`, so it
     works both from FastAPI request handlers and from Celery workers (which
     never call `FastAPICache.init()`).
     """
-    pattern = f"{CACHE_PREFIX}:{namespace}:*"
+    scope = user_id if user_id is not None else "*"
+    pattern = f"{CACHE_PREFIX}:{namespace}:{scope}:*"
     keys = [key async for key in redis.scan_iter(match=pattern)]
     if keys:
         await redis.delete(*keys)

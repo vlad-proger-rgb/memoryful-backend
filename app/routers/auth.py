@@ -292,7 +292,7 @@ async def update_me(
     await db.execute(stmt)
     await db.commit()
 
-    await clear_cache("users")
+    await clear_cache("users", user_id)
     await redis.delete(f"{RP_AI_CONTEXT}{user_id}")
     background_tasks.add_task(storage_service.delete_objects, user_id, orphaned)
     return Msg(code=200, msg="User was updated")

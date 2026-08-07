@@ -24,7 +24,7 @@ ai_logger = logging.getLogger("app.ai")
 ai_logger.setLevel(logging.DEBUG)
 
 from app.ai.catalog import sync_chat_models
-from app.core.cache import CACHE_PREFIX
+from app.constants import CACHE_PREFIX
 from app.core.config import cache_redis
 from app.core.database import AsyncSessionLocal
 from app.core.exceptions import register_exception_handlers

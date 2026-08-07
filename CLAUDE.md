@@ -73,6 +73,8 @@ httpx layer. There's an open task to build one for the core app.
   must `clear_cache()` every namespace whose payload *embeds* the changed object, not just
   its own. Tags live inside day payloads, so `tags.py` clears `tags`, `days_list` and
   `days_detail`. Symptom of missing one: DB is right, UI is stale until the TTL expires.
+  Always pass the acting `user_id` — cache keys are scoped per user, and omitting it clears
+  the namespace for everyone.
 - **Migrations apply on container start, not on hot-reload.** The compose `command:` is
   `alembic upgrade head && uvicorn ... --reload`. That chain runs once, when the container
   boots. `--reload` only restarts the uvicorn process when a file changes — it never re-runs

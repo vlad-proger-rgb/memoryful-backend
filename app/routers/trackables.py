@@ -112,7 +112,7 @@ async def create_trackable(
     await db.commit()
     await db.refresh(trackable)
 
-    await clear_cache("trackables")
+    await clear_cache("trackables", user_id)
     return Msg(code=200, msg="Trackable item created", data=trackable.id)
 
 
@@ -153,11 +153,11 @@ async def update_trackable(
     )  # fmt: skip
     await db.commit()
 
-    await clear_cache("trackables")
+    await clear_cache("trackables", user_id)
     # `DayDetail` embeds the full trackable item object by value, so cached
     # days would otherwise keep showing the old title/description/icon.
-    await clear_cache("days_list")
-    await clear_cache("days_detail")
+    await clear_cache("days_list", user_id)
+    await clear_cache("days_detail", user_id)
     return Msg(code=200, msg="Trackable item updated")
 
 
@@ -177,7 +177,7 @@ async def delete_trackable(
     if result.rowcount == 0:
         raise HTTPException(404, "Trackable item not found")
 
-    await clear_cache("trackables")
-    await clear_cache("days_list")
-    await clear_cache("days_detail")
+    await clear_cache("trackables", user_id)
+    await clear_cache("days_list", user_id)
+    await clear_cache("days_detail", user_id)
     return Msg(code=200, msg="Trackable item deleted")

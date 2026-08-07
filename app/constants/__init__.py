@@ -1,5 +1,9 @@
+from .cache import CACHE_PREFIX, EXCLUDED_CACHE_KWARGS, GLOBAL_SCOPE
 from .media import VIDEO_EXTENSIONS
 
 __all__ = [
+    "CACHE_PREFIX",
+    "EXCLUDED_CACHE_KWARGS",
+    "GLOBAL_SCOPE",
     "VIDEO_EXTENSIONS",
 ]
