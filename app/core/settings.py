@@ -32,6 +32,8 @@ POSTGRES_HOST = str(os.getenv("POSTGRES_HOST") or get_secret("POSTGRES_HOST"))
 POSTGRES_PORT = os.getenv("POSTGRES_PORT", 5432)
 POSTGRES_DB = os.getenv("POSTGRES_DB", "memoryful")
 POSTGRES_SSLMODE = os.getenv("POSTGRES_SSLMODE", "require")
+# Logs every statement and its bound parameters, which includes user day content.
+SQL_ECHO = os.getenv("SQL_ECHO", "false").lower() == "true"
 
 MAIN_DATABASE_URL = (
     f"postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}"
@@ -169,13 +171,13 @@ CACHE_TTL_CHAT_HOT = 60 * 60  # hot chat cache (write-through; DB remains source
 LLM_MODE = os.getenv("LLM_MODE", "local").strip().lower()
 
 # Vertex AI region. "global" routes across regions and is the widest-availability
-# option — partner models (Claude, Grok) are often only offered there.
+# option вЂ” partner models (Claude, Grok) are often only offered there.
 # GCP_PROJECT_ID is defined above; ADC comes from GCP_CREDENTIALS_PATH.
 VERTEX_LOCATION = os.getenv("VERTEX_LOCATION", "global")
 
 # MCP server (streamable-HTTP) the in-app agent loads its tools from. Defaults to
 # the compose sidecar's internal address. FastMCP's canonical path is /mcp with
-# NO trailing slash — /mcp/ 307-redirects to it, doubling every round-trip.
+# NO trailing slash вЂ” /mcp/ 307-redirects to it, doubling every round-trip.
 MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://mcp:3001/mcp")
 
 # Applied to every provider unless the model rejects it.

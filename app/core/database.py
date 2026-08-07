@@ -12,6 +12,7 @@ from app.core.settings import (
     POSTGRES_PASSWORD,
     POSTGRES_SSLMODE,
     POSTGRES_USER,
+    SQL_ECHO,
 )
 
 
@@ -37,14 +38,14 @@ def get_engine() -> AsyncEngine:
         return create_async_engine(
             "postgresql+asyncpg://",
             async_creator=getconn,
-            echo=True,
+            echo=SQL_ECHO,
             future=True,
         )
     else:
         # Standard asyncpg connection (used for Neon in production, and for local/dev Postgres)
         return create_async_engine(
             MAIN_DATABASE_URL,
-            echo=True,
+            echo=SQL_ECHO,
             future=True,
             pool_pre_ping=True,
             pool_recycle=300,
