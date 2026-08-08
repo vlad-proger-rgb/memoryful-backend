@@ -16,6 +16,7 @@ from app.core.database import get_db
 from app.core.deps import StorageServiceDep, get_current_user
 from app.core.storage.service import StorageService
 from app.core.storage.utils import is_video_key, orphaned_keys
+from app.enums import CacheNamespace
 from app.models import Month
 from app.schemas import (
     MonthBase,
@@ -49,7 +50,7 @@ async def _with_resolved(
 
 
 @router.get("/{year}", response_model=Msg[list[M]])
-@cached(expire=CACHE_TTL_DAYS, namespace="months")
+@cached(expire=CACHE_TTL_DAYS, namespace=CacheNamespace.months)
 async def get_months(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
@@ -65,7 +66,7 @@ async def get_months(
 
 
 @router.get("/{year}/{month_number}", response_model=Msg[M])
-@cached(expire=CACHE_TTL_DAYS, namespace="months")
+@cached(expire=CACHE_TTL_DAYS, namespace=CacheNamespace.months)
 async def get_month(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
@@ -109,7 +110,7 @@ async def create_month(
     )
     await db.commit()
 
-    await clear_cache("months", user_id)
+    await clear_cache(CacheNamespace.months, user_id)
     return Msg(code=200, msg="Month created")
 
 
@@ -138,6 +139,6 @@ async def update_month(
     )  # fmt: skip
     await db.execute(stmt)
     await db.commit()
-    await clear_cache("months", user_id)
+    await clear_cache(CacheNamespace.months, user_id)
     background_tasks.add_task(storage_service.delete_objects, user_id, orphaned)
     return Msg(code=200, msg="Month updated")

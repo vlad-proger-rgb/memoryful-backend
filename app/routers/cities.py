@@ -14,6 +14,7 @@ from sqlalchemy.orm import selectinload
 from app.constants import CACHE_TTL_STATIC
 from app.core.cache import cached
 from app.core.database import get_db
+from app.enums import CacheNamespace
 from app.models import City, Country
 from app.schemas import (
     CityDetail,
@@ -28,7 +29,7 @@ router = APIRouter(
 
 
 @router.get("/by-country/{country_id}", response_model=Msg[list[CityInDB]])
-@cached(expire=CACHE_TTL_STATIC, namespace="cities")
+@cached(expire=CACHE_TTL_STATIC, namespace=CacheNamespace.cities)
 async def get_cities_by_country_id(
     db: Annotated[AsyncSession, Depends(get_db)],
     country_id: UUID,
@@ -57,7 +58,7 @@ async def get_cities_by_country_id(
 
 
 @router.get("/{city_id}", response_model=Msg[CityDetail])
-@cached(expire=CACHE_TTL_STATIC, namespace="cities")
+@cached(expire=CACHE_TTL_STATIC, namespace=CacheNamespace.cities)
 async def get_city_by_id(
     db: Annotated[AsyncSession, Depends(get_db)],
     city_id: UUID,

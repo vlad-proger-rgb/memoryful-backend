@@ -11,7 +11,7 @@ from app.core.database import get_db
 from app.core.deps import StorageServiceDep, get_current_user
 from app.core.storage.service import StorageService
 from app.core.storage.utils import is_video_key
-from app.enums import WorkspacePage
+from app.enums import CacheNamespace, WorkspacePage
 from app.models import WorkspaceBackground
 from app.schemas import Msg, ResolvedBackground
 from app.schemas.workspace import WorkspaceInDB, WorkspaceUpdate
@@ -57,7 +57,7 @@ async def _response(
 
 
 @router.get("/me", response_model=Msg[WorkspaceInDB])
-@cached(expire=CACHE_TTL_USER_DATA, namespace="workspaces")
+@cached(expire=CACHE_TTL_USER_DATA, namespace=CacheNamespace.workspaces)
 async def get_my_workspace(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
@@ -103,7 +103,7 @@ async def update_my_workspace(
             row.placeholder = background.placeholder
 
     await db.commit()
-    await clear_cache("workspaces", user_id)
+    await clear_cache(CacheNamespace.workspaces, user_id)
     background_tasks.add_task(storage_service.delete_objects, user_id, orphaned)
 
     return await _response(storage_service, user_id, await _rows(db, user_id), "Workspace updated")

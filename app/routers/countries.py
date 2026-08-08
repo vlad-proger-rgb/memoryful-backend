@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.constants import CACHE_TTL_STATIC
 from app.core.cache import cached
 from app.core.database import get_db
+from app.enums import CacheNamespace
 from app.models import Country
 from app.schemas import (
     CountryInDB as C,
@@ -26,7 +27,7 @@ router = APIRouter(
 
 
 @router.get("/all/", response_model=Msg[list[C]])
-@cached(expire=CACHE_TTL_STATIC, namespace="countries")
+@cached(expire=CACHE_TTL_STATIC, namespace=CacheNamespace.countries)
 async def get_countries(
     db: Annotated[AsyncSession, Depends(get_db)],
     query: str | None = Query(None, description="Substring to search for in country name"),
@@ -49,7 +50,7 @@ async def get_countries(
 
 
 @router.get("/{country_id}", response_model=Msg[C])
-@cached(expire=CACHE_TTL_STATIC, namespace="countries")
+@cached(expire=CACHE_TTL_STATIC, namespace=CacheNamespace.countries)
 async def get_country_by_id(
     db: Annotated[AsyncSession, Depends(get_db)],
     country_id: UUID,

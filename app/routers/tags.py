@@ -13,6 +13,7 @@ from app.constants import CACHE_TTL_USER_DATA
 from app.core.cache import cached, clear_cache
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.enums import CacheNamespace
 from app.models import Tag
 from app.models.day import days_tags
 from app.schemas import (
@@ -28,7 +29,7 @@ router = APIRouter(
 
 
 @router.get("/", response_model=Msg[list[T]])
-@cached(expire=CACHE_TTL_USER_DATA, namespace="tags")
+@cached(expire=CACHE_TTL_USER_DATA, namespace=CacheNamespace.tags)
 async def get_tags(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
@@ -65,7 +66,7 @@ async def create_tag(
     await db.commit()
     await db.refresh(tag)
 
-    await clear_cache("tags", user_id)
+    await clear_cache(CacheNamespace.tags, user_id)
     return Msg(code=200, msg="Tag created", data=tag.id)
 
 
@@ -87,11 +88,11 @@ async def update_tag(
     if result.rowcount == 0:
         raise HTTPException(404, "Tag not found")
 
-    await clear_cache("tags", user_id)
+    await clear_cache(CacheNamespace.tags, user_id)
     # `DayDetail`/`DayBase` embed the full tag object by value, so cached
     # days would otherwise keep showing the old name/color/icon.
-    await clear_cache("days_list", user_id)
-    await clear_cache("days_detail", user_id)
+    await clear_cache(CacheNamespace.days_list, user_id)
+    await clear_cache(CacheNamespace.days_detail, user_id)
     return Msg(code=200, msg="Tag updated")
 
 
@@ -113,7 +114,7 @@ async def delete_tag(
     if result.rowcount == 0:
         raise HTTPException(404, "Tag not found")
 
-    await clear_cache("tags", user_id)
-    await clear_cache("days_list", user_id)
-    await clear_cache("days_detail", user_id)
+    await clear_cache(CacheNamespace.tags, user_id)
+    await clear_cache(CacheNamespace.days_list, user_id)
+    await clear_cache(CacheNamespace.days_detail, user_id)
     return Msg(code=200, msg="Tag deleted")

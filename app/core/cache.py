@@ -8,6 +8,7 @@ from fastapi_cache.decorator import cache
 from app.constants import CACHE_PREFIX, EXCLUDED_CACHE_KWARGS, GLOBAL_SCOPE
 from app.core.config import redis
 from app.core.settings import get_settings
+from app.enums import CacheNamespace
 
 settings = get_settings()
 
@@ -32,7 +33,7 @@ def cache_key_builder(
     return f"{namespace}:{scope}:{digest}"
 
 
-def cached(*, expire: int, namespace: str) -> Callable:
+def cached(*, expire: int, namespace: CacheNamespace) -> Callable:
     """
     Thin wrapper around `fastapi_cache.decorator.cache` that always uses
     `cache_key_builder` and can be globally disabled via the `CACHE_ENABLED`
@@ -47,7 +48,7 @@ def cached(*, expire: int, namespace: str) -> Callable:
     return decorator
 
 
-async def clear_cache(namespace: str, user_id: UUID | str | None = None) -> None:
+async def clear_cache(namespace: CacheNamespace, user_id: UUID | str | None = None) -> None:
     """
     Delete cached entries under the given namespace directly via Redis.
 

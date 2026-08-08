@@ -13,6 +13,7 @@ from app.ai.utils import build_chat_model, get_default_chat_model, load_prompt
 from app.core.cache import clear_cache
 from app.core.database import AsyncSessionLocal
 from app.core.settings import get_settings
+from app.enums import CacheNamespace
 from app.models import Day, Insight, InsightType, Suggestion
 from app.schemas.font_awesome import FAIcon
 
@@ -313,10 +314,10 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
         day.ai_generated_at = dt.datetime.now(dt.UTC)
         await db.commit()
 
-        await clear_cache("insights", user_id)
-        await clear_cache("suggestions", user_id)
-        await clear_cache("days_detail", user_id)
-        await clear_cache("days_list", user_id)
+        await clear_cache(CacheNamespace.insights, user_id)
+        await clear_cache(CacheNamespace.suggestions, user_id)
+        await clear_cache(CacheNamespace.days_detail, user_id)
+        await clear_cache(CacheNamespace.days_list, user_id)
 
         logging.info(
             f"AI generation completed successfully for user {user_id}, timestamp {timestamp}"

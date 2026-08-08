@@ -18,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cache import clear_cache
+from app.enums import CacheNamespace
 from app.enums.provider import Provider
 from app.models import ChatModel
 
@@ -145,5 +146,5 @@ async def sync_chat_models(db: AsyncSession) -> None:
 
     if added or retired:
         # The selector endpoint is cached; drop it so the new list shows immediately.
-        await clear_cache("chat_models")
+        await clear_cache(CacheNamespace.chat_models)
         logger.info("Chat model catalog synced: %d added, %d retired", len(added), retired)

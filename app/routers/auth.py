@@ -32,7 +32,7 @@ from app.core.security import (
 from app.core.settings import get_settings
 from app.core.storage.utils import orphaned_keys
 from app.core.utils import generate_activation_code
-from app.enums import EmailTemplate, RedisPrefix
+from app.enums import CacheNamespace, EmailTemplate, RedisPrefix
 from app.models import City, Country, User, UserToken
 from app.schemas import (
     AuthResponse,
@@ -56,7 +56,7 @@ router = APIRouter(
 
 
 @router.get("/me", response_model=Msg[UserInDB])
-@cached(expire=CACHE_TTL_USER_DATA, namespace="users")
+@cached(expire=CACHE_TTL_USER_DATA, namespace=CacheNamespace.users)
 async def get_me(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
@@ -283,7 +283,7 @@ async def update_me(
     await db.execute(stmt)
     await db.commit()
 
-    await clear_cache("users", user_id)
+    await clear_cache(CacheNamespace.users, user_id)
     await redis.delete(f"{RedisPrefix.ai_context}{user_id}")
     background_tasks.add_task(storage_service.delete_objects, user_id, orphaned)
     return Msg(code=200, msg="User was updated")

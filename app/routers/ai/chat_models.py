@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.constants import CACHE_TTL_STATIC
 from app.core.cache import cached
 from app.core.database import get_db
+from app.enums import CacheNamespace
 from app.models import ChatModel
 from app.schemas import (
     ChatModelInDB as C,
@@ -25,7 +26,7 @@ router = APIRouter(
 
 
 @router.get("/", response_model=Msg[list[C]])
-@cached(expire=CACHE_TTL_STATIC, namespace="chat_models")
+@cached(expire=CACHE_TTL_STATIC, namespace=CacheNamespace.chat_models)
 async def get_chat_models(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Msg[list[C]]:
@@ -45,7 +46,7 @@ async def get_chat_models(
 
 
 @router.get("/{id}", response_model=Msg[C])
-@cached(expire=CACHE_TTL_STATIC, namespace="chat_models")
+@cached(expire=CACHE_TTL_STATIC, namespace=CacheNamespace.chat_models)
 async def get_chat_model(
     db: Annotated[AsyncSession, Depends(get_db)],
     id: UUID,

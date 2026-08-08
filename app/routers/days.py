@@ -21,6 +21,7 @@ from app.core.cache import cached, clear_cache
 from app.core.database import get_db
 from app.core.deps import StorageServiceDep, get_current_user
 from app.core.storage.utils import as_key_set
+from app.enums import CacheNamespace
 from app.enums.sorting import DaySortField, SortOrder
 from app.models import City, Day, Tag, TrackableItem, TrackableProgress
 from app.schemas import (
@@ -131,7 +132,7 @@ def _apply_sorting(
 
 
 @router.get("/", response_model=Msg[list[DayListItem | DayDetail]])
-@cached(expire=CACHE_TTL_DAYS, namespace="days_list")
+@cached(expire=CACHE_TTL_DAYS, namespace=CacheNamespace.days_list)
 async def get_days(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
@@ -295,7 +296,7 @@ async def get_random_day(
 
 
 @router.get("/{timestamp}", response_model=Msg[DayDetail])
-@cached(expire=CACHE_TTL_DAYS, namespace="days_detail")
+@cached(expire=CACHE_TTL_DAYS, namespace=CacheNamespace.days_detail)
 async def get_day(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
@@ -404,8 +405,8 @@ async def create_day(
     )
     await db.commit()
 
-    await clear_cache("days_list", user_id)
-    await clear_cache("days_detail", user_id)
+    await clear_cache(CacheNamespace.days_list, user_id)
+    await clear_cache(CacheNamespace.days_detail, user_id)
     return Msg(code=201, msg="Day created")
 
 
@@ -422,8 +423,8 @@ async def complete_day(
     if day.completed_at is None:
         day.completed_at = dt.datetime.now(dt.UTC)
         await db.commit()
-        await clear_cache("days_list", user_id)
-        await clear_cache("days_detail", user_id)
+        await clear_cache(CacheNamespace.days_list, user_id)
+        await clear_cache(CacheNamespace.days_detail, user_id)
 
     generate_day_ai.delay(str(user_id), timestamp)
     return Msg(code=200, msg="Day marked as complete")
@@ -441,8 +442,8 @@ async def toggle_starred(
 
     day.starred = not day.starred
     await db.commit()
-    await clear_cache("days_list", user_id)
-    await clear_cache("days_detail", user_id)
+    await clear_cache(CacheNamespace.days_list, user_id)
+    await clear_cache(CacheNamespace.days_detail, user_id)
     return Msg(code=200, msg="Day starred")
 
 
@@ -515,8 +516,8 @@ async def update_day(
             db.add(new_progress)
 
     await db.commit()
-    await clear_cache("days_list", user_id)
-    await clear_cache("days_detail", user_id)
+    await clear_cache(CacheNamespace.days_list, user_id)
+    await clear_cache(CacheNamespace.days_detail, user_id)
     background_tasks.add_task(storage_service.delete_objects, user_id, orphaned)
     return Msg(code=200, msg="Day updated")
 
