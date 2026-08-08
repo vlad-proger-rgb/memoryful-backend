@@ -72,14 +72,20 @@ httpx layer. There's an open task to build one for the core app.
 
 ## How things work (not bugs — don't "fix" these)
 
-- **Settings resolve once, and loudly.** The required fields (`postgres_user/password/host`,
-  both JWT keys) have no default, so a missing *or empty* value raises `SettingsError` on the
-  first `get_settings()` instead of handing a blank credential to asyncpg. In production the
-  names in `SECRET_MANAGER_FIELDS` are filled by a custom settings source over one gRPC
-  channel, ranked *below* the environment so `.env.prod` can override any of them; a secret
-  that doesn't exist is skipped, any other Secret Manager failure raises. `Settings` sets no
-  `env_file` on purpose — compose supplies the environment, and the repo's own `.env` is host
-  tooling holding a production connection string.
+- **Settings resolve once, and loudly.** `REQUIRED_SECRETS` in `app/core/settings.py` is the
+  whole story: every name in it is a required field with no default, and in production every
+  one is fetched from GCP Secret Manager under its upper-cased name. Missing *or empty* fails
+  the first `get_settings()` with a `SettingsError` naming the fields — pydantic renders input
+  *values* into its own message, so never surface the `ValidationError` directly. Adding a
+  credential means adding it to that set, to Secret Manager, and to `.env.local`; there is no
+  optional tier, deliberately, because every soft default was a way to boot broken. The
+  Secret Manager source runs on one gRPC channel and is ranked *below* the environment, so
+  `.env.prod` can override any of them. `Settings` sets no `env_file` on purpose — compose
+  supplies the environment, and the repo's own `.env` is host tooling holding a production
+  connection string.
+- **The sources hook is `settings_customise_sources`** — British spelling, as pydantic
+  defines it. Spelled with a `z` it is simply a method nobody calls, so Secret Manager drops
+  out with no error and local dev still passes, because dev sets everything from `.env.local`.
 - **Cache invalidation crosses namespaces.** Reads use `@cached(namespace=...)`; a write
   must `clear_cache()` every namespace whose payload *embeds* the changed object, not just
   its own. Tags live inside day payloads, so `tags.py` clears `tags`, `days_list` and

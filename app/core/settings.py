@@ -13,9 +13,9 @@ class SettingsError(RuntimeError):
     """Configuration is missing or malformed."""
 
 
-# Filled from GCP Secret Manager when USE_SECRET_MANAGER is on; the secret is named
-# after the field, upper-cased.
-SECRET_MANAGER_FIELDS = frozenset(
+# The credentials the app cannot run without. Every one is required, and in
+# production every one comes from GCP Secret Manager under its upper-cased name.
+REQUIRED_SECRETS = frozenset(
     {
         "postgres_user",
         "postgres_password",
@@ -42,7 +42,7 @@ _LOCAL_CORS_ORIGINS = [
 
 
 class SecretManagerSource(PydanticBaseSettingsSource):
-    """Resolves SECRET_MANAGER_FIELDS, ranked below the environment so `.env.prod` wins."""
+    """Resolves REQUIRED_SECRETS, ranked below the environment so `.env.prod` wins."""
 
     def get_field_value(self, field: FieldInfo, field_name: str) -> tuple[Any, str, bool]:
         raise NotImplementedError  # unused: __call__ resolves every field in one batch
@@ -55,13 +55,13 @@ class SecretManagerSource(PydanticBaseSettingsSource):
         if not project_id:
             raise SecretManagerError("USE_SECRET_MANAGER is on but GCP_PROJECT_ID is unset")
 
-        if unknown := SECRET_MANAGER_FIELDS - set(self.settings_cls.model_fields):
+        if unknown := REQUIRED_SECRETS - set(self.settings_cls.model_fields):
             raise SecretManagerError(
-                f"SECRET_MANAGER_FIELDS names fields that do not exist: {sorted(unknown)}"
+                f"REQUIRED_SECRETS names fields that do not exist: {sorted(unknown)}"
             )
 
         apply_credentials_path()
-        wanted = sorted(f.upper() for f in SECRET_MANAGER_FIELDS if not os.getenv(f.upper()))
+        wanted = sorted(f.upper() for f in REQUIRED_SECRETS if not os.getenv(f.upper()))
         secrets = fetch_secrets(wanted, project_id=project_id)
         return {name.lower(): value for name, value in secrets.items()}
 
@@ -105,15 +105,15 @@ class Settings(BaseSettings):
     refresh_token_expire_minutes: int = 60 * 24 * 7
 
     # Redis
-    redis_host: str = "localhost"
+    redis_host: str = Field(min_length=1)
     redis_port: int = 6379
-    redis_password: str | None = None
+    redis_password: str = Field(min_length=1)
     redis_db: int = 0
     redis_ssl: bool = False
 
     # Resend email
-    resend_api_key: str | None = None
-    mail_from: str | None = None
+    resend_api_key: str = Field(min_length=1)
+    mail_from: str = Field(min_length=1)
     mail_from_name: str | None = None
 
     # Auth
@@ -127,8 +127,8 @@ class Settings(BaseSettings):
 
     # S3 / GCS
     s3_endpoint_url: str = "https://storage.googleapis.com"
-    s3_access_key_id: str = ""
-    s3_secret_access_key: str = ""
+    s3_access_key_id: str = Field(min_length=1)
+    s3_secret_access_key: str = Field(min_length=1)
     s3_region: str = "europe-central2"
     s3_bucket: str = "memoryful"
     s3_public_base_url: str = "https://storage.googleapis.com"
@@ -163,11 +163,11 @@ class Settings(BaseSettings):
     local_llm_api_key: str = "local"
 
     # Direct provider APIs (used for provider=openai / provider=anthropic models).
-    openai_api_key: str | None = None
-    anthropic_api_key: str | None = None
+    openai_api_key: str = Field(min_length=1)
+    anthropic_api_key: str = Field(min_length=1)
 
     @classmethod
-    def settings_customize_sources(
+    def settings_customise_sources(
         cls,
         settings_cls: type[BaseSettings],
         init_settings: PydanticBaseSettingsSource,
@@ -202,7 +202,7 @@ class Settings(BaseSettings):
     @property
     def redis_url(self) -> str:
         protocol = "rediss" if self.redis_ssl else "redis"
-        auth = f"default:{self.redis_password}@" if self.redis_password else ""
+        auth = f"default:{self.redis_password}@"
         url = f"{protocol}://{auth}{self.redis_host}:{self.redis_port}/{self.redis_db}"
         return f"{url}?ssl_cert_reqs=CERT_REQUIRED" if self.redis_ssl else url
 
