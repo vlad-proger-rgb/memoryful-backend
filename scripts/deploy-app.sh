@@ -27,6 +27,14 @@ $COMPOSE -f $COMPOSE_FILE --env-file .env pull app celery-worker nginx watchtowe
 echo "Building certbot-renew image..."
 $COMPOSE -f $COMPOSE_FILE --env-file .env build certbot-renew
 
+# Settings are strict: a missing required value or an unreachable Secret Manager
+# raises on the first get_settings() instead of booting with a blank credential.
+# Validating that in a throwaway container keeps a bad config from taking the live
+# app down — --force-recreate stops the running one before the new one is proven.
+echo "Preflight: resolving settings with the new image..."
+$COMPOSE -f $COMPOSE_FILE --env-file .env run --rm --no-deps app \
+  python -c "from app.core.settings import get_settings; get_settings(); print('settings OK')"
+
 echo "Recreating app container..."
 # The app container runs `alembic upgrade head` before uvicorn (see
 # docker-compose.vm.yml), so migrations apply automatically on start.
