@@ -17,8 +17,10 @@ docker compose -p memoryful --env-file .env.local -f docker/docker-compose.local
 # typecheck (strict; covers app/ and mcp_server/)
 docker exec memoryful-app-local mypy
 
-# MCP server tests
-docker exec memoryful-mcp-local pytest
+# tests — always pass the path. Config is shared (root pyproject.toml), but each
+# suite only runs in its own container: app/tests needs the DB and the full env.
+docker exec memoryful-app-local pytest app/tests
+docker exec memoryful-mcp-local pytest mcp_server/tests
 
 # autogenerate a migration — inside the container, so the DB URL and driver match
 docker exec memoryful-app-local alembic revision --autogenerate -m "name"
@@ -39,8 +41,14 @@ the formatter owns layout, and `E402`/`E712` misfire on deferred model imports a
 SQLAlchemy filters like `Model.is_deleted == False`, where `not Model.is_deleted` would
 silently change the SQL.
 
-`app/` has no test suite — only `mcp_server/` does, which uses `respx` to mock the API at the
-httpx layer. There's an open task to build one for the core app.
+Two suites, one config. `mcp_server/tests` mocks the API at the httpx layer with `respx`.
+`app/tests` drives the real app over `ASGITransport` against the local Postgres: each test
+holds a connection with an open transaction that is rolled back afterwards, and the session
+joins it via `create_savepoint` so the routers' own `db.commit()` calls don't end it.
+Authentication uses a **real** token from `create_token`, not a dependency override —
+`get_current_user` is a factory, so every route holds a different closure and there is no
+single key to override. `mcp_server/pytest.ini` is dead: pytest picks the root
+`pyproject.toml` as its configfile, so that is where `asyncio_mode` actually comes from.
 
 ## Conventions
 
