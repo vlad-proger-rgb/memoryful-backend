@@ -164,7 +164,7 @@ hundred bytes, carried inside a response the client already makes, so it costs n
 extra request.
 
 - **Defaults** — constants in `workspaceDefaults.ts`. Regenerate alongside the
-  asset; a stale one flashes the wrong colours.
+  asset; a stale one flashes the wrong colors.
 
   ```bash
   ffmpeg -i <source> -vf scale=32:-2 -c:v libwebp -quality 55 -compression_level 6 lqip.webp && base64 -w0 lqip.webp

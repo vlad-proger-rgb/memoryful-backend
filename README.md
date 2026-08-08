@@ -224,7 +224,7 @@ migration). Dumps live in `backups/` (gitignored). The dump's Postgres major mus
 match the local DB, so keep these aligned with Neon (currently **18**): `PG_IMAGE`
 in `scripts/python/manage_backup.py` and the `db` image in
 `docker/docker-compose.local.yml`. After changing the `db` image, wipe the volume
-(`down -v`) so it re-initialises on the new major.
+(`down -v`) so it re-initializes on the new major.
 
 ### Local AI Model (Ollama)
 

@@ -25,7 +25,7 @@ def fetch_secrets(names: Iterable[str], *, project_id: str) -> dict[str, str]:
 
     A secret that does not exist is skipped, since several are optional and pydantic
     already enforces the required ones. Every other failure raises: degrading to a
-    blank credential is the behaviour this replaces.
+    blank credential is the behavior this replaces.
     """
     names = list(names)
     if not names:
