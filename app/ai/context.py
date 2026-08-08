@@ -15,8 +15,9 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.utils import load_prompt, prompts_dir
+from app.constants import CACHE_TTL_USER_DATA
 from app.core.config import redis
-from app.core.settings import CACHE_TTL_USER_DATA, RP_AI_CONTEXT
+from app.enums import RedisPrefix
 from app.models import User
 
 logger = logging.getLogger(__name__)
@@ -55,7 +56,7 @@ class UserProfile(BaseModel):
 
 async def get_user_profile(db: AsyncSession, user_id: UUID) -> UserProfile:
     """Cached minimal profile for prompt context. Invalidated on `PUT /auth/me`."""
-    key = f"{RP_AI_CONTEXT}{user_id}"
+    key = f"{RedisPrefix.ai_context}{user_id}"
     cached = await redis.get(key)
     if cached:
         return UserProfile.model_validate_json(cached)

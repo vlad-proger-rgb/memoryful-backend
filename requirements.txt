@@ -8,6 +8,7 @@ uvicorn
 sqlalchemy
 alembic
 pydantic
+pydantic-settings
 email-validator
 redis[async]
 fastapi-cache2

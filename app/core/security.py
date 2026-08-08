@@ -8,25 +8,26 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.constants import ALGORITHM
 from app.core.config import redis
-from app.core.settings import (
-    ACCESS_SECRET_KEY,
-    ACCESS_TOKEN_EXPIRE_MINUTES,
-    ALGORITHM,
-    REFRESH_SECRET_KEY,
-    REFRESH_TOKEN_EXPIRE_MINUTES,
-)
+from app.core.settings import get_settings
 from app.models import User, UserToken
 from app.schemas import Token, VerifyCodeForm
+
+settings = get_settings()
+
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/auth/login",
 )
 
-TOKEN_SETTINGS = {
-    "access": (ACCESS_SECRET_KEY, ACCESS_TOKEN_EXPIRE_MINUTES),
-    "refresh": (REFRESH_SECRET_KEY, REFRESH_TOKEN_EXPIRE_MINUTES),
-}
+
+def _token_config(token_type: str) -> tuple[str, int]:
+    if token_type == "access":  # noqa: S105  # a token *kind*, not a secret
+        return settings.access_secret_key, settings.access_token_expire_minutes
+    if token_type == "refresh":  # noqa: S105  # a token *kind*, not a secret
+        return settings.refresh_secret_key, settings.refresh_token_expire_minutes
+    raise ValueError("Invalid token type. Choose 'access' or 'refresh'")
 
 
 def hash_refresh_token(token: str) -> str:
@@ -44,10 +45,7 @@ def create_token(
     expires_delta: dt.timedelta | None = None,
     jti: str | None = None,
 ) -> tuple[str, str]:
-    if token_type not in TOKEN_SETTINGS:
-        raise ValueError("Invalid token type. Choose 'access' or 'refresh'")
-
-    secret_key, expire_minutes = TOKEN_SETTINGS[token_type]
+    secret_key, expire_minutes = _token_config(token_type)
     expiration_time = (
         dt.datetime.now(dt.UTC) + expires_delta
         if expires_delta
@@ -96,7 +94,8 @@ async def create_and_store_tokens(
         id=session_id,
         user_id=user.id,
         refresh_token_hash=hash_refresh_token(refresh_token),
-        expires_at=dt.datetime.now(dt.UTC) + dt.timedelta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES),
+        expires_at=dt.datetime.now(dt.UTC)
+        + dt.timedelta(minutes=settings.refresh_token_expire_minutes),
     )
 
     if request:

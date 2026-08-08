@@ -10,12 +10,17 @@ from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.interfaces import ORMOption
 
+from app.constants import ALGORITHM
 from app.core.config import redis
 from app.core.database import get_db
 from app.core.security import oauth2_scheme
-from app.core.settings import ACCESS_SECRET_KEY, ALGORITHM, RP_BLACKLISTED_TOKEN
+from app.core.settings import get_settings
 from app.core.storage.service import StorageService
+from app.enums import RedisPrefix
 from app.models import User
+
+settings = get_settings()
+
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +41,10 @@ def get_current_user(
 
         user_id: UUID | None = None
         try:
-            payload = jwt.decode(token, ACCESS_SECRET_KEY, algorithms=ALGORITHM)
-            if (jti := payload.get("jti")) and await redis.get(f"{RP_BLACKLISTED_TOKEN}{jti}"):
+            payload = jwt.decode(token, settings.access_secret_key, algorithms=ALGORITHM)
+            if (jti := payload.get("jti")) and await redis.get(
+                f"{RedisPrefix.blacklisted_token}{jti}"
+            ):
                 logger.debug(f"get_current_user {jti=} is blacklisted")
                 raise credentials_exception
 

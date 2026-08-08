@@ -12,19 +12,12 @@ from pydantic import SecretStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.settings import (
-    ANTHROPIC_API_KEY,
-    DEFAULT_TEMPERATURE,
-    GCP_PROJECT_ID,
-    LLM_MODE,
-    LOCAL_LLM_API_KEY,
-    LOCAL_LLM_BASE_URL,
-    LOCAL_LLM_MODEL,
-    OPENAI_API_KEY,
-    VERTEX_LOCATION,
-)
+from app.core.settings import get_settings
 from app.enums.provider import Provider
 from app.models import ChatModel
+
+settings = get_settings()
+
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +89,8 @@ def _vertex_openapi_base_url(location: str) -> str:
         if location == "global"
         else f"{location}-aiplatform.googleapis.com"
     )
-    return f"https://{host}/v1/projects/{GCP_PROJECT_ID}/locations/{location}/endpoints/openapi"
+    project_id = settings.gcp_project_id
+    return f"https://{host}/v1/projects/{project_id}/locations/{location}/endpoints/openapi"
 
 
 class _VertexMaaSChatOpenAI(ChatOpenAI):
@@ -166,27 +160,27 @@ def build_chat_model(model: ChatModel) -> BaseChatModel:
     The gateway is chosen by `LLM_MODE`; the model id and provider come from the
     selected catalog record, so the in-app model selector actually switches models.
     """
-    temperature = DEFAULT_TEMPERATURE
+    temperature = settings.default_temperature
 
     # Dev: everything is served by local Ollama regardless of the catalog pick.
-    if LLM_MODE == "local":
+    if settings.llm_mode == "local":
         return ChatOpenAI(
-            model=LOCAL_LLM_MODEL,
+            model=settings.local_llm_model,
             temperature=temperature,
-            base_url=LOCAL_LLM_BASE_URL,
-            api_key=SecretStr(LOCAL_LLM_API_KEY) if LOCAL_LLM_API_KEY else None,
+            base_url=settings.local_llm_base_url,
+            api_key=SecretStr(settings.local_llm_api_key) if settings.local_llm_api_key else None,
         )
 
     provider = _resolve_provider(model)
     # Per-model region override; falls back to the global default. Some models
     # (e.g. Claude) may only have quota in a specific region, not "global".
-    location = model.region or VERTEX_LOCATION
+    location = model.region or settings.vertex_location
 
     # Gemini via the unified google-genai SDK pointed at Vertex (ADC through
     # GCP_CREDENTIALS_PATH, no API key). Imported lazily so local dev doesn't
     # need the Google libs.
     if provider is Provider.google:
-        if not GCP_PROJECT_ID:
+        if not settings.gcp_project_id:
             raise RuntimeError("GCP_PROJECT_ID is required to use Vertex AI models")
         from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -194,7 +188,7 @@ def build_chat_model(model: ChatModel) -> BaseChatModel:
             model=model.name,
             temperature=temperature,
             vertexai=True,
-            project=GCP_PROJECT_ID,
+            project=settings.gcp_project_id,
             location=location,
         )
 
@@ -202,7 +196,7 @@ def build_chat_model(model: ChatModel) -> BaseChatModel:
     # Vertex route needs a per-model quota grant that Google declined for this
     # project. `model.name` is the direct-API id (no "@version" suffix).
     if provider is Provider.anthropic:
-        if not ANTHROPIC_API_KEY:
+        if not settings.anthropic_api_key:
             raise RuntimeError("ANTHROPIC_API_KEY is required to use Claude models")
         from langchain_anthropic import ChatAnthropic
 
@@ -212,13 +206,13 @@ def build_chat_model(model: ChatModel) -> BaseChatModel:
         if model.name.startswith(_ANTHROPIC_NO_SAMPLING):
             return ChatAnthropic(
                 model_name=model.name,
-                api_key=SecretStr(ANTHROPIC_API_KEY),
+                api_key=SecretStr(settings.anthropic_api_key),
                 timeout=None,
                 stop=None,
             )
         return ChatAnthropic(
             model_name=model.name,
-            api_key=SecretStr(ANTHROPIC_API_KEY),
+            api_key=SecretStr(settings.anthropic_api_key),
             temperature=temperature,
             timeout=None,
             stop=None,
@@ -229,7 +223,7 @@ def build_chat_model(model: ChatModel) -> BaseChatModel:
     # endpoint, authenticated with an ADC access token instead of an API key.
     # `model.name` must carry the publisher prefix, e.g. "xai/grok-4.1-fast-reasoning".
     if provider in _VERTEX_MAAS_PROVIDERS:
-        if not GCP_PROJECT_ID:
+        if not settings.gcp_project_id:
             raise RuntimeError("GCP_PROJECT_ID is required to use Vertex Model Garden models")
         # _VertexMaaSChatOpenAI (not plain ChatOpenAI): pads empty tool-call messages.
         return _VertexMaaSChatOpenAI(
@@ -241,16 +235,16 @@ def build_chat_model(model: ChatModel) -> BaseChatModel:
 
     if provider is Provider.openai:
         # Direct OpenAI API (outside GCP).
-        if not OPENAI_API_KEY:
+        if not settings.openai_api_key:
             raise RuntimeError("OPENAI_API_KEY is required to use OpenAI models")
         return ChatOpenAI(
             model=model.name,
             temperature=temperature,
-            api_key=SecretStr(OPENAI_API_KEY),
+            api_key=SecretStr(settings.openai_api_key),
         )
 
     raise RuntimeError(
-        f"No LLM gateway configured for provider {provider!r} (model {model.name!r}) in LLM_MODE={LLM_MODE!r}"
+        f"No LLM gateway configured for provider {provider!r} (model {model.name!r}) in LLM_MODE={settings.llm_mode!r}"
     )
 
 

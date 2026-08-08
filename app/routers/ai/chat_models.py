@@ -9,9 +9,9 @@ from fastapi import (
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.constants import CACHE_TTL_STATIC
 from app.core.cache import cached
 from app.core.database import get_db
-from app.core.settings import CACHE_TTL_STATIC
 from app.models import ChatModel
 from app.schemas import (
     ChatModelInDB as C,

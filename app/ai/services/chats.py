@@ -9,13 +9,9 @@ from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.constants import CACHE_TTL_CHAT_HOT, CACHE_TTL_USER_DATA
 from app.core.config import redis
-from app.core.settings import (
-    CACHE_TTL_CHAT_HOT,
-    CACHE_TTL_USER_DATA,
-    RP_CHAT,
-    RP_CHAT_LIST,
-)
+from app.enums import RedisPrefix
 from app.models import Chat, ChatModel
 from app.schemas import ChatDetail, ChatListItem
 
@@ -23,11 +19,11 @@ logger = logging.getLogger(__name__)
 
 
 def _chat_key(chat_id: UUID) -> str:
-    return f"{RP_CHAT}{chat_id}"
+    return f"{RedisPrefix.chat}{chat_id}"
 
 
 def _chat_list_key(user_id: UUID) -> str:
-    return f"{RP_CHAT_LIST}{user_id}"
+    return f"{RedisPrefix.chat_list}{user_id}"
 
 
 class ChatStore:

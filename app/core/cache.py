@@ -7,7 +7,9 @@ from fastapi_cache.decorator import cache
 
 from app.constants import CACHE_PREFIX, EXCLUDED_CACHE_KWARGS, GLOBAL_SCOPE
 from app.core.config import redis
-from app.core.settings import CACHE_ENABLED
+from app.core.settings import get_settings
+
+settings = get_settings()
 
 
 def cache_key_builder(
@@ -38,7 +40,7 @@ def cached(*, expire: int, namespace: str) -> Callable:
     """
 
     def decorator(func: Callable) -> Callable:
-        if not CACHE_ENABLED:
+        if not settings.cache_enabled:
             return func
         return cache(expire=expire, namespace=namespace, key_builder=cache_key_builder)(func)
 

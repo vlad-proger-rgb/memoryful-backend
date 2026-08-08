@@ -4,9 +4,11 @@ import resend
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pydantic import EmailStr
 
-from app.core.settings import MAIL_FROM, MAIL_FROM_NAME, RESEND_API_KEY
+from app.core.settings import get_settings
 
-resend.api_key = RESEND_API_KEY
+settings = get_settings()
+
+resend.api_key = settings.resend_api_key
 
 template_env = Environment(
     loader=FileSystemLoader(Path("app/templates/email")),
@@ -37,7 +39,7 @@ def send_resend_email(
     html_content = template.render(**template_body)
 
     params: resend.Emails.SendParams = {
-        "from": f"{MAIL_FROM_NAME} <{MAIL_FROM}>",
+        "from": f"{settings.mail_from_name} <{settings.mail_from}>",
         "to": recipients,
         "subject": subject,
         "html": html_content,

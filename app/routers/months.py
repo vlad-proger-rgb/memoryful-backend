@@ -10,10 +10,10 @@ from fastapi import (
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.constants import CACHE_TTL_DAYS
 from app.core.cache import cached, clear_cache
 from app.core.database import get_db
 from app.core.deps import StorageServiceDep, get_current_user
-from app.core.settings import CACHE_TTL_DAYS
 from app.core.storage.service import StorageService
 from app.core.storage.utils import is_video_key, orphaned_keys
 from app.models import Month

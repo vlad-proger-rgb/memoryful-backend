@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.settings import MAIL_FROM
+from app.core.settings import get_settings
 from app.enums.font_awesome import IconStyle
 from app.models import (
     City,
@@ -19,6 +19,8 @@ from app.models import (
     User,
 )
 from app.schemas.font_awesome import FAIcon
+
+settings = get_settings()
 
 
 async def init_db(db: AsyncSession) -> None:
@@ -75,7 +77,7 @@ async def init_db(db: AsyncSession) -> None:
         user = User(
             country_id=country.id,
             city_id=city.id,
-            email=MAIL_FROM,
+            email=settings.mail_from,
             is_enabled=True,
             first_name="John",
             last_name="Doe",

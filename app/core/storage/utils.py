@@ -6,8 +6,10 @@ from uuid import UUID, uuid4
 from fastapi import HTTPException
 
 from app.constants import VIDEO_EXTENSIONS
-from app.core.settings import S3_PUBLIC_BASE_URL
+from app.core.settings import get_settings
 from app.enums import StorageUploadIntent
+
+settings = get_settings()
 
 
 def safe_filename(filename: str) -> str:
@@ -111,10 +113,11 @@ def orphaned_keys(
 
 def to_public_url(url: str) -> str:
     """Convert internal S3 URL to public URL if configured"""
-    if not S3_PUBLIC_BASE_URL:
+    base_url = settings.s3_public_base_url
+    if not base_url:
         return url
 
-    public = urlparse(S3_PUBLIC_BASE_URL)
+    public = urlparse(base_url)
     if not public.scheme or not public.netloc:
         return url
 

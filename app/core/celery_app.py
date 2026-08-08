@@ -1,11 +1,13 @@
 from celery import Celery
 from celery.schedules import crontab
 
-from app.core.settings import CELERY_BROKER_URL, CELERY_RESULT_BACKEND
+from app.core.settings import get_settings
+
+settings = get_settings()
 
 # Configure broker transport options for PubSub
 broker_transport_options = {}
-if "gcpubsub" in CELERY_BROKER_URL:
+if "gcpubsub" in settings.celery_broker_url:
     broker_transport_options = {
         "visibility_timeout": 3600,  # 1 hour
         "dead_letter_queue": "celery-dlq",
@@ -14,8 +16,8 @@ if "gcpubsub" in CELERY_BROKER_URL:
 
 celery = Celery(
     "tasks",
-    broker=CELERY_BROKER_URL,
-    backend=CELERY_RESULT_BACKEND,
+    broker=settings.celery_broker_url,
+    backend=settings.celery_result_backend,
     include=["app.tasks"],
     broker_transport_options=broker_transport_options,
 )

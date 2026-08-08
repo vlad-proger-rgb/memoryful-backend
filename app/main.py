@@ -28,15 +28,7 @@ from app.constants import CACHE_PREFIX
 from app.core.config import cache_redis
 from app.core.database import AsyncSessionLocal
 from app.core.exceptions import register_exception_handlers
-from app.core.settings import (
-    ALLOW_CREDENTIALS,
-    ALLOWED_HEADERS,
-    ALLOWED_METHODS,
-    ALLOWED_ORIGINS,
-    ENVIRONMENT,
-    SEED_DB_ON_EMPTY,
-    TRUSTED_EMAILS,
-)
+from app.core.settings import get_settings
 from app.init_db import init_db
 from app.models import User
 from app.routers import (
@@ -57,6 +49,8 @@ from app.routers import (
 )
 from app.schemas import Msg
 
+settings = get_settings()
+
 
 async def run_migrations() -> None:
     from alembic import command
@@ -74,11 +68,11 @@ async def run_migrations() -> None:
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     FastAPICache.init(RedisBackend(cache_redis), prefix=CACHE_PREFIX)
 
-    if TRUSTED_EMAILS:
+    if settings.trusted_emails:
         logging.warning(
             "Login verification is bypassed for %d address(es) (ENVIRONMENT=%s)",
-            len(TRUSTED_EMAILS),
-            ENVIRONMENT,
+            len(settings.trusted_emails),
+            settings.environment,
         )
 
     # await run_migrations()
@@ -91,7 +85,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         except Exception:
             logging.exception("Chat model catalog sync failed; continuing startup")
             await session.rollback()
-        if ENVIRONMENT == "development" and SEED_DB_ON_EMPTY:
+        if settings.is_development and settings.seed_db_on_empty:
             has_any_user = await session.scalar(select(User.id).limit(1))
             if not has_any_user:
                 await init_db(session)
@@ -106,10 +100,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=ALLOW_CREDENTIALS,
-    allow_methods=ALLOWED_METHODS,
-    allow_headers=ALLOWED_HEADERS,
+    allow_origins=settings.allowed_origins,
+    allow_credentials=settings.allow_credentials,
+    allow_methods=settings.allowed_methods,
+    allow_headers=settings.allowed_headers,
 )
 
 

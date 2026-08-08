@@ -18,6 +18,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.constants import ALGORITHM, CACHE_TTL_USER_DATA, VERIFICATION_CODE_EXPIRE_MINUTES
 from app.core.cache import cached, clear_cache
 from app.core.config import redis
 from app.core.database import get_db
@@ -28,23 +29,10 @@ from app.core.security import (
     verify_code_form,
     verify_refresh_token,
 )
-from app.core.settings import (
-    ACCESS_SECRET_KEY,
-    ACCESS_TOKEN_EXPIRE_MINUTES,
-    ALGORITHM,
-    CACHE_TTL_USER_DATA,
-    ENVIRONMENT,
-    REFRESH_SECRET_KEY,
-    REFRESH_TOKEN_EXPIRE_MINUTES,
-    RP_AI_CONTEXT,
-    RP_BLACKLISTED_TOKEN,
-    RP_LOGIN_CODE,
-    VERIFICATION_CODE_EXPIRE_MINUTES,
-    is_trusted_email,
-)
+from app.core.settings import get_settings
 from app.core.storage.utils import orphaned_keys
 from app.core.utils import generate_activation_code
-from app.enums import EmailTemplate
+from app.enums import EmailTemplate, RedisPrefix
 from app.models import City, Country, User, UserToken
 from app.schemas import (
     AuthResponse,
@@ -57,6 +45,9 @@ from app.schemas import (
     VerifyCodeForm,
 )
 from app.tasks import send_email_task
+
+settings = get_settings()
+
 
 router = APIRouter(
     prefix="/auth",
@@ -88,9 +79,9 @@ async def request_code(email: Email) -> Msg[None]:
     print(f"AUTH POST /request-code {email.email=}")
     activation_code = generate_activation_code()
 
-    if not is_trusted_email(email.email):
+    if not settings.is_trusted_email(email.email):
         await redis.setex(
-            f"{RP_LOGIN_CODE}{email.email}",
+            f"{RedisPrefix.login_code}{email.email}",
             VERIFICATION_CODE_EXPIRE_MINUTES * 60,
             activation_code,
         )
@@ -116,8 +107,8 @@ async def verify_code(
 ) -> Msg[AuthResponse]:
     print(f"AUTH POST /verify-code {code_form=}")
 
-    if not is_trusted_email(code_form.email):
-        await verify_code_form(f"{RP_LOGIN_CODE}{code_form.email}", code_form)
+    if not settings.is_trusted_email(code_form.email):
+        await verify_code_form(f"{RedisPrefix.login_code}{code_form.email}", code_form)
 
     stmt = select(User).where(User.email == code_form.email)
     user: User | None = (await db.scalars(stmt)).one_or_none()
@@ -132,14 +123,14 @@ async def verify_code(
 
     tokens = await create_and_store_tokens(db, user, request)
     if tokens.refresh_token:
-        is_secure_cookie = ENVIRONMENT != "development"
+        is_secure_cookie = not settings.is_development
         response.set_cookie(
             key="refresh_token",
             value=tokens.refresh_token,
             httponly=True,
             secure=is_secure_cookie,
             samesite="lax",
-            max_age=REFRESH_TOKEN_EXPIRE_MINUTES * 60,
+            max_age=settings.refresh_token_expire_minutes * 60,
             path="/",
         )
 
@@ -176,7 +167,7 @@ async def refresh_token(
         raise HTTPException(401, "No refresh token provided", {"WWW-Authenticate": "Bearer"})
 
     try:
-        payload = jwt.decode(refresh_token, REFRESH_SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(refresh_token, settings.refresh_secret_key, algorithms=[ALGORITHM])
         if not (jti := payload.get("jti")):
             raise HTTPException(401, "Invalid token format", {"WWW-Authenticate": "Bearer"})
 
@@ -225,14 +216,14 @@ async def refresh_token(
     new_tokens = await create_and_store_tokens(db, user, request)
 
     if new_tokens.refresh_token:
-        is_secure_cookie = ENVIRONMENT != "development"
+        is_secure_cookie = not settings.is_development
         response.set_cookie(
             key="refresh_token",
             value=new_tokens.refresh_token,
             httponly=True,
             secure=is_secure_cookie,
             samesite="lax",
-            max_age=REFRESH_TOKEN_EXPIRE_MINUTES * 60,
+            max_age=settings.refresh_token_expire_minutes * 60,
             path="/",
         )
 
@@ -293,7 +284,7 @@ async def update_me(
     await db.commit()
 
     await clear_cache("users", user_id)
-    await redis.delete(f"{RP_AI_CONTEXT}{user_id}")
+    await redis.delete(f"{RedisPrefix.ai_context}{user_id}")
     background_tasks.add_task(storage_service.delete_objects, user_id, orphaned)
     return Msg(code=200, msg="User was updated")
 
@@ -306,7 +297,7 @@ async def logout(
     response: Response,
 ) -> Msg[None]:
     try:
-        payload = jwt.decode(token, ACCESS_SECRET_KEY, algorithms=ALGORITHM)
+        payload = jwt.decode(token, settings.access_secret_key, algorithms=ALGORITHM)
         print(f"UTILS logout {payload=}")
         user_id = payload.get("sub")
         jti = payload.get("jti")
@@ -314,7 +305,7 @@ async def logout(
 
         if jti and exp_time:
             ttl = max(0, exp_time - int(dt.datetime.now(dt.UTC).timestamp()))
-            await redis.setex(f"{RP_BLACKLISTED_TOKEN}{jti}", ttl, "true")
+            await redis.setex(f"{RedisPrefix.blacklisted_token}{jti}", ttl, "true")
 
         stmt = delete(UserToken).where(
             UserToken.user_id == user_id,
@@ -341,9 +332,9 @@ async def logout_all(
     result = await db.execute(stmt)
     tokens: Sequence[UserToken] = result.scalars().all()
 
-    ttl = ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    ttl = settings.access_token_expire_minutes * 60
     for t in tokens:
-        await redis.setex(f"{RP_BLACKLISTED_TOKEN}{t.id}", ttl, "true")
+        await redis.setex(f"{RedisPrefix.blacklisted_token}{t.id}", ttl, "true")
 
     delete_stmt = delete(UserToken).where(UserToken.user_id == user_id)
     await db.execute(delete_stmt)
@@ -364,7 +355,7 @@ async def list_sessions(
 
     current_jti: str | None = None
     try:
-        payload = jwt.decode(token, ACCESS_SECRET_KEY, algorithms=ALGORITHM)
+        payload = jwt.decode(token, settings.access_secret_key, algorithms=ALGORITHM)
         current_jti = payload.get("jti")
     except JWTError:
         current_jti = None
@@ -410,8 +401,8 @@ async def revoke_session(
     if not token:
         raise HTTPException(404, "Session not found")
 
-    ttl = ACCESS_TOKEN_EXPIRE_MINUTES * 60
-    await redis.setex(f"{RP_BLACKLISTED_TOKEN}{token.id}", ttl, "true")
+    ttl = settings.access_token_expire_minutes * 60
+    await redis.setex(f"{RedisPrefix.blacklisted_token}{token.id}", ttl, "true")
 
     await db.delete(token)
     await db.commit()

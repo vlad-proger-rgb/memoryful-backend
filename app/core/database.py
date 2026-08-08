@@ -4,16 +4,9 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
-from app.core.settings import (
-    ENVIRONMENT,
-    MAIN_DATABASE_URL,
-    POSTGRES_DB,
-    POSTGRES_HOST,
-    POSTGRES_PASSWORD,
-    POSTGRES_SSLMODE,
-    POSTGRES_USER,
-    SQL_ECHO,
-)
+from app.core.settings import get_settings
+
+settings = get_settings()
 
 
 def get_engine() -> AsyncEngine:
@@ -21,36 +14,36 @@ def get_engine() -> AsyncEngine:
 
     # Previously we used Cloud SQL (Cloud Run), now we switched to Neon.
     # Kept for reference / in case Cloud SQL is used again in the future.
-    if ENVIRONMENT == "production" and POSTGRES_HOST.startswith("/cloudsql/"):
+    if settings.environment == "production" and settings.postgres_host.startswith("/cloudsql/"):
         from google.cloud.sql.connector import Connector
 
         async def getconn() -> Any:
             connector = Connector()
             conn = await connector.connect_async(
-                POSTGRES_HOST.replace("/cloudsql/", ""),
+                settings.postgres_host.replace("/cloudsql/", ""),
                 "asyncpg",
-                user=POSTGRES_USER,
-                password=POSTGRES_PASSWORD,
-                db=POSTGRES_DB,
+                user=settings.postgres_user,
+                password=settings.postgres_password,
+                db=settings.postgres_db,
             )
             return conn
 
         return create_async_engine(
             "postgresql+asyncpg://",
             async_creator=getconn,
-            echo=SQL_ECHO,
+            echo=settings.sql_echo,
             future=True,
         )
     else:
         # Standard asyncpg connection (used for Neon in production, and for local/dev Postgres)
         return create_async_engine(
-            MAIN_DATABASE_URL,
-            echo=SQL_ECHO,
+            settings.main_database_url,
+            echo=settings.sql_echo,
             future=True,
             pool_pre_ping=True,
             pool_recycle=300,
             connect_args={
-                "ssl": POSTGRES_SSLMODE,
+                "ssl": settings.postgres_sslmode,
                 "server_settings": {"application_name": "memoryful-backend"},
                 # Required for Neon's pooled (-pooler) endpoint: PgBouncer's
                 # transaction pooling mode is incompatible with asyncpg's

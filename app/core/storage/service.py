@@ -8,7 +8,7 @@ from botocore.exceptions import ClientError
 from fastapi import HTTPException
 
 from app.core.config import cache_redis, s3_client
-from app.core.settings import S3_BUCKET, S3_REGION
+from app.core.settings import get_settings
 from app.core.storage.utils import (
     build_object_key,
     to_public_url,
@@ -22,6 +22,7 @@ from app.schemas.storage import (
 )
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 # Long-lived on purpose: the browser caches against the full URL including the
 # signature, so a short expiry turns every re-signing into a cache miss and
@@ -46,18 +47,18 @@ class StorageService:
         if self._bucket_verified:
             return
         try:
-            await asyncio.to_thread(self.client.head_bucket, Bucket=S3_BUCKET)
+            await asyncio.to_thread(self.client.head_bucket, Bucket=settings.s3_bucket)
             self._bucket_verified = True
         except ClientError as e:
             code = str(e.response.get("Error", {}).get("Code", ""))
             if code in {"404", "NoSuchBucket", "NotFound"}:
-                params: dict[str, Any] = {"Bucket": S3_BUCKET}
+                params: dict[str, Any] = {"Bucket": settings.s3_bucket}
                 # AWS requires LocationConstraint for most regions. us-east-1 must omit it.
-                if S3_REGION and S3_REGION != "us-east-1":
-                    params["CreateBucketConfiguration"] = {"LocationConstraint": S3_REGION}
+                if settings.s3_region and settings.s3_region != "us-east-1":
+                    params["CreateBucketConfiguration"] = {"LocationConstraint": settings.s3_region}
                 create_bucket: Any = self.client.create_bucket
                 await asyncio.to_thread(create_bucket, **params)
-                logger.info(f"Created bucket: {S3_BUCKET}")
+                logger.info(f"Created bucket: {settings.s3_bucket}")
                 self._bucket_verified = True
                 return
             logger.exception("Failed to ensure bucket exists")
@@ -77,7 +78,7 @@ class StorageService:
         upload_url = self.client.generate_presigned_url(
             ClientMethod="put_object",
             Params={
-                "Bucket": S3_BUCKET,
+                "Bucket": settings.s3_bucket,
                 "Key": object_key,
                 "ContentType": request.content_type,
             },
@@ -111,7 +112,7 @@ class StorageService:
         download_url = self.client.generate_presigned_url(
             ClientMethod="get_object",
             Params={
-                "Bucket": S3_BUCKET,
+                "Bucket": settings.s3_bucket,
                 "Key": request.object_key,
                 # Safe because object keys embed a random asset id, so a key is
                 # never overwritten with different content.
@@ -160,7 +161,9 @@ class StorageService:
             try:
                 # boto3 is synchronous; off-thread so a slow delete can't stall
                 # the event loop. Removing a large object can take tens of seconds.
-                await asyncio.to_thread(self.client.delete_object, Bucket=S3_BUCKET, Key=object_key)
+                await asyncio.to_thread(
+                    self.client.delete_object, Bucket=settings.s3_bucket, Key=object_key
+                )
             except ClientError:
                 logger.exception(f"Failed to delete object: {object_key}")
                 continue

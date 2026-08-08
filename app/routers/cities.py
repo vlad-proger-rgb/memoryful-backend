@@ -11,9 +11,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.constants import CACHE_TTL_STATIC
 from app.core.cache import cached
 from app.core.database import get_db
-from app.core.settings import CACHE_TTL_STATIC
 from app.models import City, Country
 from app.schemas import (
     CityDetail,

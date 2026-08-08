@@ -12,19 +12,21 @@ from app.ai.services.day.parsing import extract_json_array, sanitize_items
 from app.ai.utils import build_chat_model, get_default_chat_model, load_prompt
 from app.core.cache import clear_cache
 from app.core.database import AsyncSessionLocal
-from app.core.settings import LLM_MODE, LOCAL_LLM_MODEL
+from app.core.settings import get_settings
 from app.models import Day, Insight, InsightType, Suggestion
 from app.schemas.font_awesome import FAIcon
+
+settings = get_settings()
 
 
 def handle_openai_model_error(e: OpenAIError) -> None:
     """Handle 'model not found' errors when running against local Ollama."""
-    if LLM_MODE == "local" and "model" in str(e).lower() and "not found" in str(e).lower():
+    if settings.llm_mode == "local" and "model" in str(e).lower() and "not found" in str(e).lower():
         raise RuntimeError(
             "Local model not found in Ollama. "
-            f"Requested LOCAL_LLM_MODEL='{LOCAL_LLM_MODEL}'. "
+            f"Requested LOCAL_LLM_MODEL='{settings.local_llm_model}'. "
             "Run: docker exec -it ollama-dev ollama list (to see installed models) "
-            f"and docker exec -it ollama-dev ollama pull {LOCAL_LLM_MODEL} (to download it)."
+            f"and docker exec -it ollama-dev ollama pull {settings.local_llm_model} (to download it)."
         ) from e
     raise
 

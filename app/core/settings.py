@@ -1,180 +1,264 @@
 import os
+from functools import lru_cache
+from typing import Any, Literal
 
-from dotenv import load_dotenv
+from pydantic import Field, ValidationError, field_validator
+from pydantic.fields import FieldInfo
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
-from app.core.utils import get_secret
-
-load_dotenv()
+from app.core.secrets import SecretManagerError, apply_credentials_path, fetch_secrets
 
 
-# GCP Configuration
-GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID")
-USE_SECRET_MANAGER = os.getenv("USE_SECRET_MANAGER", "false").lower() == "true"
-GCP_CREDENTIALS_PATH = os.getenv("GCP_CREDENTIALS_PATH")
+class SettingsError(RuntimeError):
+    """Configuration is missing or malformed."""
 
-# GCP PubSub Configuration
-GCP_PUBSUB_PROJECT_ID = os.getenv("GCP_PUBSUB_PROJECT_ID", GCP_PROJECT_ID)
-GCP_PUBSUB_EMULATOR_HOST = os.getenv("GCP_PUBSUB_EMULATOR_HOST", "")
-GCP_PUBSUB_EMULATOR_PORT = os.getenv("GCP_PUBSUB_EMULATOR_PORT", "8085")
 
-# Set credentials for Google Cloud clients
-if GCP_CREDENTIALS_PATH:
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = GCP_CREDENTIALS_PATH
-
-# Environment
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
-SEED_DB_ON_EMPTY = os.getenv("SEED_DB_ON_EMPTY", "false").lower() == "true"
-
-# Postgres
-POSTGRES_USER = get_secret("POSTGRES_USER") or os.getenv("POSTGRES_USER")
-POSTGRES_PASSWORD = get_secret("POSTGRES_PASSWORD") or os.getenv("POSTGRES_PASSWORD")
-POSTGRES_HOST = str(os.getenv("POSTGRES_HOST") or get_secret("POSTGRES_HOST"))
-POSTGRES_PORT = os.getenv("POSTGRES_PORT", 5432)
-POSTGRES_DB = os.getenv("POSTGRES_DB", "memoryful")
-POSTGRES_SSLMODE = os.getenv("POSTGRES_SSLMODE", "require")
-SQL_ECHO = os.getenv("SQL_ECHO", "false").lower() == "true"
-
-MAIN_DATABASE_URL = (
-    f"postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}"
-    f"@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+# Filled from GCP Secret Manager when USE_SECRET_MANAGER is on; the secret is named
+# after the field, upper-cased.
+SECRET_MANAGER_FIELDS = frozenset(
+    {
+        "postgres_user",
+        "postgres_password",
+        "postgres_host",
+        "redis_host",
+        "redis_password",
+        "access_secret_key",
+        "refresh_secret_key",
+        "resend_api_key",
+        "mail_from",
+        "s3_access_key_id",
+        "s3_secret_access_key",
+        "openai_api_key",
+        "anthropic_api_key",
+    }
 )
 
-# Token
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
-REFRESH_TOKEN_EXPIRE_MINUTES = int(os.getenv("REFRESH_TOKEN_EXPIRE_MINUTES", str(60 * 24 * 7)))
-ACCESS_SECRET_KEY = str(os.getenv("ACCESS_SECRET_KEY"))
-REFRESH_SECRET_KEY = str(os.getenv("REFRESH_SECRET_KEY"))
-ALGORITHM = "HS256"
-
-# Verification code
-VERIFICATION_CODE_EXPIRE_MINUTES = 5
-VERIFICATION_CODE_LENGTH = 6
-
-# Redis
-REDIS_HOST = get_secret("REDIS_HOST") or os.getenv("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
-REDIS_PASSWORD = get_secret("REDIS_PASSWORD") or os.getenv("REDIS_PASSWORD")
-REDIS_DB = int(os.getenv("REDIS_DB", 0))
-REDIS_SSL = os.getenv("REDIS_SSL", "false").lower() == "true"
-
-# Construct Redis URL
-redis_protocol = "rediss" if REDIS_SSL else "redis"
-redis_auth = f"default:{REDIS_PASSWORD}@" if REDIS_PASSWORD else ""
-REDIS_URL = f"{redis_protocol}://{redis_auth}{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
-if REDIS_SSL:
-    REDIS_URL += "?ssl_cert_reqs=CERT_REQUIRED"
-
-# Celery & Pub/Sub
-CELERY_BROKER_URL = f"gcpubsub://projects/{GCP_PUBSUB_PROJECT_ID}"
-CELERY_RESULT_BACKEND = REDIS_URL
-
-# Resend Email
-RESEND_API_KEY = get_secret("RESEND_API_KEY") or os.getenv("RESEND_API_KEY")
-MAIL_FROM = get_secret("MAIL_FROM") or os.getenv("MAIL_FROM")
-MAIL_FROM_NAME = os.getenv("MAIL_FROM_NAME")
-
-# Auth
-# These addresses skip login verification entirely, so the set stays empty outside
-# development no matter what the environment says.
-TRUSTED_EMAILS: frozenset[str] = frozenset()
-if ENVIRONMENT == "development":
-    TRUSTED_EMAILS = frozenset(
-        e.strip().lower()
-        for e in os.getenv("TRUSTED_EMAILS", "").split(",")
-        if e.strip()
-    )  # fmt: skip
+_LOCAL_CORS_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
 
 
-def is_trusted_email(email: str) -> bool:
-    """Normalizes the same way the set is built, so the two cannot drift apart."""
-    return email.strip().lower() in TRUSTED_EMAILS
+class SecretManagerSource(PydanticBaseSettingsSource):
+    """Resolves SECRET_MANAGER_FIELDS, ranked below the environment so `.env.prod` wins."""
+
+    def get_field_value(self, field: FieldInfo, field_name: str) -> tuple[Any, str, bool]:
+        raise NotImplementedError  # unused: __call__ resolves every field in one batch
+
+    def __call__(self) -> dict[str, Any]:
+        if os.getenv("USE_SECRET_MANAGER", "").strip().lower() != "true":
+            return {}
+
+        project_id = os.getenv("GCP_PROJECT_ID", "").strip()
+        if not project_id:
+            raise SecretManagerError("USE_SECRET_MANAGER is on but GCP_PROJECT_ID is unset")
+
+        if unknown := SECRET_MANAGER_FIELDS - set(self.settings_cls.model_fields):
+            raise SecretManagerError(
+                f"SECRET_MANAGER_FIELDS names fields that do not exist: {sorted(unknown)}"
+            )
+
+        apply_credentials_path()
+        wanted = sorted(f.upper() for f in SECRET_MANAGER_FIELDS if not os.getenv(f.upper()))
+        secrets = fetch_secrets(wanted, project_id=project_id)
+        return {name.lower(): value for name, value in secrets.items()}
 
 
-# CORS
-_allowed_origins_raw = os.getenv("ALLOWED_ORIGINS", "")
-ALLOWED_ORIGINS = [o.strip() for o in _allowed_origins_raw.split(",") if o.strip()]
-if not ALLOWED_ORIGINS and ENVIRONMENT == "development":
-    ALLOWED_ORIGINS = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ]
+class Settings(BaseSettings):
+    """Every environment-derived value, resolved once by `get_settings`.
 
-_allow_credentials_raw = os.getenv("ALLOW_CREDENTIALS")
-if _allow_credentials_raw is None:
-    ALLOW_CREDENTIALS = ENVIRONMENT == "development"
-else:
-    ALLOW_CREDENTIALS = _allow_credentials_raw.lower() == "true"
-ALLOWED_METHODS = os.getenv("ALLOWED_METHODS", "*").split(",")
-ALLOWED_HEADERS = os.getenv("ALLOWED_HEADERS", "*").split(",")
+    Deliberately no `env_file`: compose supplies the environment, and the repo's own
+    `.env` is host tooling holding a production connection string.
+    """
 
-# S3 / MinIO (now GCS-compatible) - Environment-based configuration
-if ENVIRONMENT == "development":
-    S3_ENDPOINT_URL = os.getenv("S3_ENDPOINT_URL", "http://localhost:9000")
-    S3_ACCESS_KEY_ID = os.getenv("S3_ACCESS_KEY_ID", "minioadmin")
-    S3_SECRET_ACCESS_KEY = os.getenv("S3_SECRET_ACCESS_KEY", "minioadmin")
-    S3_REGION = os.getenv("S3_REGION", "us-east-1")
-    S3_BUCKET = os.getenv("S3_BUCKET", "memoryful")
-    S3_PUBLIC_BASE_URL = os.getenv("S3_PUBLIC_BASE_URL", "http://localhost:9000")
-else:
-    # Production with GCS - ensure endpoint is always set
-    S3_ENDPOINT_URL = os.getenv("S3_ENDPOINT_URL", "https://storage.googleapis.com")
-    S3_ACCESS_KEY_ID = get_secret("S3_ACCESS_KEY_ID") or os.getenv("S3_ACCESS_KEY_ID", "")
-    S3_SECRET_ACCESS_KEY = get_secret("S3_SECRET_ACCESS_KEY") or os.getenv(
-        "S3_SECRET_ACCESS_KEY", ""
+    model_config = SettingsConfigDict(
+        case_sensitive=False,
+        extra="ignore",
+        populate_by_name=True,
     )
-    S3_REGION = os.getenv("S3_REGION", "europe-central2")
-    S3_BUCKET = os.getenv("S3_BUCKET", "memoryful")
-    S3_PUBLIC_BASE_URL = os.getenv("S3_PUBLIC_BASE_URL", "https://storage.googleapis.com")
 
-# Redis prefixes
-# RP short for Redis Prefix
-RP_LOGIN_CODE = "login_code:"
-RP_BLACKLISTED_TOKEN = "blacklist:"  # noqa: S105  # Redis key prefix, not a credential
-RP_AI_CONTEXT = "ai_context:"
-RP_CHAT = "chat:"
-RP_CHAT_LIST = "chat_list:"
+    # GCP
+    gcp_project_id: str = ""
+    use_secret_manager: bool = False
+    gcp_credentials_path: str = ""
+    gcp_pubsub_project_id: str = ""
 
-# Cache TTLs (seconds)
-CACHE_ENABLED = os.getenv("CACHE_ENABLED", "true").lower() == "true"
-CACHE_TTL_STATIC = 60 * 60 * 6  # global reference data: countries, cities, chat models
-CACHE_TTL_USER_DATA = (
-    60 * 5
-)  # small per-user data mutable via API: tags, trackable types, workspace
-CACHE_TTL_DAYS = 60 * 10  # days / months
-CACHE_TTL_AI_CONTENT = 60 * 60 * 24  # AI-generated insights/suggestions, immutable once generated
-CACHE_TTL_CHAT_HOT = 60 * 60  # hot chat cache (write-through; DB remains source of truth)
+    # Environment
+    environment: Literal["development", "production"] = "development"
+    seed_db_on_empty: bool = False
 
-# LLM Configuration
-#
-# LLM_MODE decides the *gateway*, not the model. The model itself is chosen
-# per-request from the `chat_models` DB catalog (see app/ai/utils.build_chat_model):
-#   - "local"  -> every request is served by the local Ollama container.
-#                 The catalog selection is ignored; LOCAL_LLM_MODEL is used.
-#   - "vertex" -> route by the selected model's `provider`, all through GCP
-#                 Vertex AI using ADC (no API keys).
-LLM_MODE = os.getenv("LLM_MODE", "local").strip().lower()
+    # Postgres
+    postgres_user: str = Field(min_length=1)
+    postgres_password: str = Field(min_length=1)
+    postgres_host: str = Field(min_length=1)
+    postgres_port: int = 5432
+    postgres_db: str = "memoryful"
+    postgres_sslmode: str = "require"
+    sql_echo: bool = False
 
-# Vertex AI region. "global" routes across regions and is the widest-availability
-# option — partner models (Claude, Grok) are often only offered there.
-# GCP_PROJECT_ID is defined above; ADC comes from GCP_CREDENTIALS_PATH.
-VERTEX_LOCATION = os.getenv("VERTEX_LOCATION", "global")
+    # Tokens
+    access_secret_key: str = Field(min_length=1)
+    refresh_secret_key: str = Field(min_length=1)
+    access_token_expire_minutes: int = 30
+    refresh_token_expire_minutes: int = 60 * 24 * 7
 
-# MCP server (streamable-HTTP) the in-app agent loads its tools from. Defaults to
-# the compose sidecar's internal address. FastMCP's canonical path is /mcp with
-# NO trailing slash — /mcp/ 307-redirects to it, doubling every round-trip.
-MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://mcp:3001/mcp")
+    # Redis
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_password: str | None = None
+    redis_db: int = 0
+    redis_ssl: bool = False
 
-# Applied to every provider unless the model rejects it.
-DEFAULT_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.4"))
+    # Resend email
+    resend_api_key: str | None = None
+    mail_from: str | None = None
+    mail_from_name: str | None = None
 
-# Local dev (Ollama, OpenAI-compatible endpoint).
-LOCAL_LLM_BASE_URL = os.getenv("LOCAL_LLM_BASE_URL", "http://ollama:11434/v1")
-LOCAL_LLM_MODEL = os.getenv("LOCAL_LLM_MODEL", "llama3.1")
-LOCAL_LLM_API_KEY = os.getenv("LOCAL_LLM_API_KEY", "local")
+    # Auth
+    trusted_emails_raw: str = Field("", validation_alias="TRUSTED_EMAILS")
 
-# Direct provider APIs (used for provider=openai / provider=anthropic models).
-# From Secret Manager in prod, from the env file locally.
-OPENAI_API_KEY = get_secret("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-ANTHROPIC_API_KEY = get_secret("ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+    # CORS
+    allowed_origins_raw: str = Field("", validation_alias="ALLOWED_ORIGINS")
+    allow_credentials_raw: bool | None = Field(None, validation_alias="ALLOW_CREDENTIALS")
+    allowed_methods_raw: str = Field("*", validation_alias="ALLOWED_METHODS")
+    allowed_headers_raw: str = Field("*", validation_alias="ALLOWED_HEADERS")
+
+    # S3 / GCS
+    s3_endpoint_url: str = "https://storage.googleapis.com"
+    s3_access_key_id: str = ""
+    s3_secret_access_key: str = ""
+    s3_region: str = "europe-central2"
+    s3_bucket: str = "memoryful"
+    s3_public_base_url: str = "https://storage.googleapis.com"
+
+    # Cache
+    cache_enabled: bool = True
+
+    # LLM
+    #
+    # llm_mode decides the *gateway*, not the model. The model itself is chosen
+    # per-request from the `chat_models` DB catalog (see app/ai/utils.build_chat_model):
+    #   - "local"  -> every request is served by the local Ollama container.
+    #                 The catalog selection is ignored; local_llm_model is used.
+    #   - "vertex" -> route by the selected model's `provider`, all through GCP
+    #                 Vertex AI using ADC (no API keys).
+    llm_mode: Literal["local", "vertex"] = "local"
+
+    # Vertex AI region. "global" routes across regions and is the widest-availability
+    # option — partner models (Claude, Grok) are often only offered there.
+    vertex_location: str = "global"
+
+    # MCP server (streamable-HTTP) the in-app agent loads its tools from. FastMCP's
+    # canonical path is /mcp with NO trailing slash — /mcp/ 307-redirects to it,
+    # doubling every round-trip.
+    mcp_server_url: str = "http://mcp:3001/mcp"
+
+    default_temperature: float = Field(0.4, validation_alias="LLM_TEMPERATURE")
+
+    # Local dev (Ollama, OpenAI-compatible endpoint).
+    local_llm_base_url: str = "http://ollama:11434/v1"
+    local_llm_model: str = "llama3.1"
+    local_llm_api_key: str = "local"
+
+    # Direct provider APIs (used for provider=openai / provider=anthropic models).
+    openai_api_key: str | None = None
+    anthropic_api_key: str | None = None
+
+    @classmethod
+    def settings_customize_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return (
+            init_settings,
+            env_settings,
+            dotenv_settings,
+            file_secret_settings,
+            SecretManagerSource(settings_cls),
+        )
+
+    @field_validator("llm_mode", mode="before")
+    @classmethod
+    def _normalize_llm_mode(cls, value: Any) -> Any:
+        return value.strip().lower() if isinstance(value, str) else value
+
+    @property
+    def is_development(self) -> bool:
+        return self.environment == "development"
+
+    @property
+    def main_database_url(self) -> str:
+        return (
+            f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
+            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+        )
+
+    @property
+    def redis_url(self) -> str:
+        protocol = "rediss" if self.redis_ssl else "redis"
+        auth = f"default:{self.redis_password}@" if self.redis_password else ""
+        url = f"{protocol}://{auth}{self.redis_host}:{self.redis_port}/{self.redis_db}"
+        return f"{url}?ssl_cert_reqs=CERT_REQUIRED" if self.redis_ssl else url
+
+    @property
+    def celery_broker_url(self) -> str:
+        return f"gcpubsub://projects/{self.gcp_pubsub_project_id or self.gcp_project_id}"
+
+    @property
+    def celery_result_backend(self) -> str:
+        return self.redis_url
+
+    @property
+    def trusted_emails(self) -> frozenset[str]:
+        """These addresses skip login verification, so the set stays empty outside development."""
+        if not self.is_development:
+            return frozenset()
+        return frozenset(e.strip().lower() for e in self.trusted_emails_raw.split(",") if e.strip())
+
+    def is_trusted_email(self, email: str) -> bool:
+        """Normalizes the same way the set is built, so the two cannot drift apart."""
+        return email.strip().lower() in self.trusted_emails
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        origins = [o.strip() for o in self.allowed_origins_raw.split(",") if o.strip()]
+        if not origins and self.is_development:
+            return list(_LOCAL_CORS_ORIGINS)
+        return origins
+
+    @property
+    def allow_credentials(self) -> bool:
+        if self.allow_credentials_raw is None:
+            return self.is_development
+        return self.allow_credentials_raw
+
+    @property
+    def allowed_methods(self) -> list[str]:
+        return self.allowed_methods_raw.split(",")
+
+    @property
+    def allowed_headers(self) -> list[str]:
+        return self.allowed_headers_raw.split(",")
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Resolve settings once per process. Raises on anything missing or malformed."""
+    apply_credentials_path()
+    try:
+        # mypy reads the required fields as constructor arguments; the sources supply them.
+        return Settings()  # type: ignore[call-arg]
+    except ValidationError as e:
+        # Re-raised without the original: pydantic renders every input value into its
+        # message, which would put every API key in the logs.
+        problems = "; ".join(
+            f"{'.'.join(str(part) for part in error['loc'])} ({error['msg']})"
+            for error in e.errors()
+        )
+        raise SettingsError(f"Invalid configuration: {problems}") from None

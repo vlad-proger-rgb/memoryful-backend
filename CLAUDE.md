@@ -56,6 +56,9 @@ httpx layer. There's an open task to build one for the core app.
 - **Routers are thin.** No service layer: routers build SQLAlchemy statements directly and
   `await db.commit()` themselves. Match that; don't introduce a repository layer.
 - **`Depends(get_current_user())`** — note the call. It yields a `UUID`.
+- **Config comes from `get_settings()`, never module-level constants.** `app/core/settings.py`
+  is a pydantic `Settings` class behind an `@lru_cache`d `get_settings()`. Values that never
+  vary by environment are not settings — they belong in `app/constants/` or `app/enums/`.
 - **Every statement filters on `user_id`.** That is the whole tenancy boundary, on writes
   as much as reads. `update(...).where(Model.id == id)` without `user_id` is a data leak.
 - mypy is strict (`disallow_untyped_defs`, `warn_return_any`, `warn_unreachable`).
@@ -69,6 +72,14 @@ httpx layer. There's an open task to build one for the core app.
 
 ## How things work (not bugs — don't "fix" these)
 
+- **Settings resolve once, and loudly.** The required fields (`postgres_user/password/host`,
+  both JWT keys) have no default, so a missing *or empty* value raises `SettingsError` on the
+  first `get_settings()` instead of handing a blank credential to asyncpg. In production the
+  names in `SECRET_MANAGER_FIELDS` are filled by a custom settings source over one gRPC
+  channel, ranked *below* the environment so `.env.prod` can override any of them; a secret
+  that doesn't exist is skipped, any other Secret Manager failure raises. `Settings` sets no
+  `env_file` on purpose — compose supplies the environment, and the repo's own `.env` is host
+  tooling holding a production connection string.
 - **Cache invalidation crosses namespaces.** Reads use `@cached(namespace=...)`; a write
   must `clear_cache()` every namespace whose payload *embeds* the changed object, not just
   its own. Tags live inside day payloads, so `tags.py` clears `tags`, `days_list` and
