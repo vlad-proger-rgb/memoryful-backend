@@ -520,17 +520,3 @@ async def update_day(
     await clear_cache(CacheNamespace.days_detail, user_id)
     background_tasks.add_task(storage_service.delete_objects, user_id, orphaned)
     return Msg(code=200, msg="Day updated")
-
-
-# ???
-# @router.delete("/{timestamp}", response_model=Msg[None])
-# async def delete_day(
-#     db: Annotated[AsyncSession, Depends(get_db)],
-#     user_id: Annotated[UUID, Depends(get_current_user())],
-#     timestamp: int,
-# ) -> Msg[None]:
-#     stmt = delete(Day).where(Day.user_id == user_id, timestamp == timestamp)
-#     await db.execute(stmt)
-#     await db.commit()
-
-#     return Msg(code=200, msg="Day deleted")
