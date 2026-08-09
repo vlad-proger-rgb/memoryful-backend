@@ -7,6 +7,7 @@ address the row through the body instead of the path.
 from typing import Any
 from uuid import UUID
 
+import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -145,3 +146,20 @@ async def test_creating_the_same_month_twice_is_a_conflict(
     second = await client.post("/months/", headers=auth_headers, json=_payload())
     assert second.status_code == 409
     assert second.json()["detail"] == "Record already exists"
+
+
+@pytest.mark.xfail(reason="one unresolvable background 403s the whole year", strict=True)
+async def test_an_unresolvable_background_does_not_break_the_year(
+    client: AsyncClient, auth_headers: dict[str, str], make_user: MakeUser
+) -> None:
+    # background_image is stored verbatim; _with_resolved then presigns it, and a key
+    # outside the caller's prefix makes the guard 403 the entire listing.
+    stranger, _ = await make_user()
+    foreign = f"users/{stranger.id}/calendar/months/2019/04/abc_bg.jpg"
+
+    created = await client.post(
+        "/months/", headers=auth_headers, json=_payload(backgroundImage=foreign)
+    )
+    assert created.status_code in (200, 400, 403)
+
+    assert (await client.get(f"/months/{YEAR}", headers=auth_headers)).status_code == 200
