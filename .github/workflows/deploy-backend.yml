@@ -31,7 +31,13 @@ env:
   VM_ZONE: us-central1-a
 
 jobs:
+  # Must gate the push, not the VM script: watchtower polls :latest every 30s, so
+  # a pushed image is live before deploy-app.sh could reject it.
+  checks:
+    uses: ./.github/workflows/checks.yml
+
   deploy:
+    needs: checks
     runs-on: ubuntu-latest
 
     steps:

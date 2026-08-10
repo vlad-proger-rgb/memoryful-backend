@@ -1,0 +1,202 @@
+name: Checks
+
+on:
+  push:
+    branches:
+      - dev
+  pull_request:
+  workflow_call:
+
+# Under workflow_call `github.workflow` is the caller's name, so a deploy's
+# checks land in their own group and are never cancelled by a push to dev.
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: '3.13'
+
+jobs:
+  ruff:
+    name: ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Lint
+        run: ruff check --output-format=github .
+
+      - name: Format
+        if: ${{ !cancelled() }}
+        run: ruff format --check .
+
+  mypy:
+    name: mypy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements.dev.txt
+            mcp_server/requirements.mcp.txt
+
+      # Runs nothing, but resolves types from the installed packages.
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt \
+                      -r requirements.dev.txt \
+                      -r mcp_server/requirements.mcp.txt
+
+      - name: Typecheck
+        run: mypy
+
+  test-mcp:
+    name: test (mcp_server)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements.dev.txt
+            mcp_server/requirements.mcp.txt
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt \
+                      -r requirements.dev.txt \
+                      -r mcp_server/requirements.mcp.txt
+
+      - name: Run tests
+        run: pytest mcp_server/tests
+
+  test-app:
+    name: test (app)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: main_user
+          POSTGRES_PASSWORD: main_password
+          POSTGRES_DB: main_database
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      ENVIRONMENT: development
+      USE_SECRET_MANAGER: 'false'
+      SQL_ECHO: 'false'
+
+      POSTGRES_USER: main_user
+      POSTGRES_PASSWORD: main_password
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: '5432'
+      POSTGRES_DB: main_database
+      POSTGRES_SSLMODE: prefer
+
+      REDIS_HOST: localhost
+      REDIS_PORT: '6379'
+      REDIS_DB: '0'
+      REDIS_PASSWORD: ci_redis_password
+      REDIS_SSL: 'false'
+
+      ACCESS_SECRET_KEY: ci_access_secret_key
+      REFRESH_SECRET_KEY: ci_refresh_secret_key
+
+      RESEND_API_KEY: ci_resend_api_key
+      MAIL_FROM: ci@noreply.memory-ful.com
+
+      S3_ENDPOINT_URL: http://localhost:9000
+      S3_ACCESS_KEY_ID: minioadmin
+      S3_SECRET_ACCESS_KEY: minioadmin
+      S3_REGION: us-east-1
+      S3_BUCKET: memoryful
+
+      OPENAI_API_KEY: sk-proj-ci
+      ANTHROPIC_API_KEY: sk-ant-ci
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements.dev.txt
+            mcp_server/requirements.mcp.txt
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt \
+                      -r requirements.dev.txt \
+                      -r mcp_server/requirements.mcp.txt
+
+      # `services:` cannot override a container's command, and a passwordless
+      # server would reject the client's AUTH.
+      - name: Start Redis
+        run: |
+          docker run -d --name redis -p 6379:6379 redis:6.0.7 \
+            redis-server --requirepass "$REDIS_PASSWORD"
+          for _ in $(seq 30); do
+            if docker exec redis redis-cli -a "$REDIS_PASSWORD" ping 2>/dev/null | grep -q PONG; then
+              echo "redis ready"; exit 0
+            fi
+            sleep 1
+          done
+          echo "redis did not become ready"; exit 1
+
+      - name: Apply migrations
+        run: alembic upgrade head
+
+      # ASGITransport never runs the lifespan that seeds locally, so the `city_id`
+      # fixture would find no cities. init_db is unusable here: it is random and
+      # keyed on today's date.
+      - name: Seed reference data
+        run: |
+          python - <<'PY'
+          import asyncio
+
+          from sqlalchemy import select
+
+          from app.core.database import AsyncSessionLocal
+          from app.models import City, Country
+
+
+          async def main() -> None:
+              async with AsyncSessionLocal() as session:
+                  if await session.scalar(select(City.id).limit(1)):
+                      return
+                  session.add(Country(name="Ukraine", code="UA", cities=[City(name="Kyiv")]))
+                  await session.commit()
+
+
+          asyncio.run(main())
+          PY
+
+      - name: Run tests
+        run: pytest app/tests
