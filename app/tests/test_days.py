@@ -4,23 +4,15 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import City, Day, Tag
+from app.models import Day, Tag
 
 from .conftest import MakeUser
 
 TIMESTAMP = 1_700_000_000
-
-
-@pytest_asyncio.fixture
-async def city_id(db: AsyncSession) -> UUID:
-    found = await db.scalar(select(City.id).limit(1))
-    assert found is not None, "no cities in the database; days cannot be created"
-    return found
 
 
 def _payload(city_id: UUID, **overrides: Any) -> dict[str, Any]:

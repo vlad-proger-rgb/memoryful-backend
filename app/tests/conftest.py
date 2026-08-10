@@ -14,6 +14,7 @@ from uuid import UUID, uuid4
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
 # Redis-backed response caching would serve one test's payload to another.
@@ -22,7 +23,7 @@ os.environ["CACHE_ENABLED"] = "false"
 from app.core.database import engine, get_db
 from app.core.security import create_token
 from app.main import app
-from app.models import User
+from app.models import City, User
 
 
 @pytest_asyncio.fixture
@@ -99,3 +100,11 @@ def auth_headers(user: AuthedUser) -> dict[str, str]:
 @pytest.fixture
 def user_id(user: AuthedUser) -> UUID:
     return user[0].id
+
+
+@pytest_asyncio.fixture
+async def city_id(db: AsyncSession) -> UUID:
+    """Days need a city; the restore and the dev seed both provide some."""
+    found = await db.scalar(select(City.id).limit(1))
+    assert found is not None, "no cities in the database; days cannot be created"
+    return found
