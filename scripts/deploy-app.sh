@@ -40,6 +40,25 @@ echo "Recreating app container..."
 # docker-compose.vm.yml), so migrations apply automatically on start.
 $COMPOSE -f $COMPOSE_FILE --env-file .env up -d --force-recreate app
 
+# curl is absent from the slim image; a failed migration kills the container outright.
+echo "Waiting for the app to answer..."
+for _ in $(seq 45); do
+  if docker exec memoryful-app \
+    python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/', timeout=3)" \
+    >/dev/null 2>&1; then
+    healthy=1
+    break
+  fi
+  sleep 2
+done
+
+if [ -z "${healthy:-}" ]; then
+  echo "App never answered; recent logs:"
+  docker logs --tail=60 memoryful-app || true
+  exit 1
+fi
+echo "App is healthy."
+
 echo "Starting VM stack..."
 $COMPOSE -f $COMPOSE_FILE --env-file .env up -d
 
