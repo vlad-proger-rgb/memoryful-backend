@@ -142,11 +142,13 @@ things that look like design choices are open tasks with write-ups.
 
 ## Rules
 
-- **Commit only when asked** — then write the message yourself and commit. See the commit
-  convention in the workspace root `CLAUDE.md`.
 - **Running against production is off limits**: `docker-compose.vm.yml`,
   `scripts/deploy-app.sh`, `gcloud`, anything pointing at Neon. Local work uses a restored
   *copy* — see `/db-refresh`. `.env.prod` itself is ordinary non-secret config and should be
   updated alongside `.env.local` when a new setting is added; real secrets come from GCP
   Secret Manager on the VM.
+  **Reading those files is fine and often necessary** — the ban is on executing them. Open
+  them with the Read and Grep tools, not `cat`/`grep` in Bash: `protect_prod.py` matches the
+  filename anywhere in a shell command, so `cat scripts/deploy-app.sh` is denied while
+  `Read` of the same path is not.
 - Never hand-edit `alembic/versions/`; generate a new revision.
