@@ -7,11 +7,10 @@ from uuid import UUID
 from botocore.exceptions import ClientError
 from fastapi import HTTPException
 
-from app.core.config import cache_redis, s3_client
+from app.core.config import cache_redis, s3_client, s3_presign_client
 from app.core.settings import get_settings
 from app.core.storage.utils import (
     build_object_key,
-    to_public_url,
     validate_content_type,
 )
 from app.schemas.storage import (
@@ -36,10 +35,9 @@ PRESIGNED_GET_CACHE_TTL = PRESIGNED_GET_EXPIRES_IN // 2
 class StorageService:
     """Service layer for storage operations using S3/GCS compatible API"""
 
-    def __init__(self, client: Any = None) -> None:
+    def __init__(self, client: Any = None, presign_client: Any = None) -> None:
         self.client = client or s3_client
-        # Bucket existence rarely changes; avoid a `head_bucket` round trip
-        # to S3/GCS on every single presign request.
+        self.presign_client = presign_client or s3_presign_client
         self._bucket_verified = False
 
     async def ensure_bucket_exists(self) -> None:
@@ -75,7 +73,7 @@ class StorageService:
         validate_content_type(request.intent, request.content_type)
         object_key = build_object_key(user_id, request.model_dump())
 
-        upload_url = self.client.generate_presigned_url(
+        upload_url = self.presign_client.generate_presigned_url(
             ClientMethod="put_object",
             Params={
                 "Bucket": settings.s3_bucket,
@@ -86,7 +84,6 @@ class StorageService:
             ExpiresIn=60 * 5,  # 5 minutes
         )
 
-        upload_url = to_public_url(upload_url)
         logger.info(f"Generated presigned PUT URL for user {user_id}: {object_key}")
 
         return PresignPutResponse(upload_url=upload_url, object_key=object_key)
@@ -109,7 +106,7 @@ class StorageService:
 
         await self.ensure_bucket_exists()
 
-        download_url = self.client.generate_presigned_url(
+        download_url = self.presign_client.generate_presigned_url(
             ClientMethod="get_object",
             Params={
                 "Bucket": settings.s3_bucket,
@@ -122,7 +119,6 @@ class StorageService:
             ExpiresIn=PRESIGNED_GET_EXPIRES_IN,
         )
 
-        download_url = to_public_url(download_url)
         logger.info(f"Generated presigned GET URL for user {user_id}: {request.object_key}")
 
         await cache_redis.set(cache_key, download_url, ex=PRESIGNED_GET_CACHE_TTL)

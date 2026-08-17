@@ -1,15 +1,11 @@
 from datetime import UTC, datetime
 from typing import Any
-from urllib.parse import urlparse, urlunparse
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException
 
 from app.constants import VIDEO_EXTENSIONS
-from app.core.settings import get_settings
 from app.enums import StorageUploadIntent
-
-settings = get_settings()
 
 
 def safe_filename(filename: str) -> str:
@@ -109,26 +105,3 @@ def orphaned_keys(
     delete something still in use.
     """
     return as_key_set(before) - as_key_set(after)
-
-
-def to_public_url(url: str) -> str:
-    """Convert internal S3 URL to public URL if configured"""
-    base_url = settings.s3_public_base_url
-    if not base_url:
-        return url
-
-    public = urlparse(base_url)
-    if not public.scheme or not public.netloc:
-        return url
-
-    parsed = urlparse(url)
-    return urlunparse(
-        (
-            public.scheme,
-            public.netloc,
-            parsed.path,
-            parsed.params,
-            parsed.query,
-            parsed.fragment,
-        )
-    )

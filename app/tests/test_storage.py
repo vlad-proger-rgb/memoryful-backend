@@ -1,16 +1,14 @@
 """Presigned upload and download URLs.
 
-The security boundary here is the object key: every key is namespaced
-`users/{user_id}/`, and `generate_presigned_get` refuses any key outside the
-caller's own prefix. That check is the only thing standing between a user and
-someone else's photos, since a presigned URL needs no further authentication.
+Security boundary: object keys are namespaced `users/{user_id}/`, and `generate_presigned_get`
+refuses any key outside the caller's prefix. Presigned URLs need no further auth.
 
-Key construction and content-type rules are exercised directly as well as through
-the API — they are pure functions and each intent has its own required fields.
+Key construction and content-type rules are tested directly and via API.
 """
 
 from collections.abc import AsyncIterator
 from typing import Any
+from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
 import pytest
@@ -18,7 +16,8 @@ import pytest_asyncio
 from fastapi import HTTPException
 from httpx import AsyncClient
 
-from app.core.config import cache_redis
+from app.core.config import cache_redis, s3_client
+from app.core.settings import get_settings
 from app.core.storage.utils import build_object_key, is_video_key, validate_content_type
 from app.enums import StorageUploadIntent, WorkspacePage
 
@@ -27,7 +26,7 @@ from .conftest import MakeUser
 
 @pytest_asyncio.fixture(autouse=True)
 async def _drop_presign_cache() -> AsyncIterator[None]:
-    """A served presign is cached for six hours; tests must not leave those behind."""
+    """Clear presign cache after each test (cached for six hours)."""
 
     async def keys() -> set[str]:
         return {k async for k in cache_redis.scan_iter(match=b"presign_get:*")}
@@ -76,7 +75,7 @@ async def test_presign_put_rejects_a_wrong_content_type(
 async def test_presign_put_requires_the_fields_its_intent_needs(
     client: AsyncClient, auth_headers: dict[str, str]
 ) -> None:
-    # A day upload without a dayTimestamp has nowhere to go.
+    # Day upload requires dayTimestamp
     response = await client.post(
         "/storage/presign-put", headers=auth_headers, json=_put(StorageUploadIntent.DAY_IMAGE)
     )
@@ -99,8 +98,7 @@ async def test_presign_get_refuses_another_users_object(
 async def test_presign_get_refuses_a_traversal_attempt(
     client: AsyncClient, auth_headers: dict[str, str], user_id: UUID
 ) -> None:
-    # The check is a prefix match, so anything not starting with the caller's
-    # own prefix must be refused however it is dressed up.
+    # Prefix match: anything not starting with caller's prefix is refused
     for key in (
         "../../etc/passwd",
         f"../{uuid4()}/avatars/x.jpg",
@@ -122,6 +120,31 @@ async def test_presign_get_issues_a_url_for_your_own_object(
     )
     assert response.status_code == 200, response.text
     assert response.json()["data"]["downloadUrl"].startswith("http")
+
+
+async def test_a_presigned_url_is_signed_for_the_host_the_browser_will_send(
+    client: AsyncClient, auth_headers: dict[str, str], user_id: UUID
+) -> None:
+    settings = get_settings()
+    public_host = urlparse(settings.s3_public_base_url).netloc
+    object_key = f"users/{user_id}/avatars/{uuid4().hex}_probe.txt"
+    s3_client.put_object(Bucket=settings.s3_bucket, Key=object_key, Body=b"probe")
+
+    try:
+        response = await client.post(
+            "/storage/presign-get", headers=auth_headers, json={"objectKey": object_key}
+        )
+        served = urlparse(response.json()["data"]["downloadUrl"])
+        assert served.netloc == public_host
+
+        # SigV4 signs Host header, so URL must be signed for the host the browser sends
+        target = f"{settings.s3_endpoint_url.rstrip('/')}{served.path}?{served.query}"
+        async with AsyncClient() as storage:
+            result = await storage.get(target, headers={"Host": public_host})
+        assert result.status_code == 200, result.text
+        assert result.content == b"probe"
+    finally:
+        s3_client.delete_object(Bucket=settings.s3_bucket, Key=object_key)
 
 
 async def test_presign_endpoints_need_a_token(client: AsyncClient) -> None:
@@ -166,7 +189,7 @@ def test_every_intent_builds_a_key_inside_the_user_prefix() -> None:
 
 
 def test_a_filename_cannot_escape_its_directory() -> None:
-    # Separators are replaced, so a crafted filename stays one path segment.
+    # Separators are replaced, so crafted filenames stay one path segment
     key = build_object_key(
         uuid4(), {"filename": "../../evil.jpg", "intent": StorageUploadIntent.AVATAR}
     )
