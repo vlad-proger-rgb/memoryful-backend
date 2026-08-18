@@ -110,7 +110,6 @@ async def test_toggle_starred_flips_and_flips_back(
     assert await starred() is False
 
 
-@pytest.mark.xfail(reason="create_day ignores DayCreate.tags", strict=True)
 async def test_a_day_carries_its_tags(
     client: AsyncClient,
     db: AsyncSession,
@@ -132,6 +131,35 @@ async def test_a_day_carries_its_tags(
     fetched = await client.get(f"/days/{TIMESTAMP}", headers=auth_headers)
     names = [t["name"] for t in fetched.json()["data"]["tags"]]
     assert names == ["tagged"]
+
+
+async def test_tags_belonging_to_another_user_are_refused(
+    client: AsyncClient,
+    db: AsyncSession,
+    make_user: MakeUser,
+    city_id: UUID,
+) -> None:
+    other, _ = await make_user()
+    me, mine = await make_user()
+    theirs = Tag(user_id=other.id, name="theirs")
+    ours = Tag(user_id=me.id, name="ours")
+    db.add_all([theirs, ours])
+    await db.flush()
+
+    created = await client.post(
+        f"/days/{TIMESTAMP}", headers=mine, json=_payload(city_id, tags=[str(theirs.id)])
+    )
+    assert created.status_code == 404
+
+    await client.post(
+        f"/days/{TIMESTAMP}", headers=mine, json=_payload(city_id, tags=[str(ours.id)])
+    )
+    updated = await client.put(f"/days/{TIMESTAMP}", headers=mine, json={"tags": [str(theirs.id)]})
+    assert updated.status_code == 404
+
+    fetched = await client.get(f"/days/{TIMESTAMP}", headers=mine)
+    names = [t["name"] for t in fetched.json()["data"]["tags"]]
+    assert names == ["ours"], "a refused update must leave the existing tags alone"
 
 
 async def test_listing_returns_only_the_callers_days(

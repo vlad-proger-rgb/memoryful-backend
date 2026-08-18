@@ -352,6 +352,18 @@ async def get_day(
     return Msg(code=200, msg="Day retrieved", data=day_schema)
 
 
+async def _resolve_tags(db: AsyncSession, user_id: UUID, tag_ids: list[UUID]) -> list[Tag]:
+    ids = set(tag_ids)
+    if not ids:
+        return []
+
+    result = await db.execute(select(Tag).where(Tag.id.in_(ids), Tag.user_id == user_id))
+    tags = list(result.scalars().unique())
+    if len(tags) != len(ids):
+        raise HTTPException(404, "One or more tags not found")
+    return tags
+
+
 @router.post("/{timestamp}", response_model=Msg[None])
 async def create_day(
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -381,6 +393,8 @@ async def create_day(
         if found_count != len(trackable_item_ids):
             raise HTTPException(404, "One or more trackable items not found")
 
+    tags = await _resolve_tags(db, user_id, data.tags)
+
     db.add(
         Day(
             timestamp=timestamp,
@@ -391,6 +405,7 @@ async def create_day(
             steps=data.steps,
             main_image=data.main_image,
             images=data.images,
+            tags=tags,
             trackable_progresses=[
                 TrackableProgress(
                     user_id=user_id,
@@ -488,12 +503,7 @@ async def update_day(
         await db.execute(stmt)
 
     if tag_uuids is not None:
-        tags = []
-        if tag_uuids:
-            tags_result = await db.execute(select(Tag).where(Tag.id.in_(tag_uuids)))
-            tags = list(tags_result.scalars().unique())
-            if len(tags) != len(tag_uuids):
-                raise HTTPException(404, "One or more tags not found")
+        tags = await _resolve_tags(db, user_id, tag_uuids)
         day.tags.clear()
         day.tags.extend(tags)
 
