@@ -142,13 +142,14 @@ things that look like design choices are open tasks with write-ups.
 
 ## Rules
 
-- **Running against production is off limits**: `docker-compose.vm.yml`,
-  `scripts/deploy-app.sh`, `gcloud`, anything pointing at Neon. Local work uses a restored
-  *copy* — see `/db-refresh`. `.env.prod` itself is ordinary non-secret config and should be
-  updated alongside `.env.local` when a new setting is added; real secrets come from GCP
-  Secret Manager on the VM.
-  **Reading those files is fine and often necessary** — the ban is on executing them. Open
-  them with the Read and Grep tools, not `cat`/`grep` in Bash: `protect_prod.py` matches the
-  filename anywhere in a shell command, so `cat scripts/deploy-app.sh` is denied while
-  `Read` of the same path is not.
+- **Changing production is off limits**: `docker-compose.vm.yml`, `scripts/deploy-app.sh`,
+  deploying, anything that writes. Local work uses a restored *copy* — see `/db-refresh`.
+  `.env.prod` itself is ordinary non-secret config and should be updated alongside
+  `.env.local` when a new setting is added; real secrets come from GCP Secret Manager on
+  the VM. **Observing** the live VM is allowed through the `production-analyzer` agent,
+  which is held to a fixed read-only allow-list in `protect_prod.py`.
+  **Reading those files is fine and often necessary** — the ban is on executing them, and
+  the guard anchors on the *command word*, so `cat scripts/deploy-app.sh` passes. What still
+  trips it is file *content* pushed through Bash: a heredoc whose lines begin with a denied
+  command word parses as that command. Write those files with the Write tool.
 - Never hand-edit `alembic/versions/`; generate a new revision.
