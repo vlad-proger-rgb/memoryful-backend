@@ -291,10 +291,10 @@ user = await db.scalar(select(User).where(User.google_sub == claims["sub"]))
 
 if user:
     if user.email != email:
-        user.email = email          # Google is authoritative for this row's address
+        user.email = email  # Google is authoritative for this row's address
 else:
     user = await db.scalar(select(User).where(User.email == email))
-    ...                             # link or create, as above
+    ...  # link or create, as above
 ```
 
 So yes — **the `email` column gets overwritten with whatever they authenticated with**, and
