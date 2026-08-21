@@ -24,7 +24,7 @@ from .font_awesome import FAIcon
 from .insight import InsightInDB
 from .media import ResolvedBackground
 from .month import MonthBase, MonthInDB
-from .security import AuthResponse, Session, Token
+from .security import AuthResponse, GoogleCredential, Session, Token
 from .storage import PresignGetRequest, PresignGetResponse, PresignPutRequest, PresignPutResponse
 from .suggestion import SuggestionInDB
 from .tag import TagBase, TagInDB
@@ -64,6 +64,7 @@ __all__ = [
     "Email",
     "EmailSchema",
     "FAIcon",
+    "GoogleCredential",
     "InsightInDB",
     "MessageSchema",
     "MonthBase",

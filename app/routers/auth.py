@@ -27,6 +27,7 @@ from app.core.security import (
     create_and_store_tokens,
     oauth2_scheme,
     verify_code_form,
+    verify_google_id_token,
     verify_refresh_token,
 )
 from app.core.settings import get_settings
@@ -37,6 +38,7 @@ from app.models import City, Country, User, UserToken
 from app.schemas import (
     AuthResponse,
     Email,
+    GoogleCredential,
     Msg,
     Session,
     Token,
@@ -55,16 +57,36 @@ router = APIRouter(
 )
 
 
+async def _issue_session(
+    db: AsyncSession,
+    user: User,
+    request: Request,
+    response: Response,
+) -> Token:
+    tokens = await create_and_store_tokens(db, user, request)
+
+    if tokens.refresh_token:
+        is_secure_cookie = not settings.is_development
+        response.set_cookie(
+            key="refresh_token",
+            value=tokens.refresh_token,
+            httponly=True,
+            secure=is_secure_cookie,
+            samesite="lax",
+            max_age=settings.refresh_token_expire_minutes * 60,
+            path="/",
+        )
+
+    tokens.refresh_token = None
+    return tokens
+
+
 @router.get("/me", response_model=Msg[UserInDB])
 @cached(expire=CACHE_TTL_USER_DATA, namespace=CacheNamespace.users)
 async def get_me(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
 ) -> Msg[UserInDB]:
-    # Deliberately depend on `user_id` (a plain UUID) rather than the full
-    # `User` ORM object: the cache key builder hashes every kwarg's repr(),
-    # and an ORM object's repr differs per request/session, so the cache key
-    # would never match between requests and this would always miss.
     current_user = await db.get(
         User, user_id, options=[selectinload(User.country), selectinload(User.city)]
     )
@@ -121,20 +143,49 @@ async def verify_code(
         await db.commit()
         await db.refresh(user)
 
-    tokens = await create_and_store_tokens(db, user, request)
-    if tokens.refresh_token:
-        is_secure_cookie = not settings.is_development
-        response.set_cookie(
-            key="refresh_token",
-            value=tokens.refresh_token,
-            httponly=True,
-            secure=is_secure_cookie,
-            samesite="lax",
-            max_age=settings.refresh_token_expire_minutes * 60,
-            path="/",
-        )
+    tokens = await _issue_session(db, user, request, response)
 
-    tokens.refresh_token = None
+    return Msg(
+        code=201,
+        msg="Authentication was successful",
+        data=AuthResponse(
+            tokens=tokens,
+            is_new_user=is_new_user,
+            user_id=user.id,
+        ),
+    )
+
+
+@router.post("/google", response_model=Msg[AuthResponse])
+async def google_sign_in(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    response: Response,
+    credential: GoogleCredential,
+) -> Msg[AuthResponse]:
+    claims = await verify_google_id_token(credential.credential)
+    email = str(claims["email"]).strip().lower()
+    print(f"AUTH POST /google {email=}")
+
+    stmt = select(User).where(User.email == email)
+    user: User | None = (await db.scalars(stmt)).one_or_none()
+
+    is_new_user = False
+    if not user:
+        is_new_user = True
+        user = User(
+            email=email,
+            first_name=claims.get("given_name"),
+            last_name=claims.get("family_name"),
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
+    elif not user.is_enabled:
+        raise HTTPException(401, "User is disabled", {"WWW-Authenticate": "Bearer"})
+
+    tokens = await _issue_session(db, user, request, response)
 
     return Msg(
         code=201,
@@ -213,21 +264,7 @@ async def refresh_token(
     await db.delete(token_db)
     await db.commit()
 
-    new_tokens = await create_and_store_tokens(db, user, request)
-
-    if new_tokens.refresh_token:
-        is_secure_cookie = not settings.is_development
-        response.set_cookie(
-            key="refresh_token",
-            value=new_tokens.refresh_token,
-            httponly=True,
-            secure=is_secure_cookie,
-            samesite="lax",
-            max_age=settings.refresh_token_expire_minutes * 60,
-            path="/",
-        )
-
-    new_tokens.refresh_token = None
+    new_tokens = await _issue_session(db, user, request, response)
 
     return Msg(code=200, msg="Token refreshed", data=new_tokens)
 

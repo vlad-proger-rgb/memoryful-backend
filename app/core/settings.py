@@ -119,6 +119,9 @@ class Settings(BaseSettings):
     # Auth
     trusted_emails_raw: str = Field("", validation_alias="TRUSTED_EMAILS")
 
+    # Google OAuth
+    google_client_ids_raw: str = Field("", validation_alias="GOOGLE_CLIENT_IDS")
+
     # CORS
     allowed_origins_raw: str = Field("", validation_alias="ALLOWED_ORIGINS")
     allow_credentials_raw: bool | None = Field(None, validation_alias="ALLOW_CREDENTIALS")
@@ -224,6 +227,10 @@ class Settings(BaseSettings):
     def is_trusted_email(self, email: str) -> bool:
         """Normalizes the same way the set is built, so the two cannot drift apart."""
         return email.strip().lower() in self.trusted_emails
+
+    @property
+    def google_client_ids(self) -> list[str]:
+        return [c.strip() for c in self.google_client_ids_raw.split(",") if c.strip()]
 
     @property
     def allowed_origins(self) -> list[str]:

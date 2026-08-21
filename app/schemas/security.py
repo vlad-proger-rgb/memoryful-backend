@@ -16,6 +16,10 @@ class AuthResponse(CamelModel):
     user_id: UUID
 
 
+class GoogleCredential(CamelModel):
+    credential: str
+
+
 class Session(CamelModel):
     id: UUID
     ip_address: str | None = None

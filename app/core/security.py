@@ -1,14 +1,18 @@
 import datetime as dt
 import hashlib
 import hmac
+from typing import Any
 from uuid import uuid4
 
 from fastapi import HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.security import OAuth2PasswordBearer
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token
 from jose import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.constants import ALGORITHM
+from app.constants import ALGORITHM, GOOGLE_ISSUERS
 from app.core.config import redis
 from app.core.settings import get_settings
 from app.models import User, UserToken
@@ -78,6 +82,32 @@ async def verify_code_form(
         raise HTTPException(400, "Invalid code")
 
     await redis.delete(key)
+
+
+async def verify_google_id_token(credential: str) -> dict[str, Any]:
+    audiences = settings.google_client_ids
+    if not audiences:
+        raise HTTPException(503, "Google sign-in is not configured")
+
+    def _verify() -> dict[str, Any]:
+        verified: dict[str, Any] = id_token.verify_oauth2_token(
+            credential, google_requests.Request(), audiences
+        )
+        return verified
+
+    try:
+        claims = await run_in_threadpool(_verify)
+    except ValueError as e:
+        print(f"UTILS verify_google_id_token rejected a credential: {e}")
+        raise HTTPException(401, "Invalid Google credential") from e
+
+    if claims.get("iss") not in GOOGLE_ISSUERS:
+        raise HTTPException(401, "Invalid Google credential")
+
+    if not claims.get("email") or not claims.get("email_verified"):
+        raise HTTPException(403, "Google account has no verified email")
+
+    return claims
 
 
 async def create_and_store_tokens(
