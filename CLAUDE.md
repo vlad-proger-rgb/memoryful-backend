@@ -35,7 +35,9 @@ Celery brokers through Pub/Sub everywhere — the emulator locally, the real ser
 The local DB is published on **5444**, not 5432.
 
 **Lint and format with `ruff`** — it replaces black, isort and flake8. `ruff format` for
-layout, `ruff check --fix` for imports and lint. A hook runs both on edit. Config is in
+layout, `ruff check --fix` for imports and lint. It also formats python code blocks inside
+**markdown**, so a snippet in `specs/` can fail CI on formatting while every `.py` is clean;
+the edit hook only fires on python files and will not catch it. Config is in
 `pyproject.toml`: line length **100**, and pycodestyle (`E`/`W`) deliberately not selected —
 the formatter owns layout, and `E402`/`E712` misfire on deferred model imports and
 SQLAlchemy filters like `Model.is_deleted == False`, where `not Model.is_deleted` would
