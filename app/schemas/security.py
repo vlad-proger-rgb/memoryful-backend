@@ -20,6 +20,10 @@ class GoogleCredential(CamelModel):
     credential: str
 
 
+class GoogleNonce(CamelModel):
+    nonce: str
+
+
 class Session(CamelModel):
     id: UUID
     ip_address: str | None = None

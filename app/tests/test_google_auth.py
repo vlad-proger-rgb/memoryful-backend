@@ -5,14 +5,18 @@ Google's own verifier is stubbed at the library boundary rather than at our
 `email_verified`, the audience guard — stays under test instead of being mocked away.
 """
 
+from collections.abc import AsyncIterator
 from uuid import uuid4
 
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import redis
 from app.core.settings import get_settings
+from app.enums import RedisPrefix
 from app.models import User
 
 settings = get_settings()
@@ -27,7 +31,23 @@ def email() -> str:
 
 
 @pytest.fixture
-def claims(email: str) -> dict[str, object]:
+def nonce() -> str:
+    return uuid4().hex
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def issued_nonce(nonce: str) -> AsyncIterator[str]:
+    """Every sign-in needs a nonce we issued; /auth/google check-and-deletes it."""
+    key = f"{RedisPrefix.google_nonce}{nonce}"
+    await redis.setex(key, 300, "1")
+    try:
+        yield nonce
+    finally:
+        await redis.delete(key)
+
+
+@pytest.fixture
+def claims(email: str, nonce: str) -> dict[str, object]:
     return {
         "iss": "https://accounts.google.com",
         "aud": CLIENT_ID,
@@ -36,6 +56,7 @@ def claims(email: str) -> dict[str, object]:
         "email_verified": True,
         "given_name": "Ada",
         "family_name": "Lovelace",
+        "nonce": nonce,
     }
 
 
@@ -178,6 +199,48 @@ async def test_409_when_the_new_email_belongs_to_another_account(
 
     await db.refresh(mover)
     assert mover.email == email, "the colliding address was written anyway"
+
+
+async def test_issues_a_nonce(client: AsyncClient) -> None:
+    response = await client.post("/auth/google/nonce")
+    assert response.status_code == 200, response.text
+
+    issued = response.json()["data"]["nonce"]
+    assert issued
+    assert await redis.exists(f"{RedisPrefix.google_nonce}{issued}")
+    await redis.delete(f"{RedisPrefix.google_nonce}{issued}")
+
+
+async def test_rejects_a_token_with_no_nonce(
+    client: AsyncClient, claims: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    del claims["nonce"]
+    stub_verifier(monkeypatch, claims)
+
+    response = await client.post("/auth/google", json={"credential": "an.id.token"})
+    assert response.status_code == 401, "a token carrying no nonce was accepted"
+
+
+async def test_rejects_an_unissued_nonce(
+    client: AsyncClient, claims: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    claims["nonce"] = uuid4().hex
+    stub_verifier(monkeypatch, claims)
+
+    response = await client.post("/auth/google", json={"credential": "an.id.token"})
+    assert response.status_code == 401, "a nonce we never issued was accepted"
+
+
+async def test_a_nonce_cannot_be_replayed(
+    client: AsyncClient, claims: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stub_verifier(monkeypatch, claims)
+
+    first = await client.post("/auth/google", json={"credential": "an.id.token"})
+    assert first.status_code == 200, first.text
+
+    replay = await client.post("/auth/google", json={"credential": "an.id.token"})
+    assert replay.status_code == 401, "the same ID token was accepted twice"
 
 
 async def test_requires_a_verified_email(

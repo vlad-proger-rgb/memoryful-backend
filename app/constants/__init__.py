@@ -9,7 +9,7 @@ from .cache import (
     EXCLUDED_CACHE_KWARGS,
     GLOBAL_SCOPE,
 )
-from .google import GOOGLE_ISSUERS
+from .google import GOOGLE_ISSUERS, GOOGLE_NONCE_EXPIRE_MINUTES
 from .media import VIDEO_EXTENSIONS
 
 __all__ = [
@@ -23,6 +23,7 @@ __all__ = [
     "EXCLUDED_CACHE_KWARGS",
     "GLOBAL_SCOPE",
     "GOOGLE_ISSUERS",
+    "GOOGLE_NONCE_EXPIRE_MINUTES",
     "VERIFICATION_CODE_EXPIRE_MINUTES",
     "VERIFICATION_CODE_LENGTH",
     "VIDEO_EXTENSIONS",

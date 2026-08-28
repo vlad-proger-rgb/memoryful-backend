@@ -1,4 +1,5 @@
 import datetime as dt
+import secrets
 from collections.abc import Sequence
 from typing import Annotated
 from uuid import UUID
@@ -18,7 +19,12 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.constants import ALGORITHM, CACHE_TTL_USER_DATA, VERIFICATION_CODE_EXPIRE_MINUTES
+from app.constants import (
+    ALGORITHM,
+    CACHE_TTL_USER_DATA,
+    GOOGLE_NONCE_EXPIRE_MINUTES,
+    VERIFICATION_CODE_EXPIRE_MINUTES,
+)
 from app.core.cache import cached, clear_cache
 from app.core.config import redis
 from app.core.database import get_db
@@ -39,6 +45,7 @@ from app.schemas import (
     AuthResponse,
     Email,
     GoogleCredential,
+    GoogleNonce,
     Msg,
     Session,
     Token,
@@ -159,6 +166,14 @@ async def verify_code(
     )
 
 
+@router.post("/google/nonce", response_model=Msg[GoogleNonce])
+async def google_nonce() -> Msg[GoogleNonce]:
+    nonce = secrets.token_urlsafe(32)
+    await redis.setex(f"{RedisPrefix.google_nonce}{nonce}", GOOGLE_NONCE_EXPIRE_MINUTES * 60, "1")
+
+    return Msg(code=200, msg="Nonce issued", data=GoogleNonce(nonce=nonce))
+
+
 @router.post("/google", response_model=Msg[AuthResponse])
 async def google_sign_in(
     request: Request,
@@ -170,6 +185,11 @@ async def google_sign_in(
     email = str(claims["email"]).strip().lower()
     google_sub = str(claims["sub"])
     print(f"AUTH POST /google {email=}")
+
+    # DELETE returns 1 only for whoever gets there first, so a replay loses the race.
+    nonce = claims.get("nonce")
+    if not nonce or not await redis.delete(f"{RedisPrefix.google_nonce}{nonce}"):
+        raise HTTPException(401, "Invalid Google credential")
 
     # sub before email: the reverse order forks the account when a Google address changes.
     user: User | None = await db.scalar(select(User).where(User.google_sub == google_sub))
