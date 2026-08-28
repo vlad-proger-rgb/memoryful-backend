@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, UniqueConstraint
+from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -9,13 +9,11 @@ from app.models._mixins import IDMixin, TimestampWithUpdateMixin
 
 class User(Base, IDMixin, TimestampWithUpdateMixin):
     __tablename__ = "users"
-    # Named explicitly: an inline unique=True autogenerates a downgrade that cannot compile.
-    __table_args__ = (UniqueConstraint("google_sub", name="uq_users_google_sub"),)
 
     country_id: Mapped[UUID | None] = mapped_column(ForeignKey("countries.id"))
     city_id: Mapped[UUID | None] = mapped_column(ForeignKey("cities.id"))
     email: Mapped[str] = mapped_column(unique=True)
-    google_sub: Mapped[str | None] = mapped_column(default=None)
+    google_sub: Mapped[str | None] = mapped_column(unique=True, default=None)
     is_enabled: Mapped[bool] = mapped_column(default=True)
     first_name: Mapped[str | None]
     last_name: Mapped[str | None]
