@@ -97,6 +97,89 @@ async def test_links_to_an_existing_account(
     assert len(rows) == 1
 
 
+async def test_stores_the_sub_on_a_new_account(
+    client: AsyncClient,
+    db: AsyncSession,
+    email: str,
+    claims: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stub_verifier(monkeypatch, claims)
+
+    response = await client.post("/auth/google", json={"credential": "an.id.token"})
+    assert response.status_code == 200, response.text
+
+    created = await db.scalar(select(User).where(User.email == email))
+    assert created is not None
+    assert created.google_sub == claims["sub"]
+
+
+async def test_backfills_the_sub_when_linking_by_email(
+    client: AsyncClient,
+    db: AsyncSession,
+    email: str,
+    claims: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    existing = User(email=email)
+    db.add(existing)
+    await db.flush()
+    assert existing.google_sub is None
+
+    stub_verifier(monkeypatch, claims)
+    response = await client.post("/auth/google", json={"credential": "an.id.token"})
+    assert response.status_code == 200, response.text
+
+    await db.refresh(existing)
+    assert existing.google_sub == claims["sub"], "the sub was not backfilled on the linked row"
+
+
+async def test_follows_the_sub_when_the_google_email_changes(
+    client: AsyncClient,
+    db: AsyncSession,
+    email: str,
+    claims: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    existing = User(email=email, google_sub=str(claims["sub"]))
+    db.add(existing)
+    await db.flush()
+
+    moved = f"moved-{uuid4().hex}@example.com"
+    claims["email"] = moved
+    stub_verifier(monkeypatch, claims)
+
+    response = await client.post("/auth/google", json={"credential": "an.id.token"})
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["userId"] == str(existing.id), "the account forked"
+
+    await db.refresh(existing)
+    assert existing.email == moved, "the address the login code is mailed to went stale"
+
+
+async def test_409_when_the_new_email_belongs_to_another_account(
+    client: AsyncClient,
+    db: AsyncSession,
+    email: str,
+    claims: dict[str, object],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    taken = f"taken-{uuid4().hex}@example.com"
+    db.add(User(email=taken))
+    mover = User(email=email, google_sub=str(claims["sub"]))
+    db.add(mover)
+    await db.flush()
+
+    claims["email"] = taken
+    stub_verifier(monkeypatch, claims)
+
+    response = await client.post("/auth/google", json={"credential": "an.id.token"})
+    assert response.status_code == 409, response.text
+
+    await db.refresh(mover)
+    assert mover.email == email, "the colliding address was written anyway"
+
+
 async def test_requires_a_verified_email(
     client: AsyncClient, claims: dict[str, object], monkeypatch: pytest.MonkeyPatch
 ) -> None:

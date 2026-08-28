@@ -165,25 +165,45 @@ async def google_sign_in(
 ) -> Msg[AuthResponse]:
     claims = await verify_google_id_token(credential.credential)
     email = str(claims["email"]).strip().lower()
+    google_sub = str(claims["sub"])
     print(f"AUTH POST /google {email=}")
 
-    stmt = select(User).where(User.email == email)
-    user: User | None = (await db.scalars(stmt)).one_or_none()
+    # sub before email: the reverse order forks the account when a Google address changes.
+    user: User | None = await db.scalar(select(User).where(User.google_sub == google_sub))
+    linked_by_sub = user is not None
+
+    if user is None:
+        user = await db.scalar(select(User).where(User.email == email))
 
     is_new_user = False
-    if not user:
+    if user is None:
         is_new_user = True
         user = User(
             email=email,
+            google_sub=google_sub,
             first_name=claims.get("given_name"),
             last_name=claims.get("family_name"),
         )
         db.add(user)
         await db.commit()
         await db.refresh(user)
+    else:
+        if not user.is_enabled:
+            raise HTTPException(401, "User is disabled", {"WWW-Authenticate": "Bearer"})
 
-    elif not user.is_enabled:
-        raise HTTPException(401, "User is disabled", {"WWW-Authenticate": "Bearer"})
+        if linked_by_sub and user.email != email:
+            conflict = await db.scalar(select(User.id).where(User.email == email))
+            if conflict is not None:
+                raise HTTPException(
+                    409,
+                    "That email address already belongs to another account",
+                )
+            user.email = email
+
+        user.google_sub = google_sub
+        await db.commit()
+        await db.refresh(user)
+        await clear_cache(CacheNamespace.users, user.id)
 
     tokens = await _issue_session(db, user, request, response)
 
