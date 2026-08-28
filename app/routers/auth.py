@@ -143,6 +143,9 @@ async def verify_code(
         await db.commit()
         await db.refresh(user)
 
+    elif not user.is_enabled:
+        raise HTTPException(401, "User is disabled", {"WWW-Authenticate": "Bearer"})
+
     tokens = await _issue_session(db, user, request, response)
 
     return Msg(

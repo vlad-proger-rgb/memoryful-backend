@@ -89,6 +89,16 @@ async def test_verify_code_accepts_the_right_code_and_creates_the_user(
     assert created is not None
 
 
+async def test_verify_code_rejects_a_disabled_user(
+    client: AsyncClient, db: AsyncSession, email: str, login_code: str
+) -> None:
+    db.add(User(email=email, is_enabled=False))
+    await db.flush()
+
+    response = await client.post("/auth/verify-code", json={"email": email, "code": login_code})
+    assert response.status_code == 401, "a disabled user signed in through the email code flow"
+
+
 async def test_a_used_code_cannot_be_replayed(
     client: AsyncClient, email: str, login_code: str
 ) -> None:
