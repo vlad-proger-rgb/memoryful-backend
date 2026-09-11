@@ -1,6 +1,7 @@
 from .cache import CacheNamespace
 from .emails import EmailTemplate
 from .font_awesome import IconStyle
+from .insight import InsightKind
 from .provider import Provider
 from .redis import RedisPrefix
 from .sorting import DaySortField, SortOrder
@@ -12,6 +13,7 @@ __all__ = [
     "DaySortField",
     "EmailTemplate",
     "IconStyle",
+    "InsightKind",
     "Provider",
     "RedisPrefix",
     "SortOrder",

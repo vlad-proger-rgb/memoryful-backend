@@ -4,10 +4,8 @@ from .city import City
 from .country import Country
 from .day import Day
 from .insight import Insight
-from .insight_type import InsightType
 from .month import Month
 from .search_history import SearchHistory
-from .suggestion import Suggestion
 from .tag import Tag
 from .trackable_item import TrackableItem
 from .trackable_progress import TrackableProgress
@@ -23,10 +21,8 @@ __all__ = [
     "Country",
     "Day",
     "Insight",
-    "InsightType",
     "Month",
     "SearchHistory",
-    "Suggestion",
     "Tag",
     "TrackableItem",
     "TrackableProgress",

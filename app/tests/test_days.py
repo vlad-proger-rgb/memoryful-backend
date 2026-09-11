@@ -8,7 +8,8 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Day, Tag
+from app.enums import InsightKind
+from app.models import ChatModel, Day, Insight, Tag
 
 from .conftest import MakeUser
 
@@ -189,3 +190,36 @@ async def test_null_steps_does_not_break_the_listing(
 
     listing = await client.get("/days/", headers=auth_headers)
     assert listing.status_code == 200
+
+
+async def test_a_day_carries_the_model_that_wrote_its_insights(
+    client: AsyncClient,
+    db: AsyncSession,
+    auth_headers: dict[str, str],
+    city_id: UUID,
+    user_id: UUID,
+) -> None:
+    """The nested model needs eager loading here, or serializing the day raises MissingGreenlet."""
+    created = await client.post(f"/days/{TIMESTAMP}", headers=auth_headers, json=_payload(city_id))
+    assert created.status_code == 200, created.text
+
+    model_id = await db.scalar(select(ChatModel.id).limit(1))
+    assert model_id is not None, "no chat models in the database"
+    db.add(
+        Insight(
+            user_id=user_id,
+            model_id=model_id,
+            timestamp=TIMESTAMP,
+            kind=InsightKind.observation,
+            description="You wrote late again",
+            content="Three of the last four entries went in after midnight.",
+        )
+    )
+    await db.flush()
+
+    fetched = await client.get(f"/days/{TIMESTAMP}", headers=auth_headers)
+    assert fetched.status_code == 200, fetched.text
+
+    insights = fetched.json()["data"]["insights"]
+    assert [i["kind"] for i in insights] == ["observation"]
+    assert insights[0]["chatModel"]["id"] == str(model_id)

@@ -2,201 +2,87 @@ import datetime as dt
 import logging
 from uuid import UUID
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
+from langchain_core.output_parsers import PydanticOutputParser
 from openai import OpenAIError
-from pydantic import BaseModel
 from sqlalchemy import and_, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai.services.day.parsing import extract_json_array, sanitize_items
+from app.ai.errors import handle_openai_model_error
+from app.ai.schemas import AIItemList
 from app.ai.utils import build_chat_model, get_default_chat_model, load_prompt
 from app.core.cache import clear_cache
 from app.core.database import AsyncSessionLocal
-from app.core.settings import get_settings
-from app.enums import CacheNamespace
-from app.models import Day, Insight, InsightType, Suggestion
-from app.schemas.font_awesome import FAIcon
+from app.enums import CacheNamespace, InsightKind
+from app.models import Day, Insight
 
-settings = get_settings()
+logger = logging.getLogger(__name__)
 
-
-def handle_openai_model_error(e: OpenAIError) -> None:
-    """Handle 'model not found' errors when running against local Ollama."""
-    if settings.llm_mode == "local" and "model" in str(e).lower() and "not found" in str(e).lower():
-        raise RuntimeError(
-            "Local model not found in Ollama. "
-            f"Requested LOCAL_LLM_MODEL='{settings.local_llm_model}'. "
-            "Run: docker exec -it ollama-dev ollama list (to see installed models) "
-            f"and docker exec -it ollama-dev ollama pull {settings.local_llm_model} (to download it)."
-        ) from e
-    raise
+_PARSER = PydanticOutputParser(pydantic_object=AIItemList)
 
 
-class _AIItem(BaseModel):
-    description: str
-    icon: FAIcon
-    content: str
-
-
-class _AIItemList(BaseModel):
-    items: list[_AIItem]
-
-
-async def _get_or_create_insight_type(
-    db: AsyncSession, name: str, duration: dt.timedelta
-) -> InsightType:
-    existing = await db.scalar(select(InsightType).where(InsightType.name == name))
-    if existing:
-        return existing
-
-    insight_type = InsightType(name=name, duration=duration)
-    db.add(insight_type)
-    await db.commit()
-    await db.refresh(insight_type)
-    return insight_type
-
-
-async def _replace_daily_insights(
+async def _replace_items(
     db: AsyncSession,
     *,
     user_id: UUID,
     model_id: UUID,
     timestamp: int,
-    date_begin: dt.date,
+    kind: InsightKind,
     items: list[dict],
 ) -> None:
-    logging.info(
-        f"Replacing daily insights for user {user_id} on {date_begin} with {len(items)} items"
-    )
-
-    insight_type = await _get_or_create_insight_type(
-        db, name="daily", duration=dt.timedelta(days=1)
-    )
-
     await db.execute(
         delete(Insight).where(
             and_(
                 Insight.user_id == user_id,
-                Insight.insight_type_id == insight_type.id,
                 Insight.timestamp == timestamp,
+                Insight.kind == kind,
             )
         )
     )
 
-    insights_to_create = []
-    for i, item in enumerate(items):
-        logging.info(
-            f"Creating insight {i + 1}: description='{item.get('description', '')[:50]}...', icon={item.get('icon')}"
-        )
-        insights_to_create.append(
+    db.add_all(
+        [
             Insight(
                 user_id=user_id,
                 model_id=model_id,
-                insight_type_id=insight_type.id,
                 timestamp=timestamp,
-                date_begin=date_begin,
+                kind=kind,
                 description=item.get("description", ""),
                 icon=item.get("icon"),
                 content=item.get("content", ""),
             )
-        )
-
-    db.add_all(insights_to_create)
-    await db.commit()
-    logging.info(f"Successfully saved {len(insights_to_create)} insights to database")
-
-
-async def _replace_daily_suggestions(
-    db: AsyncSession,
-    *,
-    user_id: UUID,
-    model_id: UUID,
-    timestamp: int,
-    date: dt.date,
-    items: list[dict],
-) -> None:
-    logging.info(
-        f"Replacing daily suggestions for user {user_id} on {date} with {len(items)} items"
+            for item in items
+        ]
     )
-
-    await db.execute(
-        delete(Suggestion).where(
-            and_(
-                Suggestion.user_id == user_id,
-                Suggestion.timestamp == timestamp,
-            )
-        )
-    )
-
-    suggestions_to_create = []
-    for i, item in enumerate(items):
-        logging.info(
-            f"Creating suggestion {i + 1}: description='{item.get('description', '')[:50]}...', icon={item.get('icon')}"
-        )
-        suggestions_to_create.append(
-            Suggestion(
-                user_id=user_id,
-                model_id=model_id,
-                timestamp=timestamp,
-                date=date,
-                description=item.get("description", ""),
-                icon=item.get("icon"),
-                content=item.get("content", ""),
-            )
-        )
-
-    db.add_all(suggestions_to_create)
     await db.commit()
-    logging.info(f"Successfully saved {len(suggestions_to_create)} suggestions to database")
+    logger.info("Stored %d %s items for user %s on day %s", len(items), kind, user_id, timestamp)
 
 
-async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, timestamp: int) -> None:
-    logging.info(f"Starting AI generation for user {user_id}, timestamp {timestamp}")
+async def generate_day_insights(*, user_id: UUID, timestamp: int) -> None:
     async with AsyncSessionLocal() as db:
         day: Day | None = await db.get(Day, (timestamp, user_id))
         if not day:
-            logging.warning(f"No day found for user {user_id}, timestamp {timestamp}")
+            logger.warning("No day for user %s at %s", user_id, timestamp)
             return
 
         if day.ai_generated_at is not None and day.updated_at <= day.ai_generated_at:
-            logging.info(f"AI already generated for day {timestamp}, skipping")
+            logger.info("Day %s for user %s is already current, skipping", timestamp, user_id)
             return
 
-        logging.info(f"Loading default chat model for user {user_id}")
         model = await get_default_chat_model(db)
+        llm = build_chat_model(model)
 
         system_base = load_prompt("system_base.md")
         insights_prompt = load_prompt("insights.md")
         suggestions_prompt = load_prompt("suggestions.md")
 
-        llm = build_chat_model(model)
-        logging.info(f"Initialized LLM: {model.name} (provider: {llm.__class__.__name__})")
-
         date = dt.datetime.fromtimestamp(timestamp, tz=dt.UTC).date()
 
-        existing_insights = (
+        existing = (
             (
                 await db.execute(
                     select(Insight).where(
-                        and_(
-                            Insight.user_id == user_id,
-                            Insight.timestamp == timestamp,
-                        )
-                    )
-                )
-            )
-            .scalars()
-            .all()
-        )
-
-        existing_suggestions = (
-            (
-                await db.execute(
-                    select(Suggestion).where(
-                        and_(
-                            Suggestion.user_id == user_id,
-                            Suggestion.timestamp == timestamp,
-                        )
+                        and_(Insight.user_id == user_id, Insight.timestamp == timestamp)
                     )
                 )
             )
@@ -205,14 +91,14 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
         )
 
         existing_section_lines: list[str] = []
-        if existing_insights:
-            existing_section_lines.append("Existing insights (may be updated):")
-            existing_section_lines.extend([f"- {i.description}" for i in existing_insights])
-        if existing_suggestions:
-            existing_section_lines.append("Existing suggestions (may be updated):")
-            existing_section_lines.extend([f"- {s.description}" for s in existing_suggestions])
-
-        existing_section = "\n".join(existing_section_lines)
+        for kind, label in (
+            (InsightKind.observation, "Existing insights (may be updated):"),
+            (InsightKind.suggestion, "Existing suggestions (may be updated):"),
+        ):
+            of_kind = [item for item in existing if item.kind == kind]
+            if of_kind:
+                existing_section_lines.append(label)
+                existing_section_lines.extend(f"- {item.description}" for item in of_kind)
 
         day_context = "\n".join(
             [
@@ -221,77 +107,45 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
                 f"Steps: {day.steps or 0}",
                 "Content:",
                 day.content,
-                existing_section,
+                "\n".join(existing_section_lines),
             ]
         ).strip()
 
         async def _invoke_items(*, prompt: str, context: str) -> list[dict]:
-            structured_llm = llm.with_structured_output(_AIItemList)
+            messages: list[BaseMessage] = [
+                SystemMessage(content=system_base),
+                SystemMessage(content=prompt),
+                HumanMessage(content=context),
+            ]
             try:
-                logging.info(
-                    f"Attempting structured output generation for {len(context)} characters of context"
+                parsed = AIItemList.model_validate(
+                    await llm.with_structured_output(AIItemList).ainvoke(messages)
                 )
-                parsed = await structured_llm.ainvoke(
-                    [
-                        SystemMessage(content=system_base),
-                        SystemMessage(content=prompt),
-                        HumanMessage(content=context),
-                    ]
-                )
-                result = [i.model_dump() for i in parsed.items]  # type: ignore
-                logging.info(f"Structured output succeeded, generated {len(result)} items")
-                for i, item in enumerate(result):
-                    logging.info(
-                        f"Item {i + 1}: description='{item.get('description', '')[:50]}...', icon={item.get('icon')}"
-                    )
             except Exception as e:
-                logging.warning(f"Structured output failed: {e}. Falling back to text parsing")
-                resp = await llm.ainvoke(
-                    [
-                        SystemMessage(content=system_base),
-                        SystemMessage(content=prompt),
-                        HumanMessage(content=context),
-                    ]
-                )
-
-                # Log the raw response from Ollama
-                raw_content = getattr(resp, "content", str(resp))
-                logging.info(f"Raw LLM response:\n{raw_content}")
-
-                try:
-                    result = extract_json_array(raw_content)
-                    logging.info(f"Text parsing succeeded, extracted {len(result)} items")
-                    for i, item in enumerate(result):
-                        logging.info(
-                            f"Item {i + 1}: description='{item.get('description', '')[:50]}...', icon={item.get('icon')}"
-                        )
-                except Exception:
-                    logging.exception("Text parsing also failed. Raw content: %s", raw_content)
-                    raise
-                else:
-                    return result
-            else:
-                return result
+                logger.warning("Structured output failed (%s), parsing the raw reply", e)
+                response = await llm.ainvoke(messages)
+                parsed = _PARSER.parse(str(getattr(response, "content", response)))
+            return [item.model_dump() for item in parsed.items]
 
         try:
             insight_items = await _invoke_items(prompt=insights_prompt, context=day_context)
         except OpenAIError as e:
             handle_openai_model_error(e)
 
-        await _replace_daily_insights(
+        await _replace_items(
             db,
             user_id=user_id,
             model_id=model.id,
             timestamp=timestamp,
-            date_begin=date,
-            items=sanitize_items(insight_items),
+            kind=InsightKind.observation,
+            items=insight_items,
         )
 
         suggestions_context = "\n".join(
             [
                 day_context,
                 "\nInsights just generated:",
-                "\n".join([f"- {i.get('description', '')}" for i in insight_items]),
+                "\n".join(f"- {item.get('description', '')}" for item in insight_items),
             ]
         )
 
@@ -302,23 +156,21 @@ async def generate_daily_insights_and_suggestions_for_day(*, user_id: UUID, time
         except OpenAIError as e:
             handle_openai_model_error(e)
 
-        await _replace_daily_suggestions(
+        await _replace_items(
             db,
             user_id=user_id,
             model_id=model.id,
             timestamp=timestamp,
-            date=date,
-            items=sanitize_items(suggestion_items),
+            kind=InsightKind.suggestion,
+            items=suggestion_items,
         )
 
         day.ai_generated_at = dt.datetime.now(dt.UTC)
         await db.commit()
 
-        await clear_cache(CacheNamespace.insights, user_id)
-        await clear_cache(CacheNamespace.suggestions, user_id)
-        await clear_cache(CacheNamespace.days_detail, user_id)
-        await clear_cache(CacheNamespace.days_list, user_id)
-
-        logging.info(
-            f"AI generation completed successfully for user {user_id}, timestamp {timestamp}"
-        )
+        for namespace in (
+            CacheNamespace.insights,
+            CacheNamespace.days_detail,
+            CacheNamespace.days_list,
+        ):
+            await clear_cache(namespace, user_id)

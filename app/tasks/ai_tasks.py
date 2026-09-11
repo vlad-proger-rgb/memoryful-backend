@@ -6,15 +6,16 @@ from uuid import UUID
 
 from sqlalchemy import and_, select
 
-from app.ai.services.day import generate_daily_insights_and_suggestions_for_day
+from app.ai.services.day import generate_day_insights
 from app.core.celery_app import celery
 from app.core.database import AsyncSessionLocal
+from app.core.dates import day_timestamp
 from app.models import Day
 
 _celery_async_loop: asyncio.AbstractEventLoop | None = None
 
 
-def _run_async(coro: "Coroutine[Any, Any, None]") -> None:
+def _run_async(coro: "Coroutine[Any, Any, Any]") -> Any:
     global _celery_async_loop
 
     if _celery_async_loop is None or _celery_async_loop.is_closed():
@@ -24,20 +25,14 @@ def _run_async(coro: "Coroutine[Any, Any, None]") -> None:
     return _celery_async_loop.run_until_complete(coro)
 
 
-def _date_to_day_timestamp(d: dt.date) -> int:
-    return int(dt.datetime.combine(d, dt.time.min).timestamp())
-
-
 @celery.task(queue="ai_queue")
 def generate_day_ai(user_id: str, timestamp: int) -> None:
-    _run_async(
-        generate_daily_insights_and_suggestions_for_day(user_id=UUID(user_id), timestamp=timestamp)
-    )
+    _run_async(generate_day_insights(user_id=UUID(user_id), timestamp=timestamp))
 
 
 async def _enqueue_fallback_for_yesterday() -> None:
     target_date = dt.datetime.now(dt.UTC).date() - dt.timedelta(days=1)
-    target_ts = _date_to_day_timestamp(target_date)
+    target_ts = day_timestamp(target_date)
 
     async with AsyncSessionLocal() as db:
         stmt = (

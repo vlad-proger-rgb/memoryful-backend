@@ -41,7 +41,6 @@ from app.routers import (
     insights,
     months,
     storage,
-    suggestions,
     tags,
     trackable_types,
     trackables,
@@ -136,7 +135,6 @@ app.include_router(storage.router)
 app.include_router(workspaces.router)
 app.include_router(trackables.router)
 app.include_router(trackable_types.router)
-app.include_router(suggestions.router)
 app.include_router(tags.router)
 
 register_exception_handlers(app)

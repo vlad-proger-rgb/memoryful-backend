@@ -23,7 +23,7 @@ from app.core.deps import StorageServiceDep, get_current_user
 from app.core.storage.utils import as_key_set
 from app.enums import CacheNamespace
 from app.enums.sorting import DaySortField, SortOrder
-from app.models import City, Day, Tag, TrackableItem, TrackableProgress
+from app.models import City, Day, Insight, Tag, TrackableItem, TrackableProgress
 from app.schemas import (
     DayCreate,
     DayDetail,
@@ -33,7 +33,6 @@ from app.schemas import (
     DayUpdate,
     InsightInDB,
     Msg,
-    SuggestionInDB,
     TrackableTypeInDB,
     TrackableTypeWithProgress,
 )
@@ -246,8 +245,7 @@ async def get_random_day(
             selectinload(Day.trackable_progresses)
                 .selectinload(TrackableProgress.trackable_item)
                 .selectinload(TrackableItem.type),
-            selectinload(Day.insights),
-            selectinload(Day.suggestions),
+            selectinload(Day.insights).selectinload(Insight.chat_model),
         )
         .order_by(func.random())
         .limit(1)
@@ -281,13 +279,11 @@ async def get_random_day(
     ]  # fmt: skip
 
     insights = [InsightInDB.model_validate(i) for i in day.insights]
-    suggestions = [SuggestionInDB.model_validate(s) for s in day.suggestions]
 
     day_data = {
         **{k: v for k, v in day.__dict__.items() if not k.startswith("_")},
         "trackable_progresses": trackable_progresses,
         "insights": insights,
-        "suggestions": suggestions,
     }
 
     day_schema = DayDetail.model_validate(day_data)
@@ -311,8 +307,7 @@ async def get_day(
             selectinload(Day.trackable_progresses)
                 .selectinload(TrackableProgress.trackable_item)
                 .selectinload(TrackableItem.type),
-            selectinload(Day.insights),
-            selectinload(Day.suggestions),
+            selectinload(Day.insights).selectinload(Insight.chat_model),
         )
         .where(Day.timestamp == timestamp, Day.user_id == user_id)
     )  # fmt: skip
@@ -337,13 +332,11 @@ async def get_day(
     ]  # fmt: skip
 
     insights = [InsightInDB.model_validate(i) for i in day.insights]
-    suggestions = [SuggestionInDB.model_validate(s) for s in day.suggestions]
 
     day_data = {
         **{k: v for k, v in day.__dict__.items() if not k.startswith("_")},
         "trackable_progresses": trackable_progresses,
         "insights": insights,
-        "suggestions": suggestions,
     }
     print(f"DAYS {day_data=}")
 

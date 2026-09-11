@@ -5,7 +5,6 @@ from .tools import (
     days,
     insights,
     months,
-    suggestions,
     tags,
     trackables,
     workspaces,
@@ -24,9 +23,6 @@ mcp.tool()(months.get_month_by_year_and_month_number)
 
 # insights tools
 mcp.tool()(insights.get_insights)
-
-# suggestions tools
-mcp.tool()(suggestions.get_suggestions)
 
 # tags tools
 mcp.tool()(tags.get_tags)

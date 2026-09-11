@@ -10,7 +10,7 @@ from .chat import (
     MessageSchema,
     ToolCallSchema,
 )
-from .chat_model import ChatModelInDB
+from .chat_model import ChatModelInDB, ChatModelRef
 from .city import CityDetail, CityInDB
 from .country import CountryInDB
 from .day import DayCreate, DayDetail, DayFilters, DayListItem, DayUpdate
@@ -26,7 +26,6 @@ from .media import ResolvedBackground
 from .month import MonthBase, MonthInDB
 from .security import AuthResponse, GoogleCredential, GoogleNonce, Session, Token
 from .storage import PresignGetRequest, PresignGetResponse, PresignPutRequest, PresignPutResponse
-from .suggestion import SuggestionInDB
 from .tag import TagBase, TagInDB
 from .trackable import (
     TrackableBase,
@@ -48,6 +47,7 @@ __all__ = [
     "ChatDetail",
     "ChatListItem",
     "ChatModelInDB",
+    "ChatModelRef",
     "ChatUpdate",
     "CityDetail",
     "CityInDB",
@@ -78,7 +78,6 @@ __all__ = [
     "PresignPutResponse",
     "ResolvedBackground",
     "Session",
-    "SuggestionInDB",
     "TagBase",
     "TagInDB",
     "Token",

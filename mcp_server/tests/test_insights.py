@@ -19,7 +19,6 @@ def _insight(ts: int = 1700000000, **overrides: object) -> dict:
         "modelId": _FAKE_MODEL_ID,
         "insightTypeId": _FAKE_TYPE_ID,
         "timestamp": ts,
-        "dateBegin": "2025-01-01",
         "description": "Test insight",
         "content": "Feeling good",
         "createdAt": "2025-01-01T00:00:00",

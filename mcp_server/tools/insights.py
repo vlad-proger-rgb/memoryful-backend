@@ -12,8 +12,13 @@ async def get_insights(
     limit: int = 10,
     offset: int = 0,
     timestamp: int | None = None,
+    kind: str | None = None,
 ) -> list[dict[str, object]]:
-    """Get insights from Memoryful API with pagination, optionally filtered by day timestamp"""
+    """Get the user's AI items for their days, newest first.
+
+    `kind` narrows to "observation" (something the AI noticed) or "suggestion" (something it
+    proposed); omit it for both. `timestamp` narrows to one day.
+    """
     validate_non_negative_int(limit, "limit")
     validate_non_negative_int(offset, "offset")
     if timestamp is not None:
@@ -23,4 +28,6 @@ async def get_insights(
     params: dict[str, int | str] = {"limit": limit, "offset": offset}
     if timestamp is not None:
         params["timestamp"] = timestamp
+    if kind is not None:
+        params["kind"] = kind
     return cast(list[dict[str, object]], await client.get(f"/insights?{urlencode(params)}"))

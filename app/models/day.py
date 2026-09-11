@@ -57,14 +57,10 @@ class Day(Base, TimestampWithUpdateMixin):
         back_populates="day", overlaps="user,trackable_progresses"
     )
     insights: Mapped[list["Insight"]] = relationship(back_populates="day", overlaps="user,insights")
-    suggestions: Mapped[list["Suggestion"]] = relationship(
-        back_populates="day", overlaps="user,suggestions"
-    )
 
 
 from .city import City
 from .insight import Insight
-from .suggestion import Suggestion
 from .tag import Tag
 from .trackable_progress import TrackableProgress
 from .user import User

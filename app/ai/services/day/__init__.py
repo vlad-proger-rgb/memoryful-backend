@@ -1,5 +1,5 @@
-from .insights import generate_daily_insights_and_suggestions_for_day
+from .insights import generate_day_insights
 
 __all__ = [
-    "generate_daily_insights_and_suggestions_for_day",
+    "generate_day_insights",
 ]

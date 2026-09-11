@@ -36,10 +36,7 @@ class DayDetail(DayBase):
     )
     tags: list["TagInDB"] | None = Field(default_factory=list)
     insights: list["InsightInDB"] | None = Field(
-        default_factory=list, description="List of insights for this day"
-    )
-    suggestions: list["SuggestionInDB"] | None = Field(
-        default_factory=list, description="List of suggestions for this day"
+        default_factory=list, description="AI items for this day; read `kind` to split them"
     )
 
 
@@ -99,5 +96,4 @@ from .day_trackable_progress import (
     TrackableTypeWithProgress,
 )
 from .insight import InsightInDB
-from .suggestion import SuggestionInDB
 from .tag import TagInDB
