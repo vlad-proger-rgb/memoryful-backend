@@ -4,8 +4,8 @@ A Model Context Protocol (MCP) server that provides read-only access to the Memo
 
 ## Features
 
-- **13 Read-only Tools** for accessing Memoryful data
-- **Comprehensive Coverage** of all main entities (days, months, insights, tags, trackables, workspaces)
+- **15 Read-only Tools** for accessing Memoryful data
+- **Comprehensive Coverage** of all main entities (days, months, insights, week digests, tags, trackables, workspaces)
 - **Error Handling** with proper logging through MCP context
 - **Modern Python** using type hints and async/await
 
@@ -25,6 +25,11 @@ A Model Context Protocol (MCP) server that provides read-only access to the Memo
 ### Insights
 
 - `get_insights` - Get AI items for the user's days, optionally filtered by day timestamp or by `kind` (`observation` / `suggestion`)
+
+### Week digests
+
+- `get_week_digests` - Get weekly digests, newest first
+- `get_week_digest` - Get one weekly digest by the Monday it starts on
 
 ### Tags
 
@@ -131,6 +136,7 @@ mcp_server/
 │   ├── insights.py
 │   ├── tags.py
 │   ├── trackables.py
+│   ├── week_digests.py
 │   └── workspaces.py
 ├── tests/               # Unit tests
 │   ├── conftest.py

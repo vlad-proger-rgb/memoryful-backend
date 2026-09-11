@@ -36,6 +36,7 @@ class User(Base, IDMixin, TimestampWithUpdateMixin):
         back_populates="user", overlaps="day,trackable_progresses"
     )
 
+    week_digests: Mapped[list["WeekDigest"]] = relationship(back_populates="user")
     workspace_backgrounds: Mapped[list["WorkspaceBackground"]] = relationship(back_populates="user")
 
 
@@ -51,4 +52,5 @@ from .trackable_item import TrackableItem
 from .trackable_progress import TrackableProgress
 from .trackable_type import TrackableType
 from .user_token import UserToken
+from .week_digest import WeekDigest
 from .workspace import WorkspaceBackground

@@ -44,6 +44,7 @@ from app.routers import (
     tags,
     trackable_types,
     trackables,
+    week_digests,
     workspaces,
 )
 from app.schemas import Msg
@@ -136,6 +137,7 @@ app.include_router(workspaces.router)
 app.include_router(trackables.router)
 app.include_router(trackable_types.router)
 app.include_router(tags.router)
+app.include_router(week_digests.router)
 
 register_exception_handlers(app)
 

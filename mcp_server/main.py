@@ -7,6 +7,7 @@ from .tools import (
     months,
     tags,
     trackables,
+    week_digests,
     workspaces,
 )
 
@@ -33,6 +34,10 @@ mcp.tool()(trackables.get_trackables)
 mcp.tool()(trackables.get_trackable_by_id)
 mcp.tool()(trackables.get_trackable_types)
 mcp.tool()(trackables.get_trackable_type_by_id)
+
+# week digest tools
+mcp.tool()(week_digests.get_week_digests)
+mcp.tool()(week_digests.get_week_digest)
 
 # workspaces tools
 mcp.tool()(workspaces.get_my_workspace)

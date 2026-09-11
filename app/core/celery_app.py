@@ -36,5 +36,11 @@ celery.conf.beat_schedule = {
         "task": "app.tasks.ai_tasks.generate_yesterday_ai_fallback",
         "schedule": crontab(hour=2, minute=0),
         "options": {"queue": "ai_queue"},
-    }
+    },
+    # Monday, two hours after the daily fallback fills in Sunday.
+    "enqueue_week_digests": {
+        "task": "app.tasks.ai_tasks.enqueue_week_digests",
+        "schedule": crontab(hour=4, minute=0, day_of_week=1),
+        "options": {"queue": "ai_queue"},
+    },
 }

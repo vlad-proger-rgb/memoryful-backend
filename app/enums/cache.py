@@ -13,6 +13,7 @@ class CacheNamespace(StrEnum):
     trackable_types = "trackable_types"
     workspaces = "workspaces"
     insights = "insights"
+    week_digests = "week_digests"
     chat_models = "chat_models"
     cities = "cities"
     countries = "countries"

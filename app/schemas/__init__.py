@@ -35,6 +35,7 @@ from .trackable import (
 )
 from .trackable_type import TrackableTypeInDB
 from .user import UserBase, UserInDB
+from .week_digest import WeekDigestInDB, WeekDigestSection
 from .workspace import (
     PageBackgroundIn,
     WorkspaceInDB,
@@ -91,6 +92,8 @@ __all__ = [
     "UserBase",
     "UserInDB",
     "VerifyCodeForm",
+    "WeekDigestInDB",
+    "WeekDigestSection",
     "WorkspaceInDB",
     "WorkspaceUpdate",
 ]

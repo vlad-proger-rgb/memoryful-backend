@@ -20,10 +20,10 @@ class ChatModel(Base, IDMixin, ActiveStatusMixin):
     sort_order: Mapped[int] = mapped_column(default=0)  # ascending display order in the selector
 
     chats: Mapped[list["Chat"]] = relationship(back_populates="chat_model")
-    suggestions: Mapped[list["Suggestion"]] = relationship(back_populates="chat_model")
     insights: Mapped[list["Insight"]] = relationship(back_populates="chat_model")
+    week_digests: Mapped[list["WeekDigest"]] = relationship(back_populates="chat_model")
 
 
 from .chat import Chat
 from .insight import Insight
-from .suggestion import Suggestion
+from .week_digest import WeekDigest
