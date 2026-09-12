@@ -147,7 +147,9 @@ services:
       - GOOGLE_CLOUD_PROJECT=${GCP_PROJECT_ID}
 
   minio:
-    image: minio/minio:latest
+    # MinIO pulled its Docker Hub repos; quay is their own mirror, pinned so a
+    # community release cannot change behavior underneath us.
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: memoryful-minio-local
     command: server /data --console-address ":9001"
     ports:
@@ -163,7 +165,7 @@ services:
   # Idempotent (safe to run every `up`); mirrors only new/changed files.
   # Real user photos are NOT seeded — they live in prod GCS and would be huge.
   minio-init:
-    image: minio/mc
+    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
     container_name: memoryful-minio-init
     depends_on:
       - minio
