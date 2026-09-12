@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enums import InsightKind
-from app.models import ChatModel, Day, Insight, Tag
+from app.models import Day, Insight, Tag
 
 from .conftest import MakeUser
 
@@ -198,17 +198,16 @@ async def test_a_day_carries_the_model_that_wrote_its_insights(
     auth_headers: dict[str, str],
     city_id: UUID,
     user_id: UUID,
+    chat_model_id: UUID,
 ) -> None:
     """The nested model needs eager loading here, or serializing the day raises MissingGreenlet."""
     created = await client.post(f"/days/{TIMESTAMP}", headers=auth_headers, json=_payload(city_id))
     assert created.status_code == 200, created.text
 
-    model_id = await db.scalar(select(ChatModel.id).limit(1))
-    assert model_id is not None, "no chat models in the database"
     db.add(
         Insight(
             user_id=user_id,
-            model_id=model_id,
+            model_id=chat_model_id,
             timestamp=TIMESTAMP,
             kind=InsightKind.observation,
             description="You wrote late again",
@@ -222,4 +221,4 @@ async def test_a_day_carries_the_model_that_wrote_its_insights(
 
     insights = fetched.json()["data"]["insights"]
     assert [i["kind"] for i in insights] == ["observation"]
-    assert insights[0]["chatModel"]["id"] == str(model_id)
+    assert insights[0]["chatModel"]["id"] == str(chat_model_id)

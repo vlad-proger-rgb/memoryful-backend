@@ -8,12 +8,11 @@ from uuid import UUID
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.services.week.window import last_finished_week, week_of
 from app.core.dates import day_timestamp
-from app.models import ChatModel, WeekDigest
+from app.models import WeekDigest
 
 from .conftest import MakeUser
 
@@ -51,10 +50,9 @@ def test_last_finished_week_never_includes_today(weekday: int) -> None:
     assert week.start == MONDAY - dt.timedelta(days=7)
 
 
-async def _make_digest(db: AsyncSession, user_id: UUID, week_start: dt.date) -> WeekDigest:
-    model_id = await db.scalar(select(ChatModel.id).limit(1))
-    assert model_id is not None, "no chat models in the database"
-
+async def _make_digest(
+    db: AsyncSession, user_id: UUID, model_id: UUID, week_start: dt.date
+) -> WeekDigest:
     digest = WeekDigest(
         user_id=user_id,
         model_id=model_id,
@@ -70,10 +68,14 @@ async def _make_digest(db: AsyncSession, user_id: UUID, week_start: dt.date) -> 
 
 
 async def test_list_returns_digests_newest_first(
-    client: AsyncClient, db: AsyncSession, auth_headers: dict[str, str], user_id: UUID
+    client: AsyncClient,
+    db: AsyncSession,
+    auth_headers: dict[str, str],
+    user_id: UUID,
+    chat_model_id: UUID,
 ) -> None:
-    await _make_digest(db, user_id, MONDAY - dt.timedelta(days=7))
-    await _make_digest(db, user_id, MONDAY)
+    await _make_digest(db, user_id, chat_model_id, MONDAY - dt.timedelta(days=7))
+    await _make_digest(db, user_id, chat_model_id, MONDAY)
 
     response = await client.get("/week-digests/", headers=auth_headers)
     assert response.status_code == 200, response.text
@@ -83,9 +85,13 @@ async def test_list_returns_digests_newest_first(
 
 
 async def test_a_digest_is_readable_by_its_week_start(
-    client: AsyncClient, db: AsyncSession, auth_headers: dict[str, str], user_id: UUID
+    client: AsyncClient,
+    db: AsyncSession,
+    auth_headers: dict[str, str],
+    user_id: UUID,
+    chat_model_id: UUID,
 ) -> None:
-    await _make_digest(db, user_id, MONDAY)
+    await _make_digest(db, user_id, chat_model_id, MONDAY)
 
     response = await client.get(f"/week-digests/{MONDAY.isoformat()}", headers=auth_headers)
     assert response.status_code == 200, response.text
@@ -105,9 +111,13 @@ async def test_a_week_without_a_digest_is_a_404(
 
 
 async def test_a_digest_is_invisible_to_another_user(
-    client: AsyncClient, db: AsyncSession, make_user: MakeUser, user_id: UUID
+    client: AsyncClient,
+    db: AsyncSession,
+    make_user: MakeUser,
+    user_id: UUID,
+    chat_model_id: UUID,
 ) -> None:
-    await _make_digest(db, user_id, MONDAY)
+    await _make_digest(db, user_id, chat_model_id, MONDAY)
     _, other_headers = await make_user()
 
     listed = await client.get("/week-digests/", headers=other_headers)

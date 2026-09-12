@@ -23,7 +23,7 @@ os.environ["CACHE_ENABLED"] = "false"
 from app.core.database import engine, get_db
 from app.core.security import create_token
 from app.main import app
-from app.models import City, User
+from app.models import ChatModel, City, User
 
 
 @pytest_asyncio.fixture
@@ -108,3 +108,17 @@ async def city_id(db: AsyncSession) -> UUID:
     found = await db.scalar(select(City.id).limit(1))
     assert found is not None, "no cities in the database; days cannot be created"
     return found
+
+
+@pytest_asyncio.fixture
+async def chat_model_id(db: AsyncSession) -> UUID:
+    """AI rows need a model. The catalog sync that fills the table runs on app startup,
+    which a migrated-from-scratch database has never had, so make one when it is empty."""
+    found = await db.scalar(select(ChatModel.id).limit(1))
+    if found is not None:
+        return found
+
+    model = ChatModel(label="Test Model", name="test-model", provider="other")
+    db.add(model)
+    await db.flush()
+    return model.id
