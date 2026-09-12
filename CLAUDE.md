@@ -119,6 +119,11 @@ single key to override. `mcp_server/pytest.ini` is dead: pytest picks the root
   container still starts, but nothing depends on it unless `LLM_MODE=local` — which needs a
   manual `docker exec -it memoryful-ollama-local ollama pull llama3.1` (~4.7 GB) first.
   Don't propose pulling models as a fix unless local mode is explicitly the goal.
+- **A one-shot `python -c` that calls `.delay()` publishes nothing.** kombu's Pub/Sub
+  publisher batches on a background thread and flushes ~10ms later, so an interpreter that
+  exits right after `.delay()` takes the message with it — no error, no task, and the worker
+  looks broken. Long-lived processes (uvicorn, celery) are fine. To enqueue by hand, keep the
+  process alive: `... generate_week_digest.delay(...); time.sleep(3)`.
 - **Cached routes must exclude non-serializable dependencies.** `cache_key_builder` drops
   `_EXCLUDED_CACHE_KWARGS = {db, request, response, storage_service}` because the default
   builder `repr()`s them and bakes in a memory address. Add a new injected dependency to a
