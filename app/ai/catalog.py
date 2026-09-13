@@ -145,6 +145,6 @@ async def sync_chat_models(db: AsyncSession) -> None:
     await db.commit()
 
     if added or retired:
-        # The selector endpoint is cached; drop it so the new list shows immediately.
         await clear_cache(CacheNamespace.chat_models)
+        await clear_cache(CacheNamespace.ai_model_preferences)
         logger.info("Chat model catalog synced: %d added, %d retired", len(added), retired)

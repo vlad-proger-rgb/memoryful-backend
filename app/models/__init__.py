@@ -1,3 +1,4 @@
+from .ai_model_preference import AiModelPreference
 from .chat import Chat
 from .chat_model import ChatModel
 from .city import City
@@ -16,6 +17,7 @@ from .week_digest import WeekDigest
 from .workspace import WorkspaceBackground
 
 __all__ = [
+    "AiModelPreference",
     "Chat",
     "ChatModel",
     "City",

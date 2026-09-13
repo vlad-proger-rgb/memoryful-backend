@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 
+from .ai_model_preference import PurposeModel, PurposeModelIn
 from .chat import (
     ChatCreate,
     ChatDetail,
@@ -77,6 +78,8 @@ __all__ = [
     "PresignGetResponse",
     "PresignPutRequest",
     "PresignPutResponse",
+    "PurposeModel",
+    "PurposeModelIn",
     "ResolvedBackground",
     "Session",
     "TagBase",

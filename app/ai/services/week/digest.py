@@ -9,10 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.ai.schemas import WeekDigestDraft, bounded_week_digest_draft
-from app.ai.utils import build_chat_model, get_default_chat_model, load_prompt
+from app.ai.utils import build_chat_model, get_chat_model_for, load_prompt
 from app.core.cache import clear_cache
 from app.core.database import AsyncSessionLocal
-from app.enums import CacheNamespace, InsightKind
+from app.enums import AnalysisPurpose, CacheNamespace, InsightKind
 from app.models import Day, Insight, WeekDigest
 
 from .context import ItemsByDay, build_week_context
@@ -124,7 +124,7 @@ async def generate_week_digest_for_user(
                 "have no current AI content"
             )
 
-        model = await get_default_chat_model(db)
+        model = await get_chat_model_for(db, user_id=user_id, purpose=AnalysisPurpose.week)
         llm = build_chat_model(model)
         budget = _section_budget(len(days))
         context = build_week_context(

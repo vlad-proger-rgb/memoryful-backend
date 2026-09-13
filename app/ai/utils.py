@@ -2,6 +2,7 @@ import logging
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 from langchain_core.callbacks import AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun
 from langchain_core.language_models import BaseChatModel
@@ -13,8 +14,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.settings import get_settings
+from app.enums import AnalysisPurpose
 from app.enums.provider import Provider
-from app.models import ChatModel
+from app.models import AiModelPreference, ChatModel
 
 settings = get_settings()
 
@@ -249,7 +251,6 @@ def build_chat_model(model: ChatModel) -> BaseChatModel:
 
 
 async def get_default_chat_model(db: AsyncSession) -> ChatModel:
-    """Pick the fallback chat model for background jobs (insights/suggestions)."""
     base = select(ChatModel).where(ChatModel.is_active == True)
 
     default = await db.scalar(base.where(ChatModel.is_default == True).limit(1))
@@ -260,3 +261,25 @@ async def get_default_chat_model(db: AsyncSession) -> ChatModel:
     if not model:
         raise RuntimeError("No active chat models found")
     return model
+
+
+async def get_chosen_chat_model(
+    db: AsyncSession, *, user_id: UUID, purpose: AnalysisPurpose
+) -> ChatModel | None:
+    chosen: ChatModel | None = await db.scalar(
+        select(ChatModel)
+        .join(AiModelPreference, AiModelPreference.model_id == ChatModel.id)
+        .where(
+            AiModelPreference.user_id == user_id,
+            AiModelPreference.purpose == purpose.value,
+            ChatModel.is_active == True,
+        )
+    )
+    return chosen
+
+
+async def get_chat_model_for(
+    db: AsyncSession, *, user_id: UUID, purpose: AnalysisPurpose
+) -> ChatModel:
+    chosen = await get_chosen_chat_model(db, user_id=user_id, purpose=purpose)
+    return chosen or await get_default_chat_model(db)

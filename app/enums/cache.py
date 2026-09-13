@@ -15,5 +15,6 @@ class CacheNamespace(StrEnum):
     insights = "insights"
     week_digests = "week_digests"
     chat_models = "chat_models"
+    ai_model_preferences = "ai_model_preferences"
     cities = "cities"
     countries = "countries"

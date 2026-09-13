@@ -38,8 +38,10 @@ class User(Base, IDMixin, TimestampWithUpdateMixin):
 
     week_digests: Mapped[list["WeekDigest"]] = relationship(back_populates="user")
     workspace_backgrounds: Mapped[list["WorkspaceBackground"]] = relationship(back_populates="user")
+    ai_model_preferences: Mapped[list["AiModelPreference"]] = relationship(back_populates="user")
 
 
+from .ai_model_preference import AiModelPreference
 from .chat import Chat
 from .city import City
 from .country import Country
