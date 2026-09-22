@@ -108,7 +108,8 @@ single key to override. `mcp_server/pytest.ini` is dead: pytest picks the root
   the chain, so a newly generated revision sits unapplied until you
   `restart app`. (`run_migrations()` in `app/main.py` is commented out precisely because
   compose owns this.) Corollary: a broken migration *is* a boot failure — `&&` means uvicorn
-  never starts, and the app container dies on startup with the Alembic error in its logs.
+  never starts, and the app container restart-loops (`restart: always`) with the Alembic
+  error in its logs.
 - **Three env files, and which one loads matters.** `.env.local` is committed with
   placeholders. `.env.local.secrets` is gitignored and loaded second by `env_file:`, so it
   wins — real keys go there, never in `.env.local`. A blank value in it *overrides* the
