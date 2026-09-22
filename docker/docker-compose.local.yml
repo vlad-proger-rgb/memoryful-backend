@@ -79,7 +79,8 @@ services:
       # backups/neondb_backup_latest.dump if present.
       - ./init-restore-db.sh:/docker-entrypoint-initdb.d/restore.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      # Over TCP: the first-boot restore runs on a socket-only server that must not count as up.
+      test: ["CMD-SHELL", "pg_isready -h localhost -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 1s
       retries: 5
