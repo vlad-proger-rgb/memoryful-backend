@@ -24,7 +24,11 @@
 
     "ask": [
       "Bash(git commit:*)",
+      "Bash(git * commit)",
+      "Bash(git * commit *)",
       "Bash(git push:*)",
+      "Bash(git * push)",
+      "Bash(git * push *)",
       "Bash(alembic upgrade:*)",
       "Bash(alembic downgrade:*)",
       "Bash(python scripts/python/manage_backup.py:*)",
