@@ -15,6 +15,7 @@ from sqlalchemy import and_, delete, exists, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import load_only, selectinload
 from sqlalchemy.sql import Select
+from sqlalchemy.sql.base import ExecutableOption
 
 from app.constants import CACHE_TTL_DAYS
 from app.core.cache import cached, clear_cache
@@ -29,6 +30,7 @@ from app.schemas import (
     DayDetail,
     DayFilters,
     DayListItem,
+    DaySummary,
     DayTrackableProgress,
     DayUpdate,
     InsightInDB,
@@ -130,6 +132,22 @@ def _apply_sorting(
     return stmt.order_by(field.desc())
 
 
+def _list_item_options() -> tuple[ExecutableOption, ...]:
+    return (
+        load_only(
+            Day.timestamp,
+            Day.description,
+            Day.steps,
+            Day.starred,
+            Day.main_image,
+        ),
+        selectinload(Day.city),
+        selectinload(Day.trackable_progresses)
+            .selectinload(TrackableProgress.trackable_item)
+            .selectinload(TrackableItem.type),
+    )  # fmt: skip
+
+
 @router.get("/", response_model=Msg[list[DayListItem | DayDetail]])
 @cached(expire=CACHE_TTL_DAYS, namespace=CacheNamespace.days_list)
 async def get_days(
@@ -196,19 +214,7 @@ async def get_days(
         stmt = stmt.offset(offset)
 
     if view == "list":
-        stmt = stmt.options(
-            load_only(
-                Day.timestamp,
-                Day.description,
-                Day.steps,
-                Day.starred,
-                Day.main_image,
-            ),
-            selectinload(Day.city),
-            selectinload(Day.trackable_progresses)
-                .selectinload(TrackableProgress.trackable_item)
-                .selectinload(TrackableItem.type),
-        )  # fmt: skip
+        stmt = stmt.options(*_list_item_options())
     else:
         stmt = stmt.options(
             selectinload(Day.tags),
@@ -225,6 +231,40 @@ async def get_days(
     response_model = DayDetail if view == "detail" else DayListItem
     return Msg(
         code=200, msg="Days retrieved", data=[response_model.model_validate(day) for day in days]
+    )
+
+
+@router.get("/summary", response_model=Msg[DaySummary])
+@cached(expire=CACHE_TTL_DAYS, namespace=CacheNamespace.days_list)
+async def get_days_summary(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user_id: Annotated[UUID, Depends(get_current_user())],
+    today_start: int = Query(..., alias="todayStart", description="Start of the caller's today"),
+    today_end: int = Query(..., alias="todayEnd", description="End of the caller's today"),
+) -> Msg[DaySummary]:
+    """The span of written days and today's entry, in one round trip for the dashboard."""
+    oldest, newest = (
+        await db.execute(
+            select(func.min(Day.timestamp), func.max(Day.timestamp)).where(Day.user_id == user_id)
+        )
+    ).one()
+
+    today = await db.scalar(
+        select(Day)
+        .where(Day.user_id == user_id, Day.timestamp >= today_start, Day.timestamp <= today_end)
+        .order_by(Day.timestamp.desc())
+        .limit(1)
+        .options(*_list_item_options())
+    )
+
+    return Msg(
+        code=200,
+        msg="Days summary retrieved",
+        data=DaySummary(
+            oldest=oldest,
+            newest=newest,
+            today=DayListItem.model_validate(today) if today else None,
+        ),
     )
 
 

@@ -40,6 +40,12 @@ class DayDetail(DayBase):
     )
 
 
+class DaySummary(CamelModel):
+    oldest: int | None = None
+    newest: int | None = None
+    today: DayListItem | None = None
+
+
 class DayCreate(CamelModel):
     city_id: UUID
     description: str | None = None

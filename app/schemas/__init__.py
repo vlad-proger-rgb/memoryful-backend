@@ -14,7 +14,7 @@ from .chat import (
 from .chat_model import ChatModelInDB, ChatModelRef
 from .city import CityDetail, CityInDB
 from .country import CountryInDB
-from .day import DayCreate, DayDetail, DayFilters, DayListItem, DayUpdate
+from .day import DayCreate, DayDetail, DayFilters, DayListItem, DaySummary, DayUpdate
 from .day_trackable_progress import (
     DayTrackableProgress,
     DayTrackableProgressUpdate,
@@ -60,6 +60,7 @@ __all__ = [
     "DayDetail",
     "DayFilters",
     "DayListItem",
+    "DaySummary",
     "DayTrackableProgress",
     "DayTrackableProgressUpdate",
     "DayUpdate",

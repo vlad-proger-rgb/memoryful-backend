@@ -27,6 +27,10 @@ def _payload(city_id: UUID, **overrides: Any) -> dict[str, Any]:
     return body
 
 
+def _summary_params(today: int) -> dict[str, int]:
+    return {"todayStart": today, "todayEnd": today + 86_399}
+
+
 async def test_create_then_read_a_day(
     client: AsyncClient, auth_headers: dict[str, str], city_id: UUID
 ) -> None:
@@ -177,6 +181,51 @@ async def test_listing_returns_only_the_callers_days(
     assert listing.status_code == 200, listing.text
     contents = [d.get("description") for d in listing.json()["data"]]
     assert "short" not in contents, "another user's day appeared in the listing"
+
+
+async def test_summary_of_no_days_is_empty(
+    client: AsyncClient, auth_headers: dict[str, str]
+) -> None:
+    response = await client.get(
+        "/days/summary", headers=auth_headers, params=_summary_params(TIMESTAMP)
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"] == {"oldest": None, "newest": None, "today": None}
+
+
+async def test_summary_spans_the_callers_days_and_finds_today(
+    client: AsyncClient, db: AsyncSession, make_user: MakeUser, city_id: UUID
+) -> None:
+    _, mine = await make_user()
+    other, _ = await make_user()
+
+    for timestamp in (TIMESTAMP, TIMESTAMP + 86_400, TIMESTAMP + 2 * 86_400):
+        await client.post(f"/days/{timestamp}", headers=mine, json=_payload(city_id))
+    db.add(Day(timestamp=TIMESTAMP - 86_400, user_id=other.id, city_id=city_id, content="x"))
+    db.add(Day(timestamp=TIMESTAMP + 9 * 86_400, user_id=other.id, city_id=city_id, content="x"))
+    await db.flush()
+
+    response = await client.get(
+        "/days/summary", headers=mine, params=_summary_params(TIMESTAMP + 86_400)
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert (data["oldest"], data["newest"]) == (TIMESTAMP, TIMESTAMP + 2 * 86_400)
+    assert data["today"]["timestamp"] == TIMESTAMP + 86_400
+    assert data["today"]["description"] == "short"
+
+
+async def test_summary_has_no_today_when_today_is_unwritten(
+    client: AsyncClient, auth_headers: dict[str, str], city_id: UUID
+) -> None:
+    await client.post(f"/days/{TIMESTAMP}", headers=auth_headers, json=_payload(city_id))
+
+    response = await client.get(
+        "/days/summary", headers=auth_headers, params=_summary_params(TIMESTAMP + 86_400)
+    )
+    data = response.json()["data"]
+    assert data["newest"] == TIMESTAMP
+    assert data["today"] is None
 
 
 @pytest.mark.xfail(reason="DayListItem.steps is int, but Day.steps is nullable", strict=True)
