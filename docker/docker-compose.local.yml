@@ -35,11 +35,12 @@ services:
       PUBSUB_EMULATOR_HOST: pubsub-emulator:8085
       GOOGLE_CLOUD_PROJECT: ${GCP_PROJECT_ID}
       MCP_SERVER_URL: http://mcp:3001/mcp   # in-app agent loads tools from the sidecar (no trailing slash — avoids a 307)
+      WATCHFILES_FORCE_POLLING: "true"   # the Docker Desktop bind mount delivers no inotify events
 
     command: >
       sh -c "
         alembic upgrade head &&
-        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir app
       "
 
   # MCP server as a streamable-HTTP sidecar. The in-app agent connects to it at
@@ -127,14 +128,8 @@ services:
       ENVIRONMENT: development
       PUBSUB_EMULATOR_HOST: pubsub-emulator:8085
       GOOGLE_CLOUD_PROJECT: ${GCP_PROJECT_ID}
-    command: >
-      sh -c "
-        celery -A app.core.celery_app worker -Q ai_queue --loglevel=info --hostname=celery@ai_worker &
-        celery -A app.core.celery_app worker -Q apps_queue --loglevel=info --hostname=celery@apps_worker &
-        celery -A app.core.celery_app worker -Q email_queue --loglevel=info --hostname=celery@email_worker &
-        celery -A app.core.celery_app worker -Q notifications_queue --loglevel=info --hostname=celery@notifications_worker &
-        celery -A app.core.celery_app worker -Q system_queue --loglevel=info --hostname=celery@system_worker &
-        wait"
+      WATCHFILES_FORCE_POLLING: "true"   # the Docker Desktop bind mount delivers no inotify events
+    command: watchfiles --filter python --sigint-timeout 20 "sh docker/celery-workers-local.sh" app
 
   pubsub-emulator:
     image: google/cloud-sdk:latest
