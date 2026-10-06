@@ -29,8 +29,8 @@ docker exec memoryful-app-local alembic revision --autogenerate -m "name"
 docker compose -p memoryful --env-file .env.local -f docker/docker-compose.local.yml restart app
 ```
 
-Containers: `memoryful-{app,mcp,db,redis,celery,minio,ollama,pubsub}-local`.
-Swagger at `http://localhost:8000/docs`. MinIO console at `:9001`.
+Containers: `memoryful-{app,mcp,db,redis,celery,seaweedfs,ollama,pubsub}-local`.
+Swagger at `http://localhost:8000/docs`. SeaweedFS file browser at `:8888`.
 Celery brokers through Pub/Sub everywhere — the emulator locally, the real service in prod.
 The local DB is published on **5444**, not 5432.
 

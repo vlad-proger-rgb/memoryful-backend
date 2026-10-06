@@ -172,19 +172,21 @@ jobs:
 
       # Presigning is offline, but generate_presigned_put calls ensure_bucket_exists
       # first, which is a real head_bucket. It creates the bucket, so none is seeded.
-      - name: Start moto
-        # MinIO's images are no longer pullable anonymously from Docker Hub or quay.
+      - name: Start SeaweedFS
         run: |
-          pip install "moto[server]==5.2.3"
-          # The presign test sends Host: storage.googleapis.com, which moto would read as bucket "storage".
-          S3_IGNORE_SUBDOMAIN_BUCKETNAME=true moto_server -p 9000 >/dev/null 2>&1 &
-          for _ in $(seq 30); do
-            if curl -fsS http://localhost:9000/moto-api/ >/dev/null 2>&1; then
-              echo "moto ready"; exit 0
+          docker run -d --name seaweedfs -p 9000:9000 \
+            -v "$PWD/docker/seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro" \
+            chrislusf/seaweedfs:4.48 \
+            server -dir=/data -s3 -s3.port=9000 -s3.config=/etc/seaweedfs/s3.json
+          # An unsigned request gets a 403 once the gateway is up.
+          for _ in $(seq 60); do
+            if [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:9000/)" = "403" ]; then
+              echo "seaweedfs ready"; exit 0
             fi
             sleep 1
           done
-          echo "moto did not become ready"; exit 1
+          docker logs seaweedfs | tail -40
+          echo "seaweedfs did not become ready"; exit 1
 
       - name: Apply migrations
         run: alembic upgrade head

@@ -24,7 +24,7 @@ services:
         condition: service_started
       pubsub-emulator:
         condition: service_started
-      minio:
+      seaweedfs:
         condition: service_started
       ollama:
         condition: service_started
@@ -145,41 +145,42 @@ services:
       - PUBSUB_PROJECT_ID=${GCP_PROJECT_ID}
       - GOOGLE_CLOUD_PROJECT=${GCP_PROJECT_ID}
 
-  minio:
-    # MinIO pulled its Docker Hub repos; quay is their own mirror, pinned so a
-    # community release cannot change behavior underneath us.
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
-    container_name: memoryful-minio-local
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.48
+    container_name: memoryful-seaweedfs-local
     restart: always
-    command: server /data --console-address ":9001"
+    # s3.json holds the credentials and the bucket's anonymous read access.
+    command: server -dir=/data -s3 -s3.port=9000 -s3.config=/etc/seaweedfs/s3.json
     ports:
       - "9000:9000"
-      - "9001:9001"
-    environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-minioadmin}
+      - "8888:8888"
     volumes:
-      - minio_data_local:/data
+      - seaweedfs_data_local:/data
+      - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
 
-  # One-shot: create the bucket and seed default workspace assets into MinIO.
-  # Idempotent (safe to run every `up`); mirrors only new/changed files.
+  # One-shot: create the bucket and seed default workspace assets into SeaweedFS.
+  # Idempotent (safe to run every `up`); syncs only new/changed files.
   # Real user photos are NOT seeded — they live in prod GCS and would be huge.
-  minio-init:
-    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
-    container_name: memoryful-minio-init
+  seaweedfs-init:
+    image: amazon/aws-cli:2.37.9
+    container_name: memoryful-seaweedfs-init
     depends_on:
-      - minio
+      - seaweedfs
     volumes:
       - ../bucket_base:/bucket_base:ro
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-minioadmin}
+      AWS_DEFAULT_REGION: ${S3_REGION:-us-east-1}
+      AWS_ENDPOINT_URL: http://seaweedfs:9000
     entrypoint: >
       /bin/sh -c "
-        until mc alias set local http://minio:9000 '${S3_ACCESS_KEY_ID:-minioadmin}' '${S3_SECRET_ACCESS_KEY:-minioadmin}'; do
-          echo 'waiting for minio...'; sleep 1;
+        until aws s3 ls > /dev/null 2>&1; do
+          echo 'waiting for seaweedfs...'; sleep 1;
         done;
-        mc mb --ignore-existing local/${S3_BUCKET:-memoryful};
-        mc anonymous set download local/${S3_BUCKET:-memoryful};
-        mc mirror --overwrite /bucket_base local/${S3_BUCKET:-memoryful};
-        echo 'minio seed complete';
+        aws s3api head-bucket --bucket ${S3_BUCKET:-memoryful} 2> /dev/null || aws s3 mb s3://${S3_BUCKET:-memoryful};
+        aws s3 sync /bucket_base s3://${S3_BUCKET:-memoryful} --only-show-errors;
+        echo 'seaweedfs seed complete';
       "
 
   ollama:
@@ -201,5 +202,5 @@ services:
 volumes:
   redis_data_local:
   postgres_data_local:
-  minio_data_local:
+  seaweedfs_data_local:
   ollama_data_local:

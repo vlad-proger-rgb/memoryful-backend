@@ -39,7 +39,7 @@ def _build_s3_client(endpoint_url: str) -> "S3Client":
         aws_secret_access_key=settings.s3_secret_access_key,
         region_name=settings.s3_region,
         config=Config(
-            # Pinned to SigV4: MinIO otherwise falls back to SigV2, which doesn't sign host/headers
+            # Pinned to SigV4: SigV2 does not sign host/headers
             signature_version="s3v4",
             s3={"addressing_style": "path"},
             retries={"max_attempts": 3},

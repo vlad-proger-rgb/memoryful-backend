@@ -78,7 +78,7 @@ memoryful-backend/
 │   └── python/
 │       └── manage_backup.py       # Dump prod DB / restore into the local one
 ├── backups/                       # Local prod DB dumps (gitignored)
-├── bucket_base/                   # Default assets seeded into local MinIO (gitignored)
+├── bucket_base/                   # Default assets seeded into local SeaweedFS (gitignored)
 ├── specs/                         # Deep-dives kept out of the README
 ├── .env.local                     # Local development environment variables
 ├── .env.prod                      # Production environment template
@@ -104,7 +104,7 @@ This project supports two distinct environments:
 
 - All services run locally in Docker containers
 - No external dependencies or cloud services
-- Uses local PostgreSQL, Redis, Pub/Sub emulator, MinIO, Ollama
+- Uses local PostgreSQL, Redis, Pub/Sub emulator, SeaweedFS, Ollama
 - Perfect for development and testing
 
 #### **Production** (`.env.prod`)
@@ -146,7 +146,7 @@ There are three env files, and it matters which one Docker Compose loads:
 
 | File | Used for |
 | --- | --- |
-| `.env.local` | The full local stack (local Postgres, Redis, MinIO, Ollama, …). Committed with placeholders — never put real secrets here. |
+| `.env.local` | The full local stack (local Postgres, Redis, SeaweedFS, Ollama, …). Committed with placeholders — never put real secrets here. |
 | `.env.local.secrets` | Your real container overrides (API keys, `LLM_MODE=vertex`). Gitignored; loaded after `.env.local` so it wins. Copy from `.env.local.secrets.example`. |
 | `.env` | Host tooling only — just `BACKUP_SOURCE_URL` (the Neon URL) for `manage_backup.py`. Gitignored; never loaded into a container. |
 | `.env.prod` | Template for the VM deploy; the VM keeps its own filled-in `.env`. |
@@ -203,7 +203,7 @@ docker compose -p memoryful --env-file .env.local -f docker/docker-compose.local
 docker compose -p memoryful --env-file .env.local -f docker/docker-compose.local.yml up --build
 ```
 
-Local file storage (MinIO) seeds itself: the `minio-init` service creates the
+Local file storage (SeaweedFS) seeds itself: the `seaweedfs-init` service creates the
 `memoryful` bucket and mirrors default workspace assets from `bucket_base/` on
 every `up` (idempotent). Real user photos are **not** copied — they stay in prod
 GCS, so restored days with photos will show broken image links locally. That's
