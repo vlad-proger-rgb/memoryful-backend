@@ -304,9 +304,13 @@ docker-compose -p memoryful -f docker/docker-compose.local.yml --env-file=.env.l
 
 #### Notes
 
-- **GPU**: the `ollama` service in `docker-compose.local.yml` reserves an NVIDIA GPU. On a
-  machine without one (or without the NVIDIA Container Toolkit), remove the `deploy.resources`
-  block from the `ollama` service — Ollama will fall back to CPU (slower, but works).
+- **GPU**: Ollama runs on CPU by default. On a machine with an NVIDIA GPU, start it with the
+  GPU override instead:
+
+```bash
+docker-compose -p memoryful -f docker/docker-compose.local.yml -f docker/docker-compose.gpu.yml --env-file=.env.local up -d ollama
+```
+
 - **Disk**: models live in the `ollama_data_local` volume. `docker-compose ... down -v` deletes
   it (and all other data volumes), which is what forces a re-pull.
 
