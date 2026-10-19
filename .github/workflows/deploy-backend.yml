@@ -11,6 +11,7 @@ on:
       - 'docker/docker-compose.vm.yml'
       - 'docker/nginx.conf'
       - 'requirements.txt'
+      - '.env.prod'
       - 'scripts/deploy-app.sh'
       - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
