@@ -49,7 +49,7 @@ CHAT_MODEL_CATALOG: list[dict[str, object]] = [
         "supports_tools": True,
         "sort_order": 20,
     },
-    # --- Anthropic Claude, direct API (requires ANTHROPIC_API_KEY) ---
+    # --- Anthropic Claude, direct API (Workload Identity Federation, no API key) ---
     # Not via Vertex Model Garden: that route needs a per-model quota grant
     # Google declined for this project. Use the bare aliases — never append a
     # date suffix, and the "@version" form is Vertex-only.

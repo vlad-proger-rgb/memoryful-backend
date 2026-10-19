@@ -198,27 +198,13 @@ def build_chat_model(model: ChatModel) -> BaseChatModel:
     # Vertex route needs a per-model quota grant that Google declined for this
     # project. `model.name` is the direct-API id (no "@version" suffix).
     if provider is Provider.anthropic:
-        if not settings.anthropic_api_key:
-            raise RuntimeError("ANTHROPIC_API_KEY is required to use Claude models")
-        from langchain_anthropic import ChatAnthropic
+        from app.ai.integrations.anthropic import build_chat_anthropic
 
         # Newer Claude models removed the sampling parameters: sending
         # temperature to them returns a 400. Older ones still accept it.
-        # timeout/stop are aliases whose defaults mypy can't see; None is what it uses anyway.
         if model.name.startswith(_ANTHROPIC_NO_SAMPLING):
-            return ChatAnthropic(
-                model_name=model.name,
-                api_key=SecretStr(settings.anthropic_api_key),
-                timeout=None,
-                stop=None,
-            )
-        return ChatAnthropic(
-            model_name=model.name,
-            api_key=SecretStr(settings.anthropic_api_key),
-            temperature=temperature,
-            timeout=None,
-            stop=None,
-        )
+            return build_chat_anthropic(model.name)
+        return build_chat_anthropic(model.name, temperature=temperature)
 
     # Vertex Model Garden partner models (xAI/Grok, Llama, Mistral, ...) have no
     # dedicated LangChain class — they're called via Vertex's OpenAI-compatible

@@ -29,7 +29,6 @@ REQUIRED_SECRETS = frozenset(
         "s3_access_key_id",
         "s3_secret_access_key",
         "openai_api_key",
-        "anthropic_api_key",
     }
 )
 
@@ -165,9 +164,18 @@ class Settings(BaseSettings):
     local_llm_model: str = "llama3.1"
     local_llm_api_key: str = "local"
 
-    # Direct provider APIs (used for provider=openai / provider=anthropic models).
+    # Direct OpenAI API (provider=openai models).
     openai_api_key: str = Field(min_length=1)
-    anthropic_api_key: str = Field(min_length=1)
+
+    # GCP service account whose identity tokens AI providers accept through Workload Identity
+    # Federation; ADC impersonates it. Identifiers, not secrets, here and below.
+    gcp_ai_service_account: str = Field(min_length=1)
+
+    # Claude's federation rule.
+    anthropic_federation_rule_id: str = Field(min_length=1)
+    anthropic_organization_id: str = Field(min_length=1)
+    anthropic_service_account_id: str = Field(min_length=1)
+    anthropic_workspace_id: str = Field(min_length=1)
 
     @classmethod
     def settings_customise_sources(

@@ -341,7 +341,6 @@ Store these in GCP Secret Manager for production:
 - `S3_ACCESS_KEY_ID` (for GCS)
 - `S3_SECRET_ACCESS_KEY` (for GCS)
 - `OPENAI_API_KEY` (if using OpenAI)
-- `ANTHROPIC_API_KEY` (if using Anthropic)
 
 ## API Documentation
 
