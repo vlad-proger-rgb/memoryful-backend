@@ -223,6 +223,7 @@ def build_chat_model(model: ChatModel) -> BaseChatModel:
 
     if provider is Provider.openai:
         from app.ai.integrations.openai import build_chat_openai
+
         return build_chat_openai(model.name, temperature=temperature)
 
     raise RuntimeError(
