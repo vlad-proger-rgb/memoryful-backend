@@ -222,14 +222,8 @@ def build_chat_model(model: ChatModel) -> BaseChatModel:
         )
 
     if provider is Provider.openai:
-        # Direct OpenAI API (outside GCP).
-        if not settings.openai_api_key:
-            raise RuntimeError("OPENAI_API_KEY is required to use OpenAI models")
-        return ChatOpenAI(
-            model=model.name,
-            temperature=temperature,
-            api_key=SecretStr(settings.openai_api_key),
-        )
+        from app.ai.integrations.openai import build_chat_openai
+        return build_chat_openai(model.name, temperature=temperature)
 
     raise RuntimeError(
         f"No LLM gateway configured for provider {provider!r} (model {model.name!r}) in LLM_MODE={settings.llm_mode!r}"

@@ -7,8 +7,12 @@ that transaction, so the session runs inside a SAVEPOINT that is reopened after
 each commit.
 """
 
+import json
 import os
-from collections.abc import AsyncIterator, Awaitable, Callable
+import threading
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
@@ -122,3 +126,40 @@ async def chat_model_id(db: AsyncSession) -> UUID:
     db.add(model)
     await db.flush()
     return model.id
+
+
+class StubAPI:
+    """A loopback stand-in for an AI provider; respx can't see the SDKs' own HTTP stack."""
+
+    def __init__(self, url: str) -> None:
+        self.url = url
+        self.body: dict[str, Any] = {}
+        self.seen: list[dict[str, str]] = []
+
+
+@pytest.fixture
+def stub_api() -> Iterator[StubAPI]:
+    stub: StubAPI
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:
+            self.rfile.read(int(self.headers["content-length"]))
+            stub.seen.append({k.lower(): v for k, v in self.headers.items()})
+            body = json.dumps(stub.body).encode()
+            self.send_response(200)
+            self.send_header("content-type", "application/json")
+            self.send_header("content-length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args: Any) -> None:
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    stub = StubAPI(f"http://127.0.0.1:{server.server_port}")
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        yield stub
+    finally:
+        server.shutdown()
+        server.server_close()

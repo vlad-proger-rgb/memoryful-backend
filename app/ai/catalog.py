@@ -85,7 +85,7 @@ CHAT_MODEL_CATALOG: list[dict[str, object]] = [
         "supports_tools": True,
         "sort_order": 50,
     },
-    # --- OpenAI direct API (requires OPENAI_API_KEY; not on Vertex) ---
+    # --- OpenAI direct API (Workload Identity Federation, no API key; not on Vertex) ---
     {
         # ~$0.20/$1.25 per 1M tokens — OpenAI's cheapest current chat model.
         "label": "GPT-5.4 Nano",

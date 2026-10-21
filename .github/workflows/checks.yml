@@ -135,12 +135,13 @@ jobs:
       S3_REGION: us-east-1
       S3_BUCKET: memoryful
 
-      OPENAI_API_KEY: sk-proj-ci
       GCP_AI_SERVICE_ACCOUNT: ci@memoryful.iam.gserviceaccount.com
       ANTHROPIC_FEDERATION_RULE_ID: fdrl_ci
       ANTHROPIC_ORGANIZATION_ID: ci-org
       ANTHROPIC_SERVICE_ACCOUNT_ID: svac_ci
       ANTHROPIC_WORKSPACE_ID: wrkspc_ci
+      OPENAI_IDENTITY_PROVIDER_ID: idp_ci
+      OPENAI_SERVICE_ACCOUNT_ID: svcacct_ci
 
     steps:
       - uses: actions/checkout@v4

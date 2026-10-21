@@ -340,7 +340,6 @@ Store these in GCP Secret Manager for production:
 - `MAIL_FROM`
 - `S3_ACCESS_KEY_ID` (for GCS)
 - `S3_SECRET_ACCESS_KEY` (for GCS)
-- `OPENAI_API_KEY` (if using OpenAI)
 
 ## API Documentation
 
