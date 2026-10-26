@@ -137,23 +137,14 @@ class Settings(BaseSettings):
     # Cache
     cache_enabled: bool = True
 
-    # LLM
-    #
-    # llm_mode decides the *gateway*, not the model. The model itself is chosen
-    # per-request from the `chat_models` DB catalog (see app/ai/utils.build_chat_model):
-    #   - "local"  -> every request is served by the local Ollama container.
-    #                 The catalog selection is ignored; local_llm_model is used.
-    #   - "vertex" -> route by the selected model's `provider`, all through GCP
-    #                 Vertex AI using ADC (no API keys).
+    # The gateway, not the model: "local" serves every request from Ollama and ignores the
+    # catalog pick; "vertex" routes by the catalog model's provider.
     llm_mode: Literal["local", "vertex"] = "local"
 
-    # Vertex AI region. "global" routes across regions and is the widest-availability
-    # option — partner models (Claude, Grok) are often only offered there.
+    # "global" routes across regions and has the widest model availability.
     vertex_location: str = "global"
 
-    # MCP server (streamable-HTTP) the in-app agent loads its tools from. FastMCP's
-    # canonical path is /mcp with NO trailing slash — /mcp/ 307-redirects to it,
-    # doubling every round-trip.
+    # No trailing slash: /mcp/ 307-redirects to /mcp, doubling every round-trip.
     mcp_server_url: str = "http://mcp:3001/mcp"
 
     default_temperature: float = Field(0.4, validation_alias="LLM_TEMPERATURE")

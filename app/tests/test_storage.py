@@ -156,9 +156,6 @@ async def test_presign_endpoints_need_a_token(client: AsyncClient) -> None:
     ).status_code == 401
 
 
-# --- key construction and content types, exercised directly ---
-
-
 def test_every_intent_builds_a_key_inside_the_user_prefix() -> None:
     user_id = uuid4()
     cases: list[tuple[dict[str, Any], str]] = [

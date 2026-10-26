@@ -117,7 +117,6 @@ class ChatStore:
         return chat
 
     async def rename(self, chat_id: UUID, user_id: UUID, title: str) -> None:
-        # is_deleted filter + rowcount check: never rename a deleted/missing chat.
         stmt = (
             update(Chat)
             .where(Chat.id == chat_id, Chat.user_id == user_id, Chat.is_deleted == False)

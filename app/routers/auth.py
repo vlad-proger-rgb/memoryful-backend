@@ -301,8 +301,6 @@ async def refresh_token(
         print(
             f"AUTH GET /refresh Warning: Token used from different IP: {token_db.ip_address} vs {request.client.host}"
         )
-        # Uncomment below to enforce IP validation
-        # raise HTTPException(401, "Suspicious activity detected", {"WWW-Authenticate": "Bearer"})
 
     await db.delete(token_db)
     await db.commit()
@@ -342,7 +340,6 @@ async def update_me(
     # An unsent field keeps its current value, so it must not count as orphaned.
     orphaned = orphaned_keys(previous_photo, update_data.get("photo", previous_photo))
 
-    # Remove nested country/city objects
     update_data.pop("country", None)
     update_data.pop("city", None)
 

@@ -35,9 +35,7 @@ class APIClient:
         """
         auth = ""
         try:
-            # FastMCP strips `authorization` from get_http_headers() by default
-            # (it's on the excluded list); opt it back in so the forwarded bearer
-            # from the in-app agent / any HTTP MCP client reaches us.
+            # FastMCP strips `authorization` from get_http_headers() unless it is opted back in.
             mcp_headers = get_http_headers(include={"authorization"})
             auth = mcp_headers.get("authorization", "")
         except Exception as e:

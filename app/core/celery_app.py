@@ -5,11 +5,10 @@ from app.core.settings import get_settings
 
 settings = get_settings()
 
-# Configure broker transport options for PubSub
 broker_transport_options = {}
 if "gcpubsub" in settings.celery_broker_url:
     broker_transport_options = {
-        "visibility_timeout": 3600,  # 1 hour
+        "visibility_timeout": 3600,
         "dead_letter_queue": "celery-dlq",
         "max_retries": 3,
     }

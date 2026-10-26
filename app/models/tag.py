@@ -17,7 +17,7 @@ class Tag(Base, IDMixin):
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
     name: Mapped[str]
     icon: Mapped[FAIcon | None] = mapped_column(PydanticType(FAIcon), default=None)
-    color: Mapped[str | None] = mapped_column(default=None)  # ?
+    color: Mapped[str | None] = mapped_column(default=None)
 
     user: Mapped["User"] = relationship(back_populates="tags")
     days: Mapped[list["Day"]] = relationship(

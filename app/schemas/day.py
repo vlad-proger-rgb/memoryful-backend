@@ -70,8 +70,6 @@ class DayUpdate(CamelModel):
 
 
 class DayFilters(CamelModel):
-    """Advanced filters for days querying."""
-
     model_config = ConfigDict(
         populate_by_name=True,
         from_attributes=True,

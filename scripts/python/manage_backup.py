@@ -100,8 +100,6 @@ def backup(args: argparse.Namespace) -> None:
         ]
     )
 
-    # Update the "latest" pointer the restore command and init script use.
-    # copy2 streams the file instead of loading the whole dump into memory.
     shutil.copy2(BACKUPS_DIR / timestamped, BACKUPS_DIR / LATEST_DUMP)
     print(f"\n✓ Backup written: backups/{timestamped}")
     print(f"✓ Latest updated: backups/{LATEST_DUMP}")

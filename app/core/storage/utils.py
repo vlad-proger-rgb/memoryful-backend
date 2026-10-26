@@ -9,18 +9,15 @@ from app.enums import StorageUploadIntent
 
 
 def safe_filename(filename: str) -> str:
-    """Make filename safe for storage by replacing path separators"""
     return filename.replace("/", "_").replace("\\", "_")
 
 
 def day_parts(day_timestamp: int) -> tuple[str, str, str]:
-    """Extract year, month, day from timestamp"""
     dt = datetime.fromtimestamp(day_timestamp, tz=UTC)
     return (dt.strftime("%Y"), dt.strftime("%m"), dt.strftime("%d"))
 
 
 def build_object_key(user_id: UUID, body: dict[str, Any]) -> str:
-    """Build S3 object key based on upload intent and parameters"""
     safe_name = safe_filename(body["filename"])
     asset_id = uuid4().hex
 
@@ -52,7 +49,6 @@ def build_object_key(user_id: UUID, body: dict[str, Any]) -> str:
 
 
 def validate_content_type(intent: StorageUploadIntent, content_type: str) -> None:
-    """Validate content type based on upload intent"""
     if not content_type:
         raise HTTPException(400, "contentType is required")
 

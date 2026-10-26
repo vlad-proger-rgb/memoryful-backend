@@ -20,9 +20,8 @@ def cache_key_builder(
     kwargs: dict | None = None,
     **_: Any,
 ) -> str:
-    # `namespace` here is already `f"{FastAPICache.get_prefix()}:{namespace}"`
-    # (see fastapi_cache.decorator.cache), i.e. it already includes CACHE_PREFIX.
-    # Don't prepend CACHE_PREFIX again or the key won't match `clear_cache`'s scan pattern.
+    # `namespace` already includes CACHE_PREFIX (fastapi_cache.decorator.cache adds it);
+    # prepending it again breaks `clear_cache`'s scan pattern.
     kwargs = kwargs or {}
     filtered_kwargs = {k: v for k, v in kwargs.items() if k not in EXCLUDED_CACHE_KWARGS}
     key_data = f"{func.__module__}:{func.__name__}:{args}:{filtered_kwargs}"
@@ -34,11 +33,7 @@ def cache_key_builder(
 
 
 def cached(*, expire: int, namespace: CacheNamespace) -> Callable:
-    """
-    Thin wrapper around `fastapi_cache.decorator.cache` that always uses
-    `cache_key_builder` and can be globally disabled via the `CACHE_ENABLED`
-    setting (env var `CACHE_ENABLED=false`) to A/B compare with/without caching.
-    """
+    """`fastapi_cache`'s `cache` with `cache_key_builder`, or a no-op when caching is disabled."""
 
     def decorator(func: Callable) -> Callable:
         if not settings.cache_enabled:
@@ -49,14 +44,10 @@ def cached(*, expire: int, namespace: CacheNamespace) -> Callable:
 
 
 async def clear_cache(namespace: CacheNamespace, user_id: UUID | str | None = None) -> None:
-    """
-    Delete cached entries under the given namespace directly via Redis.
+    """`user_id` scopes the cleanup; omitting it clears the namespace for every user.
 
-    `user_id` scopes the cleanup to one user; omitting it clears the whole namespace.
-
-    Uses the shared `redis` client instead of `FastAPICache.clear()`, so it
-    works both from FastAPI request handlers and from Celery workers (which
-    never call `FastAPICache.init()`).
+    Uses the shared `redis` client rather than `FastAPICache.clear()`, so it also works from
+    Celery workers, which never call `FastAPICache.init()`.
     """
     scope = user_id if user_id is not None else "*"
     pattern = f"{CACHE_PREFIX}:{namespace}:{scope}:*"

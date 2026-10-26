@@ -1,13 +1,7 @@
-"""MCP tool loading for the in-app agent.
+"""MCP tool loading for the in-app agent, forwarding the user's bearer per request.
 
-Loads the Memoryful MCP tools for a request, forwarding the user's bearer so the
-MCP server executes each call as that user (per-user isolation).
-
-Note: this is a fresh load per request. We do NOT cache the tool objects, because
-`langchain-mcp-adapters` bakes the bearer into each tool at load time — a shared
-cache would call the MCP server as the wrong user. The proper optimization (cache
-the static tool *schemas* once and inject the bearer per request) needs a small
-custom tool wrapper; left as a deliberate follow-up.
+Loaded fresh every time: `langchain-mcp-adapters` bakes the bearer into each tool, so a
+shared cache would call the MCP server as the wrong user.
 """
 
 import logging

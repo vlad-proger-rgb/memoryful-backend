@@ -42,9 +42,7 @@ async def create_completion(
     except HTTPException:
         raise
     except Exception as e:
-        # Any provider failure (quota, auth, timeout, bad model id) lands here.
-        # The real cause goes to the logs; the client gets a safe, actionable
-        # message rather than a 500 and a stack trace.
+        # Any provider failure lands here; the cause goes to the logs, not the client.
         logger.exception("Completion failed for user %s", user_id)
         raise HTTPException(
             502,

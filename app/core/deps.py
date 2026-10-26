@@ -74,7 +74,6 @@ def get_current_user(
 
 @lru_cache
 def get_storage_service() -> StorageService:
-    """Get singleton StorageService instance"""
     return StorageService()
 
 

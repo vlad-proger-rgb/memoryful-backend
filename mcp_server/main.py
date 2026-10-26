@@ -43,8 +43,7 @@ mcp.tool()(week_digests.get_week_digest)
 mcp.tool()(workspaces.get_my_workspace)
 
 if __name__ == "__main__":
-    # stdio for a directly-launched desktop client; streamable-HTTP for the
-    # deployed sidecar the in-app agent connects to at http://<host>:<port>/mcp/.
+    # stdio for a desktop client that launches the server directly; streamable-HTTP otherwise.
     if MCP_TRANSPORT == "stdio":
         mcp.run()
     else:

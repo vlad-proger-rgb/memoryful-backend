@@ -1,9 +1,5 @@
-"""Chat prompt-context assembly.
-
-The chat system prompt is composed from a base persona (`chat_system.md`) plus
-optional context blocks, each a Jinja2 template under `prompts/context/` that
-contributes only when it has data. Add a block by writing a template and a small
-loader method on `ChatContextBuilder`.
+"""Chat system prompt: a base persona (`chat_system.md`) plus Jinja2 blocks under
+`prompts/context/`, each contributing only when it has data.
 """
 
 import asyncio
@@ -22,8 +18,7 @@ from app.models import User
 
 logger = logging.getLogger(__name__)
 
-# autoescape off: prompts are plain text/markdown, not HTML. trim/lstrip keep the
-# template's control lines from leaking blank lines into the rendered block.
+# trim/lstrip keep the template's control lines from leaking blank lines into the block.
 _env = Environment(
     loader=FileSystemLoader(prompts_dir()),
     autoescape=False,  # noqa: S701  # prompts are not HTML; escaping would corrupt them
@@ -83,7 +78,6 @@ class ChatContextBuilder:
         # Blocks load concurrently; each returns "" when it has nothing to add.
         blocks = await asyncio.gather(
             self._user_profile(user_id),
-            # future: self._recent_days(user_id), self._active_focus(user_id), ...
         )
         return "\n\n".join([base, *(b for b in blocks if b)])
 

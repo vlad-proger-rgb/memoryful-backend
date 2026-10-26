@@ -33,15 +33,12 @@ PRESIGNED_GET_CACHE_TTL = PRESIGNED_GET_EXPIRES_IN // 2
 
 
 class StorageService:
-    """Service layer for storage operations using S3/GCS compatible API"""
-
     def __init__(self, client: Any = None, presign_client: Any = None) -> None:
         self.client = client or s3_client
         self.presign_client = presign_client or s3_presign_client
         self._bucket_verified = False
 
     async def ensure_bucket_exists(self) -> None:
-        """Ensure the S3 bucket exists, create if necessary"""
         if self._bucket_verified:
             return
         try:
@@ -67,7 +64,6 @@ class StorageService:
         user_id: UUID,
         request: PresignPutRequest,
     ) -> PresignPutResponse:
-        """Generate presigned URL for uploading a file"""
         await self.ensure_bucket_exists()
 
         validate_content_type(request.intent, request.content_type)
@@ -81,7 +77,7 @@ class StorageService:
                 "ContentType": request.content_type,
             },
             HttpMethod="PUT",
-            ExpiresIn=60 * 5,  # 5 minutes
+            ExpiresIn=60 * 5,
         )
 
         logger.info(f"Generated presigned PUT URL for user {user_id}: {object_key}")
@@ -93,7 +89,6 @@ class StorageService:
         user_id: UUID,
         request: PresignGetRequest,
     ) -> PresignGetResponse:
-        """Generate presigned URL for downloading a file"""
         if not request.object_key.startswith(f"users/{user_id}/"):
             logger.warning(f"Access denied for user {user_id} to object: {request.object_key}")
             raise HTTPException(403, "Access denied")

@@ -12,14 +12,12 @@ from sqlalchemy import select
 
 sys.path.append("..")
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 
-# Set specific logger for AI operations to be more verbose
 ai_logger = logging.getLogger("app.ai")
 ai_logger.setLevel(logging.DEBUG)
 
@@ -77,9 +75,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # await run_migrations()
     async with AsyncSessionLocal() as session:
-        # Reference data: kept in sync in every environment, but never fatal —
-        # a catalog sync failure (e.g. the DB is behind on migrations during a
-        # deploy) must not take down the whole API.
+        # Never fatal: a sync failure (e.g. migrations behind mid-deploy) must not take down the API.
         try:
             await sync_chat_models(session)
         except Exception:
@@ -109,14 +105,8 @@ app.add_middleware(
 
 @app.middleware("http")
 async def disable_http_caching(request: Request, call_next: Callable) -> Response:
-    """
-    fastapi_cache's `cache` decorator always sets `Cache-Control: max-age=...`
-    and an `ETag` on responses it wraps, which makes browsers cache GET
-    responses client-side. That's independent from (and bypasses) our
-    server-side Redis cache invalidation via `clear_cache`, so mutations
-    would appear to have no effect until the browser cache expired. We only
-    want the Redis-layer cache, so strip any such headers here.
-    """
+    """fastapi_cache sets `Cache-Control: max-age` and an `ETag`, so browsers would keep serving
+    GETs that `clear_cache` has already invalidated."""
     response: Response = await call_next(request)
     response.headers["Cache-Control"] = "no-store"
     if "ETag" in response.headers:

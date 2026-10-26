@@ -25,17 +25,15 @@ logger = logging.getLogger(__name__)
 
 
 def prompts_dir() -> Path:
-    """Get the directory path for AI prompt files."""
     return Path(__file__).parent / "prompts"
 
 
 def load_prompt(filename: str) -> str:
-    """Load a prompt file from the prompts directory."""
     return (prompts_dir() / filename).read_text(encoding="utf-8").strip()
 
 
-# Providers served by Vertex Model Garden through the OpenAI-compatible endpoint
-# (no dedicated LangChain class exists for these). Extend as you enable more.
+# Model Garden providers with no LangChain class of their own, called through Vertex's
+# OpenAI-compatible endpoint.
 _VERTEX_MAAS_PROVIDERS = {Provider.xai, Provider.meta, Provider.mistral, Provider.cohere}
 
 # Claude models that dropped temperature/top_p/top_k — passing any of them is a
@@ -53,7 +51,6 @@ _gcp_credentials = None
 
 
 def _vertex_access_token() -> str:
-    """Mint/refresh an OAuth access token from Application Default Credentials."""
     global _gcp_credentials
     import google.auth
     from google.auth.transport.requests import Request
@@ -81,11 +78,6 @@ def _resolve_provider(model: ChatModel) -> Provider:
 
 
 def _vertex_openapi_base_url(location: str) -> str:
-    """Base URL for Vertex's OpenAI-compatible endpoint (Model Garden partners).
-
-    The "global" location is served from the bare host; regional locations are
-    served from a region-prefixed one.
-    """
     host = (
         "aiplatform.googleapis.com"
         if location == "global"
@@ -96,10 +88,8 @@ def _vertex_openapi_base_url(location: str) -> str:
 
 
 class _VertexMaaSChatOpenAI(ChatOpenAI):
-    """ChatOpenAI for Vertex's OpenAI-compat endpoint (Grok/MaaS). That shim 400s on
-    messages with no content element, but tool-call turns have empty content — so we
-    pad them with a space, else the agent's 2nd turn breaks. Applied on both the
-    buffered and streaming paths."""
+    """Vertex's OpenAI-compat shim 400s on messages with no content, and tool-call turns have
+    none, so they get a single space. Overrides both the buffered and streaming paths."""
 
     @staticmethod
     def _pad_tool_call_messages(messages: list[BaseMessage]) -> list[BaseMessage]:
@@ -157,14 +147,9 @@ class _VertexMaaSChatOpenAI(ChatOpenAI):
 
 
 def build_chat_model(model: ChatModel) -> BaseChatModel:
-    """Build a LangChain chat model for a specific DB `ChatModel` record.
-
-    The gateway is chosen by `LLM_MODE`; the model id and provider come from the
-    selected catalog record, so the in-app model selector actually switches models.
-    """
+    """The model id and provider come from the catalog record; `LLM_MODE` picks the gateway."""
     temperature = settings.default_temperature
 
-    # Dev: everything is served by local Ollama regardless of the catalog pick.
     if settings.llm_mode == "local":
         return ChatOpenAI(
             model=settings.local_llm_model,
@@ -174,13 +159,10 @@ def build_chat_model(model: ChatModel) -> BaseChatModel:
         )
 
     provider = _resolve_provider(model)
-    # Per-model region override; falls back to the global default. Some models
-    # (e.g. Claude) may only have quota in a specific region, not "global".
+    # Some models only have quota in one region, not "global".
     location = model.region or settings.vertex_location
 
-    # Gemini via the unified google-genai SDK pointed at Vertex (ADC through
-    # GCP_CREDENTIALS_PATH, no API key). Imported lazily so local dev doesn't
-    # need the Google libs.
+    # Imported lazily so local dev doesn't need the Google libs.
     if provider is Provider.google:
         if not settings.gcp_project_id:
             raise RuntimeError("GCP_PROJECT_ID is required to use Vertex AI models")
@@ -200,20 +182,13 @@ def build_chat_model(model: ChatModel) -> BaseChatModel:
     if provider is Provider.anthropic:
         from app.ai.integrations.anthropic import build_chat_anthropic
 
-        # Newer Claude models removed the sampling parameters: sending
-        # temperature to them returns a 400. Older ones still accept it.
         if model.name.startswith(_ANTHROPIC_NO_SAMPLING):
             return build_chat_anthropic(model.name)
         return build_chat_anthropic(model.name, temperature=temperature)
 
-    # Vertex Model Garden partner models (xAI/Grok, Llama, Mistral, ...) have no
-    # dedicated LangChain class — they're called via Vertex's OpenAI-compatible
-    # endpoint, authenticated with an ADC access token instead of an API key.
-    # `model.name` must carry the publisher prefix, e.g. "xai/grok-4.1-fast-reasoning".
     if provider in _VERTEX_MAAS_PROVIDERS:
         if not settings.gcp_project_id:
             raise RuntimeError("GCP_PROJECT_ID is required to use Vertex Model Garden models")
-        # _VertexMaaSChatOpenAI (not plain ChatOpenAI): pads empty tool-call messages.
         return _VertexMaaSChatOpenAI(
             model=model.name,
             temperature=temperature,

@@ -11,10 +11,8 @@ settings = get_settings()
 
 
 def get_engine() -> AsyncEngine:
-    """Create database engine with Cloud SQL support for production"""
 
-    # Previously we used Cloud SQL (Cloud Run), now we switched to Neon.
-    # Kept for reference / in case Cloud SQL is used again in the future.
+    # Unused since the move to Neon; kept in case Cloud SQL comes back.
     if settings.environment == "production" and settings.postgres_host.startswith("/cloudsql/"):
         from google.cloud.sql.connector import Connector
 
@@ -36,7 +34,6 @@ def get_engine() -> AsyncEngine:
             future=True,
         )
     else:
-        # Standard asyncpg connection (used for Neon in production, and for local/dev Postgres)
         return create_async_engine(
             settings.main_database_url,
             echo=settings.sql_echo,

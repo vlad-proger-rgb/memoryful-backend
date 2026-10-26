@@ -520,7 +520,6 @@ async def update_day(
 
     # Both fields can hold the same key, so diff them together — differencing
     # `main_image` alone would delete a photo still listed in `images`.
-    # Unsent fields keep their current value.
     before = as_key_set(day.main_image) | as_key_set(day.images)
     after = as_key_set(update_data.get("main_image", day.main_image)) | as_key_set(
         update_data.get("images", day.images)
