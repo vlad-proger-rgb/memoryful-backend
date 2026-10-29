@@ -105,15 +105,20 @@ async def get_me(
 
 @router.post("/request-code", response_model=Msg[None])
 async def request_code(email: Email) -> Msg[None]:
-    print(f"AUTH POST /request-code {email.email=}")
-    activation_code = generate_activation_code()
+    """
+    A pending code is resent rather than replaced, so a delayed email still works
+    """
 
     if not settings.is_trusted_email(email.email):
-        await redis.setex(
+        new_code = generate_activation_code()
+        pending = await redis.set(
             f"{RedisPrefix.login_code}{email.email}",
-            VERIFICATION_CODE_EXPIRE_MINUTES * 60,
-            activation_code,
+            new_code,
+            ex=VERIFICATION_CODE_EXPIRE_MINUTES * 60,
+            nx=True,
+            get=True,
         )
+        activation_code = str(pending) if pending else new_code
 
         send_email_task.delay(
             email_type=EmailTemplate.CONFIRMATION_CODE,

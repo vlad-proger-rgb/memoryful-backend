@@ -62,6 +62,19 @@ async def test_request_code_stores_a_code(client: AsyncClient, email: str) -> No
         await redis.delete(key)
 
 
+async def test_request_code_keeps_a_pending_code(
+    client: AsyncClient, email: str, login_code: str
+) -> None:
+    key = f"{RedisPrefix.login_code}{email}"
+    ttl_before = await redis.ttl(key)
+
+    response = await client.post("/auth/request-code", json={"email": email})
+    assert response.status_code == 200
+
+    assert await redis.get(key) == login_code
+    assert await redis.ttl(key) <= ttl_before
+
+
 async def test_verify_code_rejects_an_unrequested_code(client: AsyncClient, email: str) -> None:
     response = await client.post("/auth/verify-code", json={"email": email, "code": "000000"})
     assert response.status_code == 400
