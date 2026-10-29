@@ -91,7 +91,7 @@ services:
       start_period: 90s
 
   redis:
-    image: redis:6.0.7
+    image: redis:8.4.0
     container_name: memoryful-redis-local
     restart: always
     volumes:
