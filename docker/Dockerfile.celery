@@ -15,9 +15,10 @@ RUN adduser --disabled-password --gecos '' appuser && \
 
 USER appuser
 
-# Run multiple Celery workers for different queues
+# Two children so a login-code email never queues behind a long LLM call
 CMD celery -A app.core.celery_app worker \
-    -Q email_queue,ai_queue,apps_queue,notifications_queue,system_queue \
+    -Q email_queue,ai_queue \
     --loglevel=info \
-    --concurrency=4 \
+    --concurrency=2 \
+    --max-tasks-per-child=100 \
     --hostname=celery@%h
