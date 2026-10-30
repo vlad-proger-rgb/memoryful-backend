@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, ForeignKeyConstraint
+from sqlalchemy import ForeignKey, ForeignKeyConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -27,6 +27,7 @@ class Insight(Base, IDMixin, TimestampMixin):
     __table_args__ = (
         ForeignKeyConstraint(["user_id"], ["users.id"]),
         ForeignKeyConstraint(["timestamp", "user_id"], ["days.timestamp", "days.user_id"]),
+        Index("ix_insights_user_id_timestamp", "user_id", "timestamp"),
     )
 
     user: Mapped["User"] = relationship(back_populates="insights")

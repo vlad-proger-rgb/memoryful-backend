@@ -12,7 +12,7 @@ from app.schemas.font_awesome import FAIcon
 class TrackableItem(Base, IDMixin):
     __tablename__ = "trackable_items"
 
-    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
     type_id: Mapped[UUID] = mapped_column(ForeignKey("trackable_types.id"))
     title: Mapped[str]
     description: Mapped[str | None]

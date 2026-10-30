@@ -12,10 +12,10 @@ from app.models._mixins import IDMixin, TimestampMixin
 class UserToken(Base, IDMixin, TimestampMixin):
     __tablename__ = "user_tokens"
 
-    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
     ip_address: Mapped[str | None] = mapped_column(String, nullable=True)
     user_agent: Mapped[str | None] = mapped_column(String, nullable=True)
-    refresh_token_hash: Mapped[str]
+    refresh_token_hash: Mapped[str] = mapped_column(index=True)
     expires_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: dt.datetime.now(dt.UTC) + dt.timedelta(days=7),

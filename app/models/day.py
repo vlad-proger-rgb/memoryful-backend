@@ -7,6 +7,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
+    Index,
     Integer,
     String,
     Table,
@@ -22,7 +23,7 @@ days_tags: Table = Table(
     Base.metadata,
     Column("day_timestamp", Integer, primary_key=True),
     Column("user_id", SQLAlchemyUUID(as_uuid=True), primary_key=True),
-    Column("tag_id", SQLAlchemyUUID(as_uuid=True), primary_key=True),
+    Column("tag_id", SQLAlchemyUUID(as_uuid=True), primary_key=True, index=True),
     ForeignKeyConstraint(["day_timestamp", "user_id"], ["days.timestamp", "days.user_id"]),
     ForeignKeyConstraint(["tag_id"], ["tags.id"]),
 )
@@ -57,6 +58,8 @@ class Day(Base, TimestampWithUpdateMixin):
         back_populates="day", overlaps="user,trackable_progresses"
     )
     insights: Mapped[list["Insight"]] = relationship(back_populates="day", overlaps="user,insights")
+
+    __table_args__ = (Index("ix_days_user_id_timestamp", "user_id", "timestamp"),)
 
 
 from .city import City

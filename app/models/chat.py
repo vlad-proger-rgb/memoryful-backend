@@ -10,7 +10,7 @@ from app.models._mixins import IDMixin, SoftDeleteMixin, TimestampWithUpdateMixi
 class Chat(Base, IDMixin, TimestampWithUpdateMixin, SoftDeleteMixin):
     __tablename__ = "chats"
 
-    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
     model_id: Mapped[UUID] = mapped_column(ForeignKey("chat_models.id"))
     title: Mapped[str]
     messages: Mapped[list[dict[str, str]]] = mapped_column(JSON)

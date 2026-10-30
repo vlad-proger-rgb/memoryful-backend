@@ -14,7 +14,7 @@ from .day import days_tags
 class Tag(Base, IDMixin):
     __tablename__ = "tags"
 
-    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
     name: Mapped[str]
     icon: Mapped[FAIcon | None] = mapped_column(PydanticType(FAIcon), default=None)
     color: Mapped[str | None] = mapped_column(default=None)

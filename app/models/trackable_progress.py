@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, ForeignKeyConstraint
+from sqlalchemy import ForeignKey, ForeignKeyConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -32,6 +32,7 @@ class TrackableProgress(Base, IDMixin):
             ["timestamp", "user_id"],
             ["days.timestamp", "days.user_id"],
         ),
+        Index("ix_trackable_progress_user_id_timestamp", "user_id", "timestamp"),
     )
 
 
