@@ -111,6 +111,8 @@ async def generate_day_insights(*, user_id: UUID, timestamp: int) -> None:
             ]
         ).strip()
 
+        await db.commit()
+
         async def _invoke_items(*, prompt: str, context: str) -> list[dict]:
             messages: list[BaseMessage] = [
                 SystemMessage(content=system_base),

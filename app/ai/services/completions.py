@@ -107,12 +107,15 @@ class ChatAgent:
         else:
             chat = await self.store.load(chat_id, user_id)
 
+        system_prompt = await self.context.system_prompt(user_id)
+        await self.db.commit()
+
         user_message = MessageSchema(
             role="user", content=content, created_at=dt.datetime.now(dt.UTC)
         )
         chat.messages = [*chat.messages, _dump(user_message)]
 
-        reply_text = await self._generate_reply(chat, access_token)
+        reply_text = await self._generate_reply(chat, system_prompt, access_token)
         assistant_message = MessageSchema(
             role="assistant", content=reply_text, created_at=dt.datetime.now(dt.UTC)
         )
@@ -144,6 +147,9 @@ class ChatAgent:
         else:
             chat = await self.store.load(chat_id, user_id)
 
+        system_prompt = await self.context.system_prompt(user_id)
+        await self.db.commit()
+
         user_created_at = dt.datetime.now(dt.UTC)
         user_message = MessageSchema(role="user", content=content, created_at=user_created_at)
         chat.messages = [*chat.messages, _dump(user_message)]
@@ -161,7 +167,7 @@ class ChatAgent:
         segments: list[str] = []
         current: list[str] = []
         tools: list[ToolCallSchema] = []
-        async for event in self._stream_reply(chat, access_token):
+        async for event in self._stream_reply(chat, system_prompt, access_token):
             if event["type"] == "token":
                 current.append(event["text"])
             elif event["type"] == "toolCall":
@@ -193,11 +199,12 @@ class ChatAgent:
             "createdAt": assistant_created_at.isoformat(),
         }
 
-    async def _stream_reply(self, chat: Chat, access_token: str | None) -> AsyncIterator[dict]:
+    async def _stream_reply(
+        self, chat: Chat, system_prompt: str, access_token: str | None
+    ) -> AsyncIterator[dict]:
         """Stream the reply, preferring the tool loop. If the agent fails before
         emitting anything we fall back to a plain stream; if it fails mid-stream we
         surface an error instead, so the user never sees duplicated text."""
-        system_prompt = await self.context.system_prompt(chat.user_id)
         llm = build_chat_model(chat.chat_model)
         history = _to_lc_history(chat.messages)
 
@@ -253,10 +260,11 @@ class ChatAgent:
             if text:
                 yield {"type": "token", "text": text}
 
-    async def _generate_reply(self, chat: Chat, access_token: str | None) -> str:
+    async def _generate_reply(
+        self, chat: Chat, system_prompt: str, access_token: str | None
+    ) -> str:
         """Reply to the chat's current history. Tool-capable models with a bearer run
         the MCP loop; everything else (and any MCP failure) falls back to plain completion."""
-        system_prompt = await self.context.system_prompt(chat.user_id)
         llm = build_chat_model(chat.chat_model)
         history = _to_lc_history(chat.messages)
 
