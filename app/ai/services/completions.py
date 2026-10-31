@@ -1,11 +1,10 @@
 import datetime as dt
 import logging
 from collections.abc import AsyncIterator
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from fastapi import HTTPException
-from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.context import ChatContextBuilder
@@ -14,6 +13,9 @@ from app.ai.services.chats import ChatStore
 from app.ai.utils import build_chat_model
 from app.models import Chat
 from app.schemas import MessageSchema, ToolCallSchema
+
+if TYPE_CHECKING:
+    from langchain_core.language_models import BaseChatModel
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +71,8 @@ def _tool_args(raw: object) -> dict:
 def _to_lc_history(messages: list[dict[str, str]]) -> list:
     """Flat {role, content} history -> LangChain messages. No system message: the
     plain path prepends it, the agent path passes system_prompt to create_agent."""
+    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+
     lc_messages: list = []
     for m in messages:
         if m["role"] == "user":
@@ -229,7 +233,7 @@ class ChatAgent:
             yield event
 
     async def _stream_agent(
-        self, llm: BaseChatModel, system_prompt: str, history: list, access_token: str
+        self, llm: "BaseChatModel", system_prompt: str, history: list, access_token: str
     ) -> AsyncIterator[dict]:
         from langchain.agents import create_agent
 
@@ -253,8 +257,10 @@ class ChatAgent:
                 yield {"type": "toolResult", "name": event.get("name", "")}
 
     async def _stream_plain(
-        self, llm: BaseChatModel, system_prompt: str, history: list
+        self, llm: "BaseChatModel", system_prompt: str, history: list
     ) -> AsyncIterator[dict]:
+        from langchain_core.messages import SystemMessage
+
         async for chunk in llm.astream([SystemMessage(content=system_prompt), *history]):
             text = _extract_text(chunk.content)
             if text:
@@ -265,6 +271,8 @@ class ChatAgent:
     ) -> str:
         """Reply to the chat's current history. Tool-capable models with a bearer run
         the MCP loop; everything else (and any MCP failure) falls back to plain completion."""
+        from langchain_core.messages import SystemMessage
+
         llm = build_chat_model(chat.chat_model)
         history = _to_lc_history(chat.messages)
 
@@ -278,11 +286,12 @@ class ChatAgent:
         return _extract_text(response.content)
 
     async def _run_agent(
-        self, llm: BaseChatModel, system_prompt: str, history: list, access_token: str
+        self, llm: "BaseChatModel", system_prompt: str, history: list, access_token: str
     ) -> str:
         """Run the MCP tool loop over the (cached) tools for this bearer, which the
         MCP server executes as that user (per-user isolation)."""
         from langchain.agents import create_agent
+        from langchain_core.messages import AIMessage
 
         tools = await load_mcp_tools(access_token)
         agent = create_agent(llm, tools, system_prompt=system_prompt)

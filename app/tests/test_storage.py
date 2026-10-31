@@ -16,7 +16,7 @@ import pytest_asyncio
 from fastapi import HTTPException
 from httpx import AsyncClient
 
-from app.core.config import cache_redis, s3_client
+from app.core.config import cache_redis, get_s3_client
 from app.core.settings import get_settings
 from app.core.storage.utils import build_object_key, is_video_key, validate_content_type
 from app.enums import StorageUploadIntent, WorkspacePage
@@ -128,7 +128,7 @@ async def test_a_presigned_url_is_signed_for_the_host_the_browser_will_send(
     settings = get_settings()
     public_host = urlparse(settings.s3_public_base_url).netloc
     object_key = f"users/{user_id}/avatars/{uuid4().hex}_probe.txt"
-    s3_client.put_object(Bucket=settings.s3_bucket, Key=object_key, Body=b"probe")
+    get_s3_client().put_object(Bucket=settings.s3_bucket, Key=object_key, Body=b"probe")
 
     try:
         response = await client.post(
@@ -144,7 +144,7 @@ async def test_a_presigned_url_is_signed_for_the_host_the_browser_will_send(
         assert result.status_code == 200, result.text
         assert result.content == b"probe"
     finally:
-        s3_client.delete_object(Bucket=settings.s3_bucket, Key=object_key)
+        get_s3_client().delete_object(Bucket=settings.s3_bucket, Key=object_key)
 
 
 async def test_presign_endpoints_need_a_token(client: AsyncClient) -> None:

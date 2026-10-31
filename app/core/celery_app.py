@@ -1,5 +1,6 @@
 from celery import Celery
 from celery.schedules import crontab
+from celery.signals import worker_init
 
 from app.core.settings import get_settings
 
@@ -44,3 +45,11 @@ celery.conf.beat_schedule = {
         "options": {"queue": "ai_queue"},
     },
 }
+
+
+@worker_init.connect
+def _preload_ai_services(**_: object) -> None:
+    # Before the pool forks, so children share these instead of each importing its own copy.
+    import app.ai.integrations.vertex
+    import app.ai.services.day
+    import app.ai.services.week.digest  # noqa: F401

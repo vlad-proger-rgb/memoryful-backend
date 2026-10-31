@@ -7,14 +7,7 @@ from uuid import UUID
 from celery import Task
 from sqlalchemy import and_, select
 
-from app.ai.services.day import generate_day_insights
-from app.ai.services.week import (
-    Week,
-    WeekNotReady,
-    generate_week_digest_for_user,
-    last_finished_week,
-    week_of,
-)
+from app.ai.services.week import Week, last_finished_week, week_of
 from app.constants import WEEK_DIGEST_MAX_RETRIES, WEEK_DIGEST_RETRY_COUNTDOWN
 from app.core.celery_app import celery
 from app.core.database import AsyncSessionLocal
@@ -36,6 +29,8 @@ def _run_async(coro: "Coroutine[Any, Any, Any]") -> Any:
 
 @celery.task(queue="ai_queue")
 def generate_day_ai(user_id: str, timestamp: int) -> None:
+    from app.ai.services.day import generate_day_insights
+
     _run_async(generate_day_insights(user_id=UUID(user_id), timestamp=timestamp))
 
 
@@ -67,6 +62,8 @@ def generate_yesterday_ai_fallback() -> None:
 
 @celery.task(bind=True, queue="ai_queue", max_retries=WEEK_DIGEST_MAX_RETRIES)
 def generate_week_digest(self: Task, user_id: str, week_start: str, force: bool = False) -> None:
+    from app.ai.services.week.digest import WeekNotReady, generate_week_digest_for_user
+
     week = week_of(dt.date.fromisoformat(week_start))
     try:
         _run_async(

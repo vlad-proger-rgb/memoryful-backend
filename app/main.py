@@ -27,6 +27,7 @@ from app.core.config import cache_redis
 from app.core.database import AsyncSessionLocal
 from app.core.exceptions import register_exception_handlers
 from app.core.settings import get_settings
+from app.core.warmup import start_warm_up
 from app.init_db import init_db
 from app.models import User
 from app.routers import (
@@ -85,6 +86,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             has_any_user = await session.scalar(select(User.id).limit(1))
             if not has_any_user:
                 await init_db(session)
+
+    start_warm_up()
     yield
 
 

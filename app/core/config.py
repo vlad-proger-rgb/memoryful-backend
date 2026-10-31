@@ -1,7 +1,6 @@
+from functools import lru_cache
 from typing import TYPE_CHECKING
 
-import boto3
-from botocore.config import Config
 from redis.asyncio import Redis
 
 from app.core.settings import get_settings
@@ -32,6 +31,9 @@ cache_redis = Redis(
 
 
 def _build_s3_client(endpoint_url: str) -> "S3Client":
+    import boto3
+    from botocore.config import Config
+
     return boto3.client(
         "s3",
         endpoint_url=endpoint_url,
@@ -48,11 +50,14 @@ def _build_s3_client(endpoint_url: str) -> "S3Client":
     )
 
 
-s3_client = _build_s3_client(settings.s3_endpoint_url)
+@lru_cache
+def get_s3_client() -> "S3Client":
+    return _build_s3_client(settings.s3_endpoint_url)
 
-# SigV4 signs Host header, so presigned URLs are host-specific
-s3_presign_client = (
-    s3_client
-    if settings.s3_public_base_url in ("", settings.s3_endpoint_url)
-    else _build_s3_client(settings.s3_public_base_url)
-)
+
+@lru_cache
+def get_s3_presign_client() -> "S3Client":
+    # SigV4 signs Host header, so presigned URLs are host-specific
+    if settings.s3_public_base_url in ("", settings.s3_endpoint_url):
+        return get_s3_client()
+    return _build_s3_client(settings.s3_public_base_url)

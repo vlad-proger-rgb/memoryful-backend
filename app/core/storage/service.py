@@ -7,7 +7,7 @@ from uuid import UUID
 from botocore.exceptions import ClientError
 from fastapi import HTTPException
 
-from app.core.config import cache_redis, s3_client, s3_presign_client
+from app.core.config import cache_redis, get_s3_client, get_s3_presign_client
 from app.core.settings import get_settings
 from app.core.storage.utils import (
     build_object_key,
@@ -34,8 +34,8 @@ PRESIGNED_GET_CACHE_TTL = PRESIGNED_GET_EXPIRES_IN // 2
 
 class StorageService:
     def __init__(self, client: Any = None, presign_client: Any = None) -> None:
-        self.client = client or s3_client
-        self.presign_client = presign_client or s3_presign_client
+        self.client = client or get_s3_client()
+        self.presign_client = presign_client or get_s3_presign_client()
         self._bucket_verified = False
 
     async def ensure_bucket_exists(self) -> None:

@@ -1,14 +1,8 @@
 import logging
-from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 from uuid import UUID
 
-from langchain_core.callbacks import AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun
-from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, BaseMessage
-from langchain_core.outputs import ChatGenerationChunk, ChatResult
-from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +11,9 @@ from app.core.settings import get_settings
 from app.enums import AnalysisPurpose
 from app.enums.provider import Provider
 from app.models import AiModelPreference, ChatModel
+
+if TYPE_CHECKING:
+    from langchain_core.language_models import BaseChatModel
 
 settings = get_settings()
 
@@ -87,70 +84,13 @@ def _vertex_openapi_base_url(location: str) -> str:
     return f"https://{host}/v1/projects/{project_id}/locations/{location}/endpoints/openapi"
 
 
-class _VertexMaaSChatOpenAI(ChatOpenAI):
-    """Vertex's OpenAI-compat shim 400s on messages with no content, and tool-call turns have
-    none, so they get a single space. Overrides both the buffered and streaming paths."""
-
-    @staticmethod
-    def _pad_tool_call_messages(messages: list[BaseMessage]) -> list[BaseMessage]:
-        padded: list[BaseMessage] = []
-        for msg in messages:
-            if isinstance(msg, AIMessage) and msg.tool_calls and not msg.content:
-                msg = msg.model_copy(update={"content": " "})
-            padded.append(msg)
-        return padded
-
-    def _generate(
-        self,
-        messages: list[BaseMessage],
-        stop: list[str] | None = None,
-        run_manager: CallbackManagerForLLMRun | None = None,
-        **kwargs: Any,
-    ) -> ChatResult:
-        return super()._generate(
-            self._pad_tool_call_messages(messages), stop=stop, run_manager=run_manager, **kwargs
-        )
-
-    async def _agenerate(
-        self,
-        messages: list[BaseMessage],
-        stop: list[str] | None = None,
-        run_manager: AsyncCallbackManagerForLLMRun | None = None,
-        **kwargs: Any,
-    ) -> ChatResult:
-        return await super()._agenerate(
-            self._pad_tool_call_messages(messages), stop=stop, run_manager=run_manager, **kwargs
-        )
-
-    def _stream(
-        self,
-        messages: list[BaseMessage],
-        stop: list[str] | None = None,
-        run_manager: CallbackManagerForLLMRun | None = None,
-        **kwargs: Any,
-    ) -> Iterator[ChatGenerationChunk]:
-        return super()._stream(
-            self._pad_tool_call_messages(messages), stop=stop, run_manager=run_manager, **kwargs
-        )
-
-    async def _astream(
-        self,
-        messages: list[BaseMessage],
-        stop: list[str] | None = None,
-        run_manager: AsyncCallbackManagerForLLMRun | None = None,
-        **kwargs: Any,
-    ) -> AsyncIterator[ChatGenerationChunk]:
-        async for chunk in super()._astream(
-            self._pad_tool_call_messages(messages), stop=stop, run_manager=run_manager, **kwargs
-        ):
-            yield chunk
-
-
-def build_chat_model(model: ChatModel) -> BaseChatModel:
+def build_chat_model(model: ChatModel) -> "BaseChatModel":
     """The model id and provider come from the catalog record; `LLM_MODE` picks the gateway."""
     temperature = settings.default_temperature
 
     if settings.llm_mode == "local":
+        from langchain_openai import ChatOpenAI
+
         return ChatOpenAI(
             model=settings.local_llm_model,
             temperature=temperature,
@@ -189,7 +129,9 @@ def build_chat_model(model: ChatModel) -> BaseChatModel:
     if provider in _VERTEX_MAAS_PROVIDERS:
         if not settings.gcp_project_id:
             raise RuntimeError("GCP_PROJECT_ID is required to use Vertex Model Garden models")
-        return _VertexMaaSChatOpenAI(
+        from app.ai.integrations.vertex import VertexMaaSChatOpenAI
+
+        return VertexMaaSChatOpenAI(
             model=model.name,
             temperature=temperature,
             base_url=_vertex_openapi_base_url(location),
