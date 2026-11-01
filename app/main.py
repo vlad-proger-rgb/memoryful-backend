@@ -7,7 +7,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_cache import FastAPICache
-from fastapi_cache.backends.redis import RedisBackend
 from sqlalchemy import select
 
 sys.path.append("..")
@@ -23,6 +22,7 @@ ai_logger.setLevel(logging.DEBUG)
 
 from app.ai.catalog import sync_chat_models
 from app.constants import CACHE_PREFIX
+from app.core.cache import IndexedRedisBackend
 from app.core.config import cache_redis
 from app.core.database import AsyncSessionLocal
 from app.core.exceptions import register_exception_handlers
@@ -65,7 +65,7 @@ async def run_migrations() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    FastAPICache.init(RedisBackend(cache_redis), prefix=CACHE_PREFIX)
+    FastAPICache.init(IndexedRedisBackend(cache_redis), prefix=CACHE_PREFIX)
 
     if settings.trusted_emails:
         logging.warning(

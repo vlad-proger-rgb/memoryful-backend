@@ -17,7 +17,7 @@ from app.core.config import redis
 from app.enums import CacheNamespace
 from app.models import Month
 
-from .conftest import MakeUser
+from .conftest import MakeUser, seed_cache_entry
 
 YEAR = 2019
 MONTH = 4
@@ -107,11 +107,11 @@ async def test_writes_clear_the_months_cache(
 ) -> None:
     key = f"{CACHE_PREFIX}:{CacheNamespace.months}:{user_id}:testdigest"
     try:
-        await redis.set(key, "cached", ex=60)
+        await seed_cache_entry(key)
         await client.post("/months/", headers=auth_headers, json=_payload())
         assert not await redis.exists(key), "create_month left the months cache stale"
 
-        await redis.set(key, "cached", ex=60)
+        await seed_cache_entry(key)
         await client.put("/months/", headers=auth_headers, json=_payload(description="x"))
         assert not await redis.exists(key), "update_month left the months cache stale"
     finally:

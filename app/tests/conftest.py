@@ -24,6 +24,8 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 # Redis-backed response caching would serve one test's payload to another.
 os.environ["CACHE_ENABLED"] = "false"
 
+from app.core.cache import IndexedRedisBackend
+from app.core.config import cache_redis
 from app.core.database import engine, get_db
 from app.core.security import create_token
 from app.main import app
@@ -70,6 +72,11 @@ async def client(db: AsyncSession) -> AsyncIterator[AsyncClient]:
 
 AuthedUser = tuple[User, dict[str, str]]
 MakeUser = Callable[[], Awaitable[AuthedUser]]
+
+
+async def seed_cache_entry(key: str) -> None:
+    """Through the backend, so `clear_cache` finds the key the way it finds a real entry."""
+    await IndexedRedisBackend(cache_redis).set(key, b"cached", expire=60)
 
 
 @pytest_asyncio.fixture

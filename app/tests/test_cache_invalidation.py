@@ -4,23 +4,25 @@ just its own. A day payload embeds its tags and trackables, so touching either h
 to clear `days_list` and `days_detail`.
 
 `CACHE_ENABLED` is false in tests, so `@cached` never writes. `clear_cache` is not
-gated by it, so the keys are seeded directly and the mutation is asked which ones
-it removes. Missing one is invisible in production until the TTL expires.
+gated by it, so the keys are seeded through the cache backend and the mutation is
+asked which ones it removes. Missing one is invisible in production until the TTL expires.
 """
 
 from collections.abc import Iterable
 from uuid import UUID
 
+import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.constants import CACHE_PREFIX
+from app.core.cache import clear_cache
 from app.core.config import redis
 from app.enums import CacheNamespace
 from app.models import Tag, TrackableItem, TrackableType
 
-from .conftest import MakeUser
+from .conftest import MakeUser, seed_cache_entry
 
 WATCHED = [
     CacheNamespace.tags,
@@ -37,7 +39,7 @@ def _key(namespace: CacheNamespace, user_id: UUID) -> str:
 
 async def _seed(user_id: UUID, namespaces: Iterable[CacheNamespace]) -> None:
     for namespace in namespaces:
-        await redis.set(_key(namespace, user_id), "cached", ex=60)
+        await seed_cache_entry(_key(namespace, user_id))
 
 
 async def _surviving(user_id: UUID) -> set[CacheNamespace]:
@@ -48,7 +50,7 @@ async def _surviving(user_id: UUID) -> set[CacheNamespace]:
 async def _clean_watched_keys(make_user: MakeUser):  # type: ignore[no-untyped-def]
     yield
     async for key in redis.scan_iter(match=f"{CACHE_PREFIX}:*:testdigest"):
-        await redis.delete(key)
+        await redis.delete(key, f"{key.rsplit(':', 1)[0]}:index")
 
 
 async def test_deleting_a_tag_clears_the_day_namespaces(
@@ -149,3 +151,19 @@ async def test_a_failed_mutation_leaves_the_cache_alone(
     assert await _surviving(intruder.id) == set(WATCHED), (
         "a rejected write still dropped the caller's cache"
     )
+
+
+async def test_a_user_scoped_clear_does_not_scan_the_keyspace(
+    make_user: MakeUser, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    user, _ = await make_user()
+    await _seed(user.id, [CacheNamespace.tags])
+
+    def no_scan(**_: object) -> None:
+        raise AssertionError("clear_cache scanned the keyspace")
+
+    monkeypatch.setattr(redis, "scan_iter", no_scan)
+    await clear_cache(CacheNamespace.tags, user.id)
+
+    assert not await redis.exists(_key(CacheNamespace.tags, user.id))
+    assert not await redis.exists(f"{CACHE_PREFIX}:{CacheNamespace.tags}:{user.id}:index")

@@ -20,7 +20,7 @@ from app.core.config import cache_redis, redis
 from app.enums import CacheNamespace, WorkspacePage
 from app.models import WorkspaceBackground
 
-from .conftest import MakeUser
+from .conftest import MakeUser, seed_cache_entry
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -167,7 +167,7 @@ async def test_updating_clears_the_workspaces_cache(
 ) -> None:
     key = f"{CACHE_PREFIX}:{CacheNamespace.workspaces}:{user_id}:testdigest"
     try:
-        await redis.set(key, "cached", ex=60)
+        await seed_cache_entry(key)
         await client.put(
             "/workspaces/me",
             headers=auth_headers,
