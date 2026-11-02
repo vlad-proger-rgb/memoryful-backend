@@ -17,15 +17,11 @@ class SettingsError(RuntimeError):
 # production every one comes from GCP Secret Manager under its upper-cased name.
 REQUIRED_SECRETS = frozenset(
     {
-        "postgres_user",
         "postgres_password",
-        "postgres_host",
-        "redis_host",
         "redis_password",
         "access_secret_key",
         "refresh_secret_key",
         "resend_api_key",
-        "mail_from",
         "s3_access_key_id",
         "s3_secret_access_key",
     }

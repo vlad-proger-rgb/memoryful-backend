@@ -329,15 +329,11 @@ For production, you'll need to set up the following:
 
 Store these in GCP Secret Manager for production:
 
-- `POSTGRES_USER`
 - `POSTGRES_PASSWORD`
-- `POSTGRES_HOST`
-- `REDIS_HOST`
 - `REDIS_PASSWORD`
 - `ACCESS_SECRET_KEY`
 - `REFRESH_SECRET_KEY`
 - `RESEND_API_KEY`
-- `MAIL_FROM`
 - `S3_ACCESS_KEY_ID` (for GCS)
 - `S3_SECRET_ACCESS_KEY` (for GCS)
 
