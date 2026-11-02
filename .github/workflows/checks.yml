@@ -165,7 +165,7 @@ jobs:
       # server would reject the client's AUTH.
       - name: Start Redis
         run: |
-          docker run -d --name redis -p 6379:6379 redis:6.0.7 \
+          docker run -d --name redis -p 6379:6379 redis:8.4.0 \
             redis-server --requirepass "$REDIS_PASSWORD"
           for _ in $(seq 30); do
             if docker exec redis redis-cli -a "$REDIS_PASSWORD" ping 2>/dev/null | grep -q PONG; then
