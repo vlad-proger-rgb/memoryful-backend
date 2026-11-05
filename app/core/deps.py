@@ -33,8 +33,6 @@ def get_current_user(
         db: Annotated[AsyncSession, Depends(get_db)],
         token: Annotated[str, Depends(oauth2_scheme)],
     ) -> User | UUID:
-        logger.debug(f"get_current_user dependency {token=}")
-
         credentials_exception = HTTPException(
             401, "Could not validate credentials", {"WWW-Authenticate": "Bearer"}
         )

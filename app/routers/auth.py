@@ -1,4 +1,5 @@
 import datetime as dt
+import logging
 import secrets
 from collections.abc import Sequence
 from typing import Annotated
@@ -56,6 +57,7 @@ from app.schemas import (
 from app.tasks import send_email_task
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(
@@ -139,8 +141,6 @@ async def verify_code(
     response: Response,
     code_form: VerifyCodeForm,
 ) -> Msg[AuthResponse]:
-    print(f"AUTH POST /verify-code {code_form=}")
-
     if not settings.is_trusted_email(code_form.email):
         await verify_code_form(f"{RedisPrefix.login_code}{code_form.email}", code_form)
 
@@ -189,7 +189,6 @@ async def google_sign_in(
     claims = await verify_google_id_token(credential.credential)
     email = str(claims["email"]).strip().lower()
     google_sub = str(claims["sub"])
-    print(f"AUTH POST /google {email=}")
 
     # DELETE returns 1 only for whoever gets there first, so a replay loses the race.
     nonce = claims.get("nonce")
@@ -261,7 +260,6 @@ async def refresh_token(
         if scheme.lower() == "bearer" and candidate:
             refresh_token = candidate
 
-    print(f"AUTH GET /refresh {scheme=}, {bool(refresh_token)=}")
     if not refresh_token:
         raise HTTPException(401, "No refresh token provided", {"WWW-Authenticate": "Bearer"})
 
@@ -303,8 +301,8 @@ async def refresh_token(
         raise HTTPException(401, "User is disabled", {"WWW-Authenticate": "Bearer"})
 
     if token_db.ip_address and request.client and request.client.host != token_db.ip_address:
-        print(
-            f"AUTH GET /refresh Warning: Token used from different IP: {token_db.ip_address} vs {request.client.host}"
+        logger.warning(
+            "Refresh token %s for user %s used from a new IP", token_db.id, token_db.user_id
         )
 
     await db.delete(token_db)
@@ -380,7 +378,6 @@ async def logout(
 ) -> Msg[None]:
     try:
         payload = jwt.decode(token, settings.access_secret_key, algorithms=ALGORITHM)
-        print(f"UTILS logout {payload=}")
         user_id = payload.get("sub")
         jti = payload.get("jti")
         exp_time = payload.get("exp")
@@ -398,7 +395,7 @@ async def logout(
         await db.commit()
 
     except Exception as e:
-        print(f"UTILS Error during logout: {e}")
+        logger.warning("Logout cleanup failed: %s", type(e).__name__)
 
     response.delete_cookie(key="refresh_token", path="/")
 

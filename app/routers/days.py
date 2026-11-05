@@ -378,7 +378,6 @@ async def get_day(
         "trackable_progresses": trackable_progresses,
         "insights": insights,
     }
-    print(f"DAYS {day_data=}")
 
     day_schema = DayDetail.model_validate(day_data)
 

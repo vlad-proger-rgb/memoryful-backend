@@ -6,7 +6,9 @@ the behaviour under test. Every key is namespaced by a unique email or jti and
 removed afterwards, so runs do not interfere.
 """
 
+import logging
 from collections.abc import AsyncIterator
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -21,6 +23,7 @@ from app.core.security import create_token
 from app.core.settings import get_settings
 from app.enums import RedisPrefix
 from app.models import User
+from app.tasks.email_tasks import send_email_task
 
 from .conftest import MakeUser
 
@@ -196,3 +199,29 @@ async def test_refresh_rejects_an_access_token(client: AsyncClient, make_user: M
     access, _ = create_token(data={"sub": str(user.id)})
     response = await client.get("/auth/refresh", headers={"Authorization": f"Bearer {access}"})
     assert response.status_code == 401, "an access token was accepted as a refresh token"
+
+
+async def test_the_login_flow_logs_neither_the_code_nor_the_email(
+    client: AsyncClient,
+    email: str,
+    caplog: pytest.LogCaptureFixture,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    sent: dict = {}
+    with patch("app.routers.auth.send_email_task.delay", lambda **kwargs: sent.update(kwargs)):
+        await client.post("/auth/request-code", json={"email": email})
+    code = sent["body"]["code"]
+
+    with patch("app.tasks.email_tasks.send_resend_email", return_value={"id": "email-id"}):
+        send_email_task.run(**sent)
+    response = await client.post("/auth/verify-code", json={"email": email, "code": code})
+    assert response.status_code == 200, response.text
+
+    lines = [r.getMessage() for r in caplog.records if not r.name.startswith("sqlalchemy")]
+    captured = capsys.readouterr()
+    streams = (captured.out + captured.err).splitlines()
+    lines += [line for line in streams if "sqlalchemy" not in line]
+    output = "\n".join(lines)
+    assert code not in output, "a login code reached the logs"
+    assert email not in output, "an email address reached the logs"

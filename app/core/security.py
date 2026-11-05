@@ -1,6 +1,7 @@
 import datetime as dt
 import hashlib
 import hmac
+import logging
 from typing import Any
 from uuid import uuid4
 
@@ -19,6 +20,7 @@ from app.models import User, UserToken
 from app.schemas import Token, VerifyCodeForm
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 oauth2_scheme = OAuth2PasswordBearer(
@@ -98,7 +100,7 @@ async def verify_google_id_token(credential: str) -> dict[str, Any]:
     try:
         claims = await run_in_threadpool(_verify)
     except ValueError as e:
-        print(f"UTILS verify_google_id_token rejected a credential: {e}")
+        logger.warning("Rejected a Google ID token: %s", type(e).__name__)
         raise HTTPException(401, "Invalid Google credential") from e
 
     if claims.get("iss") not in GOOGLE_ISSUERS:

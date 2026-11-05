@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 @celery.task(queue="email_queue")
 def send_email_task(email_type: EmailTemplate, recipients: list[EmailStr], body: dict) -> None:
     """Send an email based on the provided email_type (Enum)."""
-    logger.info(f"EMAIL TASK {email_type=}, {recipients=}, {body=}")
+    logger.info("Sending %s email to %d recipient(s)", email_type, len(recipients))
     template_name = EMAIL_TEMPLATES.get(email_type, "default.html")
 
     subject = body.get("subject", "No Subject")

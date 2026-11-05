@@ -1,4 +1,5 @@
 import datetime as dt
+import logging
 import random
 
 from sqlalchemy import select
@@ -21,6 +22,7 @@ from app.models import (
 from app.schemas.font_awesome import FAIcon
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 async def init_db(db: AsyncSession) -> None:
@@ -223,7 +225,6 @@ async def init_db(db: AsyncSession) -> None:
         ).all()
 
         today = dt.date.today()
-        print(f"\n=== DEBUG: Today's date: {today}")
 
         # First day of previous month
         first_day = (today.replace(day=1) - dt.timedelta(days=1)).replace(day=1)
@@ -231,9 +232,6 @@ async def init_db(db: AsyncSession) -> None:
         last_day = (today.replace(day=28) + dt.timedelta(days=4)).replace(day=1) - dt.timedelta(
             days=1
         )
-
-        print(f"DEBUG: Date range - First day: {first_day}, Last day: {last_day}")
-        print(f"DEBUG: Will skip dates after: {today}")
 
         # For testing - uncomment to generate more days
         # first_day = today - dt.timedelta(days=30)  # Last 30 days
@@ -246,11 +244,8 @@ async def init_db(db: AsyncSession) -> None:
         while current_date <= last_day:
             # Skip if it's a future date (beyond today)
             if current_date > today:
-                print(f"DEBUG: Skipping future date: {current_date}")
                 current_date += dt.timedelta(days=1)
                 continue
-
-            print(f"DEBUG: Processing date: {current_date}")
 
             timestamp = int(dt.datetime.combine(current_date, dt.time()).timestamp())
 
@@ -439,5 +434,5 @@ As the sun began to set, I stopped for a few minutes just to take in the view â€
         db.add(day)
         await db.commit()
 
-    except Exception as e:
-        print(f"Error initializing demo data: {e}")
+    except Exception:
+        logger.exception("Demo data seeding failed")

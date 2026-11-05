@@ -4,13 +4,14 @@ target-version = "py313"
 extend-exclude = ["alembic/versions"]
 
 [tool.ruff.lint]
-select = ["F", "I", "UP", "B", "SIM", "RUF", "C4", "PERF", "ASYNC", "TRY", "PTH", "S"]
+select = ["F", "I", "UP", "B", "SIM", "RUF", "C4", "PERF", "ASYNC", "TRY", "PTH", "S", "T20"]
 ignore = ["TRY003"]
 
 [tool.ruff.lint.per-file-ignores]
 "mcp_server/tests/*" = ["S101", "S105", "S106"]
 "app/tests/*" = ["S101", "S105", "S106"]
 "app/init_db.py" = ["S311", "RUF001"]
+"scripts/*" = ["T20"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app", "mcp_server"]
