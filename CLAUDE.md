@@ -143,10 +143,9 @@ single key to override. `mcp_server/pytest.ini` is dead: pytest picks the root
 
 ## Known defects
 
-Tracked in the **Claude Backlog** column of the TickTick board, not here — this repo is
-public, and a tidy list of unfixed issues in a live service is a roadmap for the wrong
-reader. Query that column before assuming any surprising behavior is intended; several
-things that look like design choices are open tasks with write-ups.
+Tracked in the **Claude Backlog** column of the TickTick board, not here. Query that column
+before assuming any surprising behavior is intended; several things that look like design
+choices are open tasks with write-ups.
 
 ## Rules
 
