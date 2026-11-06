@@ -1,4 +1,5 @@
 import logging
+import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -45,20 +46,23 @@ _ANTHROPIC_NO_SAMPLING = (
 
 # Cached ADC credentials; the access token is valid ~1h and refreshed on demand.
 _gcp_credentials = None
+_gcp_credentials_lock = threading.Lock()
 
 
 def _vertex_access_token() -> str:
+    """Blocks on Google, so it is passed as a key provider that the async client runs off-loop."""
     global _gcp_credentials
     import google.auth
     from google.auth.transport.requests import Request
 
-    if _gcp_credentials is None:
-        _gcp_credentials, _ = google.auth.default(
-            scopes=["https://www.googleapis.com/auth/cloud-platform"]
-        )
-    if not _gcp_credentials.valid:
-        _gcp_credentials.refresh(Request())
-    token = _gcp_credentials.token
+    with _gcp_credentials_lock:
+        if _gcp_credentials is None:
+            _gcp_credentials, _ = google.auth.default(
+                scopes=["https://www.googleapis.com/auth/cloud-platform"]
+            )
+        if not _gcp_credentials.valid:
+            _gcp_credentials.refresh(Request())
+        token = _gcp_credentials.token
     if token is None:
         raise RuntimeError("GCP credentials carry no access token after refresh")
     return str(token)
@@ -135,7 +139,7 @@ def build_chat_model(model: ChatModel) -> "BaseChatModel":
             model=model.name,
             temperature=temperature,
             base_url=_vertex_openapi_base_url(location),
-            api_key=SecretStr(_vertex_access_token()),
+            api_key=_vertex_access_token,
         )
 
     if provider is Provider.openai:
