@@ -1,5 +1,6 @@
 import logging
 import os
+from http.cookiejar import CookieJar, DefaultCookiePolicy
 from typing import Any
 
 import httpx
@@ -10,6 +11,19 @@ from ..schemas import Msg
 from ..settings import MEMORYFUL_API_BASE_URL
 
 logger = logging.getLogger(__name__)
+
+_http_client: httpx.AsyncClient | None = None
+
+
+def _shared_http_client() -> httpx.AsyncClient:
+    """One pool for every user, so the bearer stays per request and no cookie is ever kept."""
+    global _http_client
+    if _http_client is None:
+        _http_client = httpx.AsyncClient(
+            follow_redirects=True,
+            cookies=CookieJar(policy=DefaultCookiePolicy(allowed_domains=[])),
+        )
+    return _http_client
 
 
 class APIClient:
@@ -70,25 +84,24 @@ class APIClient:
         await self.ctx.info(f"{method=} {endpoint=}")
         logger.info("%s %s", method, url)
 
-        async with httpx.AsyncClient(follow_redirects=True) as client:
-            response = await client.request(method, url, headers=self.headers, **kwargs)
-            logger.debug("Response: %s %s", response.status_code, method)
-            response.raise_for_status()
+        response = await _shared_http_client().request(method, url, headers=self.headers, **kwargs)
+        logger.debug("Response: %s %s", response.status_code, method)
+        response.raise_for_status()
 
-            try:
-                raw = response.json()
-            except Exception as e:
-                logger.exception("Failed to parse JSON response from %s", url)
-                raise ValueError(f"Invalid JSON response from API: {e!s}") from e
+        try:
+            raw = response.json()
+        except Exception as e:
+            logger.exception("Failed to parse JSON response from %s", url)
+            raise ValueError(f"Invalid JSON response from API: {e!s}") from e
 
-            msg: Msg[object] = Msg.model_validate(raw)
-            if msg.data is None:
-                logger.debug(
-                    "API returned null data for %s %s - this may be valid for empty datasets",
-                    method,
-                    endpoint,
-                )
-            return msg.data
+        msg: Msg[object] = Msg.model_validate(raw)
+        if msg.data is None:
+            logger.debug(
+                "API returned null data for %s %s - this may be valid for empty datasets",
+                method,
+                endpoint,
+            )
+        return msg.data
 
     async def get(self, endpoint: str) -> Any:
         """Make a GET request to the API"""
