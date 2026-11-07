@@ -130,9 +130,10 @@ single key to override. `mcp_server/pytest.ini` is dead: pytest picks the root
   builder `repr()`s them and bakes in a memory address. Add a new injected dependency to a
   `@cached` route without adding it to that set and the key changes every request — the
   cache silently never hits, with no error anywhere.
-- **MCP tools are deliberately re-loaded per request** (`app/ai/mcp.py`). Don't "optimize" by
-  caching the tool objects — `langchain-mcp-adapters` bakes the user's bearer into each tool
-  at load time, so a shared cache would call the MCP server as the wrong user.
+- **MCP tool schemas are cached, the tool objects are not** (`app/ai/mcp.py`). Each
+  LangChain tool carries the user's bearer in its connection, so a shared tool would call
+  the MCP server as the wrong user. The schemas are fetched once per process, so the app
+  needs a restart to see new MCP tools.
 - **`statement_cache_size: 0`** in the engine's `connect_args` is required by Neon's pooled
   endpoint — PgBouncer transaction pooling is incompatible with asyncpg's prepared-statement
   cache. Removing it breaks production and nothing local.
