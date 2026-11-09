@@ -19,6 +19,10 @@ echo "Deploying Memoryful VM stack..."
 echo "Syncing .env from .env.prod..."
 cp .env.prod .env
 
+# Before the pull, so a nearly full disk can't fail it. `until` is the image's build time.
+echo "Pruning untagged images older than two weeks..."
+docker image prune -f --filter "until=336h" || echo "Image prune failed; continuing."
+
 # App and celery images are built and pushed by CI — building the celery image
 # here used to starve the VM and degrade the live site for ~10 minutes.
 echo "Pulling latest images..."
