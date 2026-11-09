@@ -1,6 +1,6 @@
 # memoryful-backend
 
-FastAPI + async SQLAlchemy 2.0 + Celery. Runs entirely in Docker locally; the host has a
+FastAPI + async SQLAlchemy 2.1 + Celery. Runs entirely in Docker locally; the host has a
 `.venv` for tooling only. Python 3.13.
 
 ## Commands

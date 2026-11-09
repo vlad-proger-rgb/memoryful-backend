@@ -39,7 +39,7 @@ Memoryful is an intelligent life journaling platform that combines personal data
 ### Backend
 
 - **Framework**: FastAPI
-- **Database**: PostgreSQL with Async SQLAlchemy 2.0
+- **Database**: PostgreSQL with Async SQLAlchemy 2.1
 - **Caching**: Redis
 - **Message Broker**: GCP Pub/Sub (emulator locally)
 - **Task Queue**: Celery
