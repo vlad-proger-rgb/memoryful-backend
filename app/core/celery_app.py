@@ -6,8 +6,10 @@ from app.core.settings import get_settings
 
 settings = get_settings()
 
+broker_transport = None
 broker_transport_options = {}
 if "gcpubsub" in settings.celery_broker_url:
+    broker_transport = "app.core.pubsub:Transport"
     broker_transport_options = {
         "visibility_timeout": 3600,
         "dead_letter_queue": "celery-dlq",
@@ -30,6 +32,7 @@ celery.conf.update(
     timezone="UTC",
     enable_utc=True,
     broker_connection_retry_on_startup=True,
+    broker_transport=broker_transport,
 )
 
 celery.conf.beat_schedule = {
