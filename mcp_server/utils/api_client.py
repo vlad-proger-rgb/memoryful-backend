@@ -20,7 +20,6 @@ def _shared_http_client() -> httpx.AsyncClient:
     global _http_client
     if _http_client is None:
         _http_client = httpx.AsyncClient(
-            follow_redirects=True,
             cookies=CookieJar(policy=DefaultCookiePolicy(allowed_domains=[])),
         )
     return _http_client

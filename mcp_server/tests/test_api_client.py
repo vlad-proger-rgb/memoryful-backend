@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 import respx
 from fastmcp import Context
-from httpx import Response
+from httpx import HTTPStatusError, Response
 
 from ..tools.tags import get_tags
 from .conftest import api_url
@@ -53,3 +53,17 @@ async def test_a_cookie_from_one_response_is_never_sent_again(ctx: Context) -> N
         await get_tags(ctx)
 
     assert "cookie" not in route.calls[1].request.headers
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_a_redirect_fails_instead_of_being_followed(ctx: Context) -> None:
+    respx.get(api_url("/tags/")).mock(
+        return_value=Response(307, headers={"location": api_url("/elsewhere/")})
+    )
+    target = respx.get(api_url("/elsewhere/")).mock(return_value=Response(200, json=_OK))
+
+    with pytest.raises(HTTPStatusError):
+        await get_tags(ctx)
+
+    assert not target.called
