@@ -7,21 +7,14 @@ from app.core.settings import get_settings
 settings = get_settings()
 
 broker_transport = None
-broker_transport_options = {}
 if "gcpubsub" in settings.celery_broker_url:
     broker_transport = "app.core.pubsub:Transport"
-    broker_transport_options = {
-        "visibility_timeout": 3600,
-        "dead_letter_queue": "celery-dlq",
-        "max_retries": 3,
-    }
 
 celery = Celery(
     "tasks",
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
     include=["app.tasks"],
-    broker_transport_options=broker_transport_options,
 )
 
 celery.conf.update(
