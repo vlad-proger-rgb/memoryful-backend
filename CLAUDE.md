@@ -106,8 +106,7 @@ single key to override. `mcp_server/pytest.ini` is dead: pytest picks the root
   `alembic upgrade head && uvicorn ... --reload`. That chain runs once, when the container
   boots. `--reload` only restarts the uvicorn process when a file changes — it never re-runs
   the chain, so a newly generated revision sits unapplied until you
-  `restart app`. (`run_migrations()` in `app/main.py` is commented out precisely because
-  compose owns this.) Corollary: a broken migration *is* a boot failure — `&&` means uvicorn
+  `restart app`. Corollary: a broken migration *is* a boot failure — `&&` means uvicorn
   never starts, and the app container restart-loops (`restart: always`) with the Alembic
   error in its logs.
 - **Three env files, and which one loads matters.** `.env.local` is committed with

@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import sys
 from collections.abc import AsyncIterator, Callable
@@ -51,18 +50,6 @@ from app.schemas import Msg
 settings = get_settings()
 
 
-async def run_migrations() -> None:
-    from alembic import command
-    from alembic.config import Config
-
-    def _upgrade() -> None:
-        alembic_cfg = Config("alembic.ini")
-        command.upgrade(alembic_cfg, "head")
-
-    loop = asyncio.get_running_loop()
-    await loop.run_in_executor(None, _upgrade)
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     FastAPICache.init(IndexedRedisBackend(cache_redis), prefix=CACHE_PREFIX)
@@ -74,7 +61,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             settings.environment,
         )
 
-    # await run_migrations()
     async with AsyncSessionLocal() as session:
         # Never fatal: a sync failure (e.g. migrations behind mid-deploy) must not take down the API.
         try:
