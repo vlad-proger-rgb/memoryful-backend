@@ -210,7 +210,8 @@ For `openid email profile`, the ID token carries:
 | --- | --- | --- |
 | `sub` | Stable Google account id, never reused | Yes — the `google_sub` task |
 | `email`, `email_verified` | The address, and whether Google vouches for it | Yes — identity and linking |
-| `given_name`, `family_name`, `name` | Display name parts | Yes — prefills the profile form |
+| `given_name` | First name | Yes — prefills the profile form |
+| `family_name`, `name` | Last and full name | No — we keep only the first name |
 | `picture` | Avatar URL | No — decided against |
 | `locale` | e.g. `uk`, `en` | Not yet, but see below |
 | `hd` | Workspace hosted domain | No — irrelevant to us |
@@ -263,7 +264,6 @@ async def google_sign_in(
             email=email,
             google_sub=claims["sub"],
             first_name=claims.get("given_name"),
-            last_name=claims.get("family_name"),
         )
         db.add(user)
     elif not user.google_sub:

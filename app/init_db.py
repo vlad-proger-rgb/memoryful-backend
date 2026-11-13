@@ -82,7 +82,6 @@ async def init_db(db: AsyncSession) -> None:
             email=settings.mail_from,
             is_enabled=True,
             first_name="John",
-            last_name="Doe",
             age=30,
             bio="Some bio",
         )

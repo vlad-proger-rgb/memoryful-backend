@@ -12,7 +12,6 @@ class UserBase(CamelModel):
     country: CountryInDB | None = None
     city: CityInDB | None = None
     first_name: str | None = None
-    last_name: str | None = None
     age: int | None = None
     bio: str | None = None
     photo: str | None = None

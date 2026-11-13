@@ -209,7 +209,6 @@ async def google_sign_in(
             email=email,
             google_sub=google_sub,
             first_name=claims.get("given_name"),
-            last_name=claims.get("family_name"),
         )
         db.add(user)
         await db.commit()

@@ -36,17 +36,12 @@ class UserProfile(BaseModel):
     """Minimal user facts used to personalize chat. Cached, so kept small."""
 
     first_name: str | None = None
-    last_name: str | None = None
     age: int | None = None
     bio: str | None = None
 
     @property
-    def name(self) -> str:
-        return " ".join(p for p in (self.first_name, self.last_name) if p)
-
-    @property
     def is_empty(self) -> bool:
-        return not (self.first_name or self.last_name or self.age or self.bio)
+        return not (self.first_name or self.age or self.bio)
 
 
 async def get_user_profile(db: AsyncSession, user_id: UUID) -> UserProfile:
@@ -59,7 +54,6 @@ async def get_user_profile(db: AsyncSession, user_id: UUID) -> UserProfile:
     user = await db.get(User, user_id)
     profile = UserProfile(
         first_name=user.first_name if user else None,
-        last_name=user.last_name if user else None,
         age=user.age if user else None,
         bio=user.bio if user else None,
     )
@@ -87,7 +81,7 @@ class ChatContextBuilder:
             return ""
         return render_block(
             "context/user_profile.md.j2",
-            name=profile.name,
+            name=profile.first_name,
             age=profile.age,
             bio=profile.bio,
         )

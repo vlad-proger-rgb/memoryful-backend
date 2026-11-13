@@ -16,7 +16,6 @@ class User(Base, IDMixin, TimestampWithUpdateMixin):
     google_sub: Mapped[str | None] = mapped_column(unique=True, default=None)
     is_enabled: Mapped[bool] = mapped_column(default=True)
     first_name: Mapped[str | None]
-    last_name: Mapped[str | None]
     age: Mapped[int | None]
     bio: Mapped[str | None]
     photo: Mapped[str | None]
