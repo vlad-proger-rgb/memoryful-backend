@@ -19,7 +19,7 @@ _FAKE_TT_ID = "00000000-0000-0000-0000-000000000010"
 @respx.mock
 async def test_get_trackables_default(ctx: Context) -> None:
     mock_data = [{"id": _FAKE_TR_ID, "title": "Water intake", "typeId": _FAKE_TT_ID}]
-    respx.get(api_url("/trackables")).mock(
+    respx.get(api_url("/trackables/")).mock(
         return_value=Response(200, json={"code": 200, "msg": "ok", "data": mock_data})
     )
 
@@ -34,7 +34,7 @@ async def test_get_trackables_default(ctx: Context) -> None:
 @respx.mock
 async def test_get_trackables_with_type_filter(ctx: Context) -> None:
     mock_data = [{"id": _FAKE_TR_ID, "title": "Steps", "typeId": _FAKE_TT_ID}]
-    respx.get(api_url("/trackables")).mock(
+    respx.get(api_url("/trackables/")).mock(
         return_value=Response(200, json={"code": 200, "msg": "ok", "data": mock_data})
     )
 
@@ -48,7 +48,7 @@ async def test_get_trackables_with_type_filter(ctx: Context) -> None:
 @pytest.mark.asyncio
 @respx.mock
 async def test_get_trackables_with_search(ctx: Context) -> None:
-    respx.get(api_url("/trackables")).mock(
+    respx.get(api_url("/trackables/")).mock(
         return_value=Response(200, json={"code": 200, "msg": "ok", "data": []})
     )
 
@@ -76,7 +76,7 @@ async def test_get_trackable_by_id(ctx: Context) -> None:
 @respx.mock
 async def test_get_trackable_types(ctx: Context) -> None:
     mock_data = [{"id": _FAKE_TT_ID, "name": "Health", "valueType": "number"}]
-    respx.get(api_url("/trackable-types")).mock(
+    respx.get(api_url("/trackable-types/")).mock(
         return_value=Response(200, json={"code": 200, "msg": "ok", "data": mock_data})
     )
 

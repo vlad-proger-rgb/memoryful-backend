@@ -21,7 +21,7 @@ async def get_trackables(
     if search is not None:
         params["search"] = search
     qs = f"?{urlencode(params)}" if params else ""
-    return cast(list[dict[str, object]], await client.get(f"/trackables{qs}"))
+    return cast(list[dict[str, object]], await client.get(f"/trackables/{qs}"))
 
 
 async def get_trackable_by_id(ctx: Context, trackable_id: str) -> dict[str, object]:
@@ -35,7 +35,7 @@ async def get_trackable_by_id(ctx: Context, trackable_id: str) -> dict[str, obje
 async def get_trackable_types(ctx: Context) -> list[dict[str, object]]:
     """Get trackable types from Memoryful API"""
     client = APIClient(ctx)
-    return cast(list[dict[str, object]], await client.get("/trackable-types"))
+    return cast(list[dict[str, object]], await client.get("/trackable-types/"))
 
 
 async def get_trackable_type_by_id(ctx: Context, type_id: str) -> dict[str, object]:

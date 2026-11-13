@@ -30,7 +30,7 @@ def _insight(ts: int = 1700000000, **overrides: object) -> dict:
 @respx.mock
 async def test_get_insights_default(ctx: Context) -> None:
     mock_data = [_insight()]
-    respx.get(api_url("/insights")).mock(
+    respx.get(api_url("/insights/")).mock(
         return_value=Response(200, json={"code": 200, "msg": "ok", "data": mock_data})
     )
 
@@ -47,7 +47,7 @@ async def test_get_insights_default(ctx: Context) -> None:
 @pytest.mark.asyncio
 @respx.mock
 async def test_get_insights_with_pagination(ctx: Context) -> None:
-    respx.get(api_url("/insights")).mock(
+    respx.get(api_url("/insights/")).mock(
         return_value=Response(200, json={"code": 200, "msg": "ok", "data": []})
     )
 
@@ -62,7 +62,7 @@ async def test_get_insights_with_pagination(ctx: Context) -> None:
 @respx.mock
 async def test_get_insights_by_timestamp(ctx: Context) -> None:
     mock_data = [_insight(ts=1700000000)]
-    respx.get(api_url("/insights")).mock(
+    respx.get(api_url("/insights/")).mock(
         return_value=Response(200, json={"code": 200, "msg": "ok", "data": mock_data})
     )
 
@@ -77,7 +77,7 @@ async def test_get_insights_by_timestamp(ctx: Context) -> None:
 @pytest.mark.asyncio
 @respx.mock
 async def test_get_insights_empty(ctx: Context) -> None:
-    respx.get(api_url("/insights")).mock(
+    respx.get(api_url("/insights/")).mock(
         return_value=Response(200, json={"code": 200, "msg": "ok", "data": []})
     )
 

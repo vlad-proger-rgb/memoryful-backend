@@ -31,7 +31,7 @@ async def get_days(
         params["sortOrder"] = sort_order
     if tag_names is not None:
         params["tagNames"] = tag_names
-    return cast(list[dict[str, object]], await client.get(f"/days?{urlencode(params)}"))
+    return cast(list[dict[str, object]], await client.get(f"/days/?{urlencode(params)}"))
 
 
 async def get_day_by_timestamp(ctx: Context, timestamp: int) -> dict[str, object]:

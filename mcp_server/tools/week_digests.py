@@ -19,7 +19,7 @@ async def get_week_digests(
 
     client = APIClient(ctx)
     params = urlencode({"limit": limit, "offset": offset})
-    return cast(list[dict[str, object]], await client.get(f"/week-digests?{params}"))
+    return cast(list[dict[str, object]], await client.get(f"/week-digests/?{params}"))
 
 
 async def get_week_digest(ctx: Context, week_start: str) -> dict[str, object]:

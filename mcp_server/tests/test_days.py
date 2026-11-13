@@ -35,7 +35,7 @@ def _day_detail(ts: int = 1700000000, **overrides: object) -> dict:
 @respx.mock
 async def test_get_days_default_params(ctx: Context) -> None:
     mock_data = [_day_list_item(description="A day")]
-    respx.get(api_url("/days")).mock(
+    respx.get(api_url("/days/")).mock(
         return_value=Response(200, json={"code": 200, "msg": "ok", "data": mock_data})
     )
 
@@ -55,7 +55,7 @@ async def test_get_days_default_params(ctx: Context) -> None:
 @respx.mock
 async def test_get_days_with_pagination(ctx: Context) -> None:
     mock_data = [_day_detail()]
-    respx.get(api_url("/days")).mock(
+    respx.get(api_url("/days/")).mock(
         return_value=Response(200, json={"code": 200, "msg": "ok", "data": mock_data})
     )
 
@@ -71,7 +71,7 @@ async def test_get_days_with_pagination(ctx: Context) -> None:
 @pytest.mark.asyncio
 @respx.mock
 async def test_get_days_with_sort_and_tags(ctx: Context) -> None:
-    respx.get(api_url("/days")).mock(
+    respx.get(api_url("/days/")).mock(
         return_value=Response(200, json={"code": 200, "msg": "ok", "data": []})
     )
 

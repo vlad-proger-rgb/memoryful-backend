@@ -30,4 +30,4 @@ async def get_insights(
         params["timestamp"] = timestamp
     if kind is not None:
         params["kind"] = kind
-    return cast(list[dict[str, object]], await client.get(f"/insights?{urlencode(params)}"))
+    return cast(list[dict[str, object]], await client.get(f"/insights/?{urlencode(params)}"))
