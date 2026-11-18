@@ -212,7 +212,7 @@ class ChatAgent:
         llm = build_chat_model(chat.chat_model)
         history = _to_lc_history(chat.messages)
 
-        if chat.chat_model.supports_tools and access_token:
+        if access_token:
             emitted = False
             try:
                 async for event in self._stream_agent(llm, system_prompt, history, access_token):
@@ -269,14 +269,14 @@ class ChatAgent:
     async def _generate_reply(
         self, chat: Chat, system_prompt: str, access_token: str | None
     ) -> str:
-        """Reply to the chat's current history. Tool-capable models with a bearer run
-        the MCP loop; everything else (and any MCP failure) falls back to plain completion."""
+        """Reply to the chat's current history. With a bearer this runs the MCP loop;
+        without one (or on any MCP failure) it falls back to plain completion."""
         from langchain_core.messages import SystemMessage
 
         llm = build_chat_model(chat.chat_model)
         history = _to_lc_history(chat.messages)
 
-        if chat.chat_model.supports_tools and access_token:
+        if access_token:
             try:
                 return await self._run_agent(llm, system_prompt, history, access_token)
             except Exception:

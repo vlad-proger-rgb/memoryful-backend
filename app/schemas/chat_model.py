@@ -21,4 +21,3 @@ class ChatModelInDB(CamelModel):
     label: str
     name: str
     provider: Provider
-    supports_tools: bool

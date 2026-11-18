@@ -57,7 +57,9 @@ def credentials(monkeypatch: pytest.MonkeyPatch, stub_api: StubAPI) -> _FakeCred
 async def test_the_token_refreshes_off_the_event_loop_once_per_expiry(
     credentials: _FakeCredentials, stub_api: StubAPI
 ) -> None:
-    model = utils.build_chat_model(ChatModel(name="xai/grok-4.1-fast", provider="xai"))
+    model = utils.build_chat_model(
+        ChatModel(name="xai/grok-4.1-fast", provider="xai", gateway="vertex_maas")
+    )
 
     await model.ainvoke("hello")
     await model.ainvoke("hello")

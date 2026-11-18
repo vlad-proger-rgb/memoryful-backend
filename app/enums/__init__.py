@@ -2,6 +2,7 @@ from .ai import AnalysisPurpose
 from .cache import CacheNamespace
 from .emails import EmailTemplate
 from .font_awesome import IconStyle
+from .gateway import Gateway
 from .insight import InsightKind
 from .provider import Provider
 from .redis import RedisPrefix
@@ -14,6 +15,7 @@ __all__ = [
     "CacheNamespace",
     "DaySortField",
     "EmailTemplate",
+    "Gateway",
     "IconStyle",
     "InsightKind",
     "Provider",

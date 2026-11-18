@@ -1,7 +1,7 @@
 import logging
 import threading
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never
 from uuid import UUID
 
 from pydantic import SecretStr
@@ -9,8 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.settings import get_settings
-from app.enums import AnalysisPurpose
-from app.enums.provider import Provider
+from app.enums import AnalysisPurpose, Gateway
 from app.models import AiModelPreference, ChatModel
 
 if TYPE_CHECKING:
@@ -29,20 +28,6 @@ def prompts_dir() -> Path:
 def load_prompt(filename: str) -> str:
     return (prompts_dir() / filename).read_text(encoding="utf-8").strip()
 
-
-# Model Garden providers with no LangChain class of their own, called through Vertex's
-# OpenAI-compatible endpoint.
-_VERTEX_MAAS_PROVIDERS = {Provider.xai, Provider.meta, Provider.mistral, Provider.cohere}
-
-# Claude models that dropped temperature/top_p/top_k — passing any of them is a
-# 400. Matched as prefixes so dated snapshot ids are covered too.
-_ANTHROPIC_NO_SAMPLING = (
-    "claude-opus-4-8",
-    "claude-opus-4-7",
-    "claude-sonnet-5",
-    "claude-fable-5",
-    "claude-mythos-5",
-)
 
 # Cached ADC credentials; the access token is valid ~1h and refreshed on demand.
 _gcp_credentials = None
@@ -68,13 +53,12 @@ def _vertex_access_token() -> str:
     return str(token)
 
 
-def _resolve_provider(model: ChatModel) -> Provider:
-    """Providers are set explicitly by the catalog sync, so this is a plain lookup."""
+def _resolve_gateway(model: ChatModel) -> Gateway:
     try:
-        return Provider(model.provider.strip().lower())
+        return Gateway(model.gateway or "")
     except ValueError as e:
         raise RuntimeError(
-            f"Chat model {model.name!r} has an unknown provider {model.provider!r}"
+            f"Chat model {model.name!r} has no known gateway: {model.gateway!r}"
         ) from e
 
 
@@ -89,7 +73,7 @@ def _vertex_openapi_base_url(location: str) -> str:
 
 
 def build_chat_model(model: ChatModel) -> "BaseChatModel":
-    """The model id and provider come from the catalog record; `LLM_MODE` picks the gateway."""
+    """The catalog record picks the gateway; `LLM_MODE=local` overrides it for every model."""
     temperature = settings.default_temperature
 
     if settings.llm_mode == "local":
@@ -102,12 +86,10 @@ def build_chat_model(model: ChatModel) -> "BaseChatModel":
             api_key=SecretStr(settings.local_llm_api_key) if settings.local_llm_api_key else None,
         )
 
-    provider = _resolve_provider(model)
-    # Some models only have quota in one region, not "global".
-    location = model.region or settings.vertex_location
+    gateway = _resolve_gateway(model)
 
     # Imported lazily so local dev doesn't need the Google libs.
-    if provider is Provider.google:
+    if gateway is Gateway.google:
         if not settings.gcp_project_id:
             raise RuntimeError("GCP_PROJECT_ID is required to use Vertex AI models")
         from langchain_google_genai import ChatGoogleGenerativeAI
@@ -117,20 +99,20 @@ def build_chat_model(model: ChatModel) -> "BaseChatModel":
             temperature=temperature,
             vertexai=True,
             project=settings.gcp_project_id,
-            location=location,
+            location=settings.vertex_location,
         )
 
     # Claude through Anthropic's own API rather than Vertex Model Garden: the
     # Vertex route needs a per-model quota grant that Google declined for this
     # project. `model.name` is the direct-API id (no "@version" suffix).
-    if provider is Provider.anthropic:
+    if gateway is Gateway.anthropic:
         from app.ai.integrations.anthropic import build_chat_anthropic
 
-        if model.name.startswith(_ANTHROPIC_NO_SAMPLING):
+        if model.no_sampling:
             return build_chat_anthropic(model.name)
         return build_chat_anthropic(model.name, temperature=temperature)
 
-    if provider in _VERTEX_MAAS_PROVIDERS:
+    if gateway is Gateway.vertex_maas:
         if not settings.gcp_project_id:
             raise RuntimeError("GCP_PROJECT_ID is required to use Vertex Model Garden models")
         from app.ai.integrations.vertex import VertexMaaSChatOpenAI
@@ -138,18 +120,16 @@ def build_chat_model(model: ChatModel) -> "BaseChatModel":
         return VertexMaaSChatOpenAI(
             model=model.name,
             temperature=temperature,
-            base_url=_vertex_openapi_base_url(location),
+            base_url=_vertex_openapi_base_url(settings.vertex_location),
             api_key=_vertex_access_token,
         )
 
-    if provider is Provider.openai:
+    if gateway is Gateway.openai:
         from app.ai.integrations.openai import build_chat_openai
 
         return build_chat_openai(model.name, temperature=temperature)
 
-    raise RuntimeError(
-        f"No LLM gateway configured for provider {provider!r} (model {model.name!r}) in LLM_MODE={settings.llm_mode!r}"
-    )
+    assert_never(gateway)
 
 
 async def get_default_chat_model(db: AsyncSession) -> ChatModel:
