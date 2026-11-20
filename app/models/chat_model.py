@@ -1,4 +1,6 @@
-from sqlalchemy import false
+from decimal import Decimal
+
+from sqlalchemy import Numeric, false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -16,6 +18,11 @@ class ChatModel(Base, IDMixin, ActiveStatusMixin):
     no_sampling: Mapped[bool] = mapped_column(default=False, server_default=false())
     is_default: Mapped[bool] = mapped_column(default=False)
     sort_order: Mapped[int] = mapped_column(default=0)
+    input_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 6), default=None)
+    cached_input_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 6), default=None)
+    output_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 6), default=None)
+    context_limit: Mapped[int | None] = mapped_column(default=None)
+    output_limit: Mapped[int | None] = mapped_column(default=None)
 
     chats: Mapped[list["Chat"]] = relationship(back_populates="chat_model")
     insights: Mapped[list["Insight"]] = relationship(back_populates="chat_model")

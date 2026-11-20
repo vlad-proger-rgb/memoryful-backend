@@ -9,7 +9,6 @@ sqlalchemy[asyncio]>=2.1,<3
 alembic
 pydantic
 pydantic-settings
-pyyaml
 email-validator
 redis[async]
 fastapi-cache2

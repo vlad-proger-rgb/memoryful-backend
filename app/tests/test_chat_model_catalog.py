@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -8,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai import catalog as catalog_module
 from app.ai.catalog import load_catalog, sync_chat_models
 from app.ai.schemas import ChatModelCatalog
-from app.enums import CacheNamespace, Gateway
+from app.enums import CacheNamespace
 from app.models import ChatModel
 
 
@@ -19,7 +20,6 @@ def _spec(slug: str, **fields: Any) -> dict[str, Any]:
         "provider": "openai",
         "gateway": "openai",
         "provider_model": f"{slug}-model",
-        "source": f"openai/{slug}",
         **fields,
     }
 
@@ -45,10 +45,9 @@ def cleared(monkeypatch: pytest.MonkeyPatch) -> list[CacheNamespace]:
     return calls
 
 
-def test_the_committed_catalog_is_valid() -> None:
-    models = load_catalog().models
-
-    assert {m.gateway for m in models} <= set(Gateway)
+def test_the_committed_catalog_is_valid_and_priced() -> None:
+    for spec in load_catalog().models:
+        assert spec.input_price is not None and spec.output_price is not None, spec.slug
 
 
 @pytest.mark.parametrize(
@@ -79,16 +78,28 @@ async def test_the_first_model_is_the_default_and_order_follows_the_list(
     assert second.sort_order < first.sort_order
 
 
+async def test_prices_and_limits_are_written(
+    db: AsyncSession, cleared: list[CacheNamespace]
+) -> None:
+    await sync_chat_models(
+        db, _catalog(_spec("a", input_price=0.1, output_price=0.4, context_limit=1000))
+    )
+    row = await _row(db, "a")
+
+    assert (row.input_price, row.output_price) == (Decimal("0.1"), Decimal("0.4"))
+    assert (row.cached_input_price, row.context_limit) == (None, 1000)
+
+
 async def test_any_changed_field_clears_the_caches(
     db: AsyncSession, cleared: list[CacheNamespace]
 ) -> None:
-    await sync_chat_models(db, _catalog(_spec("keep")))
+    await sync_chat_models(db, _catalog(_spec("keep", input_price=0.1)))
     cleared.clear()
 
-    await sync_chat_models(db, _catalog(_spec("keep")))
+    await sync_chat_models(db, _catalog(_spec("keep", input_price=0.1)))
     assert cleared == []
 
-    await sync_chat_models(db, _catalog(_spec("keep", no_sampling=True)))
+    await sync_chat_models(db, _catalog(_spec("keep", input_price=0.2)))
     assert set(cleared) == {CacheNamespace.chat_models, CacheNamespace.ai_model_preferences}
 
 

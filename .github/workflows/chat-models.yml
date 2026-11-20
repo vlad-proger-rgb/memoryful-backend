@@ -1,0 +1,32 @@
+name: Chat models
+
+# Fails when models.dev no longer matches app/ai/chat_models.json; the job log holds the diff.
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  drift:
+    name: drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements.dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements.dev.txt
+
+      - name: Compare with models.dev
+        run: python scripts/python/generate_chat_models.py --check
+        env:
+          PYTHONPATH: .

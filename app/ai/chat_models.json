@@ -1,0 +1,108 @@
+{
+  "models": [
+    {
+      "slug": "gemini-2.5-flash-lite",
+      "label": "Gemini 2.5 Flash-Lite",
+      "provider": "google",
+      "gateway": "google",
+      "provider_model": "gemini-2.5-flash-lite",
+      "no_sampling": false,
+      "input_price": 0.1,
+      "cached_input_price": 0.01,
+      "output_price": 0.4,
+      "context_limit": 1048576,
+      "output_limit": 65536
+    },
+    {
+      "slug": "gemini-3.1-flash-lite",
+      "label": "Gemini 3.1 Flash Lite",
+      "provider": "google",
+      "gateway": "google",
+      "provider_model": "gemini-3.1-flash-lite",
+      "no_sampling": false,
+      "input_price": 0.25,
+      "cached_input_price": 0.025,
+      "output_price": 1.5,
+      "context_limit": 1048576,
+      "output_limit": 65536
+    },
+    {
+      "slug": "claude-haiku-4-5",
+      "label": "Claude Haiku 4.5",
+      "provider": "anthropic",
+      "gateway": "anthropic",
+      "provider_model": "claude-haiku-4-5",
+      "no_sampling": true,
+      "input_price": 1.0,
+      "cached_input_price": 0.1,
+      "output_price": 5.0,
+      "context_limit": 200000,
+      "output_limit": 64000
+    },
+    {
+      "slug": "grok-4.1-fast-non-reasoning",
+      "label": "Grok 4.1 Fast",
+      "provider": "xai",
+      "gateway": "vertex_maas",
+      "provider_model": "xai/grok-4.1-fast-non-reasoning",
+      "no_sampling": false,
+      "input_price": 0.2,
+      "cached_input_price": 0.05,
+      "output_price": 0.5,
+      "context_limit": 128000,
+      "output_limit": 30000
+    },
+    {
+      "slug": "grok-4.1-fast-reasoning",
+      "label": "Grok 4.1 Fast (Reasoning)",
+      "provider": "xai",
+      "gateway": "vertex_maas",
+      "provider_model": "xai/grok-4.1-fast-reasoning",
+      "no_sampling": false,
+      "input_price": 0.2,
+      "cached_input_price": 0.05,
+      "output_price": 0.5,
+      "context_limit": 128000,
+      "output_limit": 30000
+    },
+    {
+      "slug": "gpt-5.4-nano",
+      "label": "GPT-5.4 nano",
+      "provider": "openai",
+      "gateway": "openai",
+      "provider_model": "gpt-5.4-nano",
+      "no_sampling": false,
+      "input_price": 0.2,
+      "cached_input_price": 0.02,
+      "output_price": 1.25,
+      "context_limit": 400000,
+      "output_limit": 128000
+    },
+    {
+      "slug": "gpt-5.4-mini",
+      "label": "GPT-5.4 mini",
+      "provider": "openai",
+      "gateway": "openai",
+      "provider_model": "gpt-5.4-mini",
+      "no_sampling": false,
+      "input_price": 0.75,
+      "cached_input_price": 0.075,
+      "output_price": 4.5,
+      "context_limit": 400000,
+      "output_limit": 128000
+    },
+    {
+      "slug": "gpt-4o-mini",
+      "label": "GPT-4o mini",
+      "provider": "openai",
+      "gateway": "openai",
+      "provider_model": "gpt-4o-mini",
+      "no_sampling": false,
+      "input_price": 0.15,
+      "cached_input_price": 0.075,
+      "output_price": 0.6,
+      "context_limit": 128000,
+      "output_limit": 16384
+    }
+  ]
+}

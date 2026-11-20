@@ -6,19 +6,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.enums import Gateway, Provider
 
 
-class ModelOverrides(BaseModel):
-    """Facts to use where models.dev is missing or wrong for a model; USD per 1M tokens."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    input_price: float | None = None
-    cached_input_price: float | None = None
-    output_price: float | None = None
-    context_limit: int | None = None
-    output_limit: int | None = None
-
-
 class ChatModelSpec(BaseModel):
+    """Prices in USD per 1M tokens, limits in tokens."""
+
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     slug: str = Field(pattern=r"^[a-z0-9][a-z0-9.-]*$")
@@ -26,9 +16,12 @@ class ChatModelSpec(BaseModel):
     provider: Provider
     gateway: Gateway
     provider_model: str
-    source: str
     no_sampling: bool = False
-    overrides: ModelOverrides | None = None
+    input_price: float | None = None
+    cached_input_price: float | None = None
+    output_price: float | None = None
+    context_limit: int | None = None
+    output_limit: int | None = None
 
 
 class ChatModelCatalog(BaseModel):
