@@ -28,6 +28,7 @@ from app.core.cache import IndexedRedisBackend
 from app.core.config import cache_redis
 from app.core.database import engine, get_db
 from app.core.security import create_token
+from app.enums import Gateway, Provider
 from app.main import app
 from app.models import ChatModel, City, User
 
@@ -129,7 +130,9 @@ async def chat_model_id(db: AsyncSession) -> UUID:
     if found is not None:
         return found
 
-    model = ChatModel(label="Test Model", name="test-model", provider="other")
+    model = ChatModel(
+        label="Test Model", name="test-model", provider=Provider.other, gateway=Gateway.openai
+    )
     db.add(model)
     await db.flush()
     return model.id

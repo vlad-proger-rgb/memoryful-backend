@@ -63,8 +63,8 @@ def _copy_spec(spec: ChatModelSpec, row: ChatModel) -> None:
     row.slug = spec.slug
     row.label = spec.label
     row.name = spec.provider_model
-    row.provider = spec.provider.value
-    row.gateway = spec.gateway.value
+    row.provider = spec.provider
+    row.gateway = spec.gateway
     row.no_sampling = spec.no_sampling
     row.input_price = _price(spec.input_price)
     row.cached_input_price = _price(spec.cached_input_price)

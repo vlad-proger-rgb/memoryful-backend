@@ -53,15 +53,6 @@ def _vertex_access_token() -> str:
     return str(token)
 
 
-def _resolve_gateway(model: ChatModel) -> Gateway:
-    try:
-        return Gateway(model.gateway or "")
-    except ValueError as e:
-        raise RuntimeError(
-            f"Chat model {model.name!r} has no known gateway: {model.gateway!r}"
-        ) from e
-
-
 def _vertex_openapi_base_url(location: str) -> str:
     host = (
         "aiplatform.googleapis.com"
@@ -86,7 +77,7 @@ def build_chat_model(model: ChatModel) -> "BaseChatModel":
             api_key=SecretStr(settings.local_llm_api_key) if settings.local_llm_api_key else None,
         )
 
-    gateway = _resolve_gateway(model)
+    gateway = model.gateway
 
     # Imported lazily so local dev doesn't need the Google libs.
     if gateway is Gateway.google:

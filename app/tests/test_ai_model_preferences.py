@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.utils import get_chat_model_for, get_default_chat_model
-from app.enums import AnalysisPurpose
+from app.enums import AnalysisPurpose, Gateway, Provider
 from app.models import AiModelPreference, ChatModel
 
 from .conftest import MakeUser
@@ -30,7 +30,9 @@ async def other_model_id(db: AsyncSession, chat_model_id: UUID) -> UUID:
     if found is not None:
         return found
 
-    model = ChatModel(label="Second Model", name="second-model", provider="other")
+    model = ChatModel(
+        label="Second Model", name="second-model", provider=Provider.other, gateway=Gateway.openai
+    )
     db.add(model)
     await db.flush()
     return model.id
@@ -140,7 +142,13 @@ async def test_resolver_honors_the_pick(
 async def test_retired_pick_falls_back(
     db: AsyncSession, user_id: UUID, other_model_id: UUID
 ) -> None:
-    retired = ChatModel(label="Retired", name="retired-model", provider="other", is_active=False)
+    retired = ChatModel(
+        label="Retired",
+        name="retired-model",
+        provider=Provider.other,
+        gateway=Gateway.openai,
+        is_active=False,
+    )
     db.add(retired)
     await db.flush()
     db.add(

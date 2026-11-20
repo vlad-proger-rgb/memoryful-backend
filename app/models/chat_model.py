@@ -1,9 +1,10 @@
 from decimal import Decimal
 
-from sqlalchemy import Numeric, false
+from sqlalchemy import Enum, Numeric, false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.enums import Gateway, Provider
 from app.models._mixins import ActiveStatusMixin, IDMixin
 
 
@@ -13,8 +14,8 @@ class ChatModel(Base, IDMixin, ActiveStatusMixin):
     slug: Mapped[str | None] = mapped_column(unique=True, default=None)
     label: Mapped[str]
     name: Mapped[str]
-    provider: Mapped[str] = mapped_column(default="other")
-    gateway: Mapped[str | None] = mapped_column(default=None)
+    provider: Mapped[Provider] = mapped_column(Enum(Provider, native_enum=False, length=32))
+    gateway: Mapped[Gateway] = mapped_column(Enum(Gateway, native_enum=False, length=32))
     no_sampling: Mapped[bool] = mapped_column(default=False, server_default=false())
     is_default: Mapped[bool] = mapped_column(default=False)
     sort_order: Mapped[int] = mapped_column(default=0)

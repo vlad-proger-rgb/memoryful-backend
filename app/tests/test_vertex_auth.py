@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 
 from app.ai import utils
+from app.enums import Gateway, Provider
 from app.models import ChatModel
 from app.tests.conftest import StubAPI
 
@@ -58,7 +59,7 @@ async def test_the_token_refreshes_off_the_event_loop_once_per_expiry(
     credentials: _FakeCredentials, stub_api: StubAPI
 ) -> None:
     model = utils.build_chat_model(
-        ChatModel(name="xai/grok-4.1-fast", provider="xai", gateway="vertex_maas")
+        ChatModel(name="xai/grok-4.1-fast", provider=Provider.xai, gateway=Gateway.vertex_maas)
     )
 
     await model.ainvoke("hello")
