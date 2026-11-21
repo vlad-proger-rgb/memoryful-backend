@@ -7,3 +7,9 @@ class AnalysisPurpose(StrEnum):
 
     day = "day"
     week = "week"
+
+
+class AiUsagePurpose(StrEnum):
+    chat = "chat"
+    day = "day"
+    week = "week"

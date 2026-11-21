@@ -10,10 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.errors import handle_openai_model_error
 from app.ai.schemas import AIItemList
+from app.ai.usage import UsageRecorder
 from app.ai.utils import build_chat_model, get_chat_model_for, load_prompt
 from app.core.cache import clear_cache
 from app.core.database import AsyncSessionLocal
-from app.enums import AnalysisPurpose, CacheNamespace, InsightKind
+from app.enums import AiUsagePurpose, AnalysisPurpose, CacheNamespace, InsightKind
 from app.models import Day, Insight
 
 logger = logging.getLogger(__name__)
@@ -70,7 +71,8 @@ async def generate_day_insights(*, user_id: UUID, timestamp: int) -> None:
             return
 
         model = await get_chat_model_for(db, user_id=user_id, purpose=AnalysisPurpose.day)
-        llm = build_chat_model(model)
+        usage = UsageRecorder(model, user_id=user_id, purpose=AiUsagePurpose.day)
+        llm = build_chat_model(model, usage)
 
         system_base = load_prompt("system_base.md")
         insights_prompt = load_prompt("insights.md")

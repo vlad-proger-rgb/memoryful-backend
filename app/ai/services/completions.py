@@ -10,7 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai.context import ChatContextBuilder
 from app.ai.mcp import load_mcp_tools
 from app.ai.services.chats import ChatStore
+from app.ai.usage import UsageRecorder
 from app.ai.utils import build_chat_model
+from app.enums import AiUsagePurpose
 from app.models import Chat
 from app.schemas import MessageSchema, ToolCallSchema
 
@@ -66,6 +68,11 @@ def _tool_args(raw: object) -> dict:
         else:
             args[key] = str(value)
     return args
+
+
+def _build_llm(chat: Chat) -> "BaseChatModel":
+    usage = UsageRecorder(chat.chat_model, user_id=chat.user_id, purpose=AiUsagePurpose.chat)
+    return build_chat_model(chat.chat_model, usage)
 
 
 def _to_lc_history(messages: list[dict[str, str]]) -> list:
@@ -209,7 +216,7 @@ class ChatAgent:
         """Stream the reply, preferring the tool loop. If the agent fails before
         emitting anything we fall back to a plain stream; if it fails mid-stream we
         surface an error instead, so the user never sees duplicated text."""
-        llm = build_chat_model(chat.chat_model)
+        llm = _build_llm(chat)
         history = _to_lc_history(chat.messages)
 
         if access_token:
@@ -273,7 +280,7 @@ class ChatAgent:
         without one (or on any MCP failure) it falls back to plain completion."""
         from langchain_core.messages import SystemMessage
 
-        llm = build_chat_model(chat.chat_model)
+        llm = _build_llm(chat)
         history = _to_lc_history(chat.messages)
 
         if access_token:

@@ -11,6 +11,8 @@ class VertexMaaSChatOpenAI(ChatOpenAI):
     """Vertex's OpenAI-compat shim 400s on messages with no content, and tool-call turns have
     none, so they get a single space. Overrides both the buffered and streaming paths."""
 
+    stream_usage: bool | None = True
+
     @staticmethod
     def _pad_tool_call_messages(messages: list[BaseMessage]) -> list[BaseMessage]:
         padded: list[BaseMessage] = []

@@ -1,4 +1,4 @@
-from .ai import AnalysisPurpose
+from .ai import AiUsagePurpose, AnalysisPurpose
 from .cache import CacheNamespace
 from .emails import EmailTemplate
 from .font_awesome import IconStyle
@@ -11,6 +11,7 @@ from .storage import StorageUploadIntent
 from .workspace import WorkspacePage
 
 __all__ = [
+    "AiUsagePurpose",
     "AnalysisPurpose",
     "CacheNamespace",
     "DaySortField",

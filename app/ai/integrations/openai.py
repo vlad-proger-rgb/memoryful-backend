@@ -40,4 +40,4 @@ def _federated_token() -> str:
 
 def build_chat_openai(model_name: str, **kwargs: Any) -> ChatOpenAI:
     """ChatOpenAI authenticated by Workload Identity Federation; no API key is involved."""
-    return ChatOpenAI(model=model_name, api_key=_federated_token, **kwargs)
+    return ChatOpenAI(model=model_name, api_key=_federated_token, stream_usage=True, **kwargs)

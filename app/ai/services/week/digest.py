@@ -9,10 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.ai.schemas import WeekDigestDraft, bounded_week_digest_draft
+from app.ai.usage import UsageRecorder
 from app.ai.utils import build_chat_model, get_chat_model_for, load_prompt
 from app.core.cache import clear_cache
 from app.core.database import AsyncSessionLocal
-from app.enums import AnalysisPurpose, CacheNamespace, InsightKind
+from app.enums import AiUsagePurpose, AnalysisPurpose, CacheNamespace, InsightKind
 from app.models import Day, Insight, WeekDigest
 
 from .context import ItemsByDay, build_week_context
@@ -125,7 +126,8 @@ async def generate_week_digest_for_user(
             )
 
         model = await get_chat_model_for(db, user_id=user_id, purpose=AnalysisPurpose.week)
-        llm = build_chat_model(model)
+        usage = UsageRecorder(model, user_id=user_id, purpose=AiUsagePurpose.week)
+        llm = build_chat_model(model, usage)
         budget = _section_budget(len(days))
         context = build_week_context(
             week=week,

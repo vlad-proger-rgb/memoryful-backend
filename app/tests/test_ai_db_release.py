@@ -53,7 +53,7 @@ async def test_completion_calls_the_model_without_a_connection(
     db: AsyncSession, user_id: UUID, chat_model_id: UUID, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     llm = FakeLLM(db)
-    monkeypatch.setattr(completions, "build_chat_model", lambda _model: llm)
+    monkeypatch.setattr(completions, "build_chat_model", lambda _model, _usage: llm)
     chat, message = await ChatAgent(db).run_completion(
         user_id, chat_id=None, model_id=chat_model_id, content="Hello"
     )
@@ -67,7 +67,7 @@ async def test_streamed_completion_calls_the_model_without_a_connection(
     db: AsyncSession, user_id: UUID, chat_model_id: UUID, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     llm = FakeLLM(db)
-    monkeypatch.setattr(completions, "build_chat_model", lambda _model: llm)
+    monkeypatch.setattr(completions, "build_chat_model", lambda _model, _usage: llm)
     events = [
         event
         async for event in ChatAgent(db).stream_completion(
@@ -99,7 +99,7 @@ async def test_day_insights_call_the_model_without_a_connection(
     llm = FakeLLM(db)
     monkeypatch.setattr(insights, "AsyncSessionLocal", lambda: db)
     monkeypatch.setattr(insights, "get_chat_model_for", chat_model_for)
-    monkeypatch.setattr(insights, "build_chat_model", lambda _model: llm)
+    monkeypatch.setattr(insights, "build_chat_model", lambda _model, _usage: llm)
     await insights.generate_day_insights(user_id=user_id, timestamp=timestamp)
 
     assert llm.holds_connection == [False, False]

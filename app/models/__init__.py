@@ -1,4 +1,5 @@
 from .ai_model_preference import AiModelPreference
+from .ai_usage_event import AiUsageEvent
 from .chat import Chat
 from .chat_model import ChatModel
 from .city import City
@@ -18,6 +19,7 @@ from .workspace import WorkspaceBackground
 
 __all__ = [
     "AiModelPreference",
+    "AiUsageEvent",
     "Chat",
     "ChatModel",
     "City",
