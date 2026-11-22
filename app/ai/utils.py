@@ -15,8 +15,6 @@ from app.models import AiModelPreference, ChatModel
 if TYPE_CHECKING:
     from langchain_core.language_models import BaseChatModel
 
-    from app.ai.usage import UsageRecorder
-
 settings = get_settings()
 
 
@@ -65,15 +63,7 @@ def _vertex_openapi_base_url(location: str) -> str:
     return f"https://{host}/v1/projects/{project_id}/locations/{location}/endpoints/openapi"
 
 
-def build_chat_model(model: ChatModel, usage: "UsageRecorder | None" = None) -> "BaseChatModel":
-    llm = _build_chat_model(model)
-    # Local mode runs another model under the catalog row, so its prices don't apply.
-    if usage is not None and settings.llm_mode != "local":
-        llm.callbacks = [usage]
-    return llm
-
-
-def _build_chat_model(model: ChatModel) -> "BaseChatModel":
+def build_chat_model(model: ChatModel) -> "BaseChatModel":
     """The catalog record picks the gateway; `LLM_MODE=local` overrides it for every model."""
     temperature = settings.default_temperature
 

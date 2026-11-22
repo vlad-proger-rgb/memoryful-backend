@@ -8,6 +8,7 @@ from celery import Task
 from sqlalchemy import and_, select
 
 from app.ai.services.week import Week, last_finished_week, week_of
+from app.ai.tracing import flush_traces
 from app.constants import WEEK_DIGEST_MAX_RETRIES, WEEK_DIGEST_RETRY_COUNTDOWN
 from app.core.celery_app import celery
 from app.core.database import AsyncSessionLocal
@@ -24,7 +25,10 @@ def _run_async(coro: "Coroutine[Any, Any, Any]") -> Any:
         _celery_async_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(_celery_async_loop)
 
-    return _celery_async_loop.run_until_complete(coro)
+    try:
+        return _celery_async_loop.run_until_complete(coro)
+    finally:
+        flush_traces()
 
 
 @celery.task(queue="ai_queue")

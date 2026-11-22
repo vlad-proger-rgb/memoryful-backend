@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai.context import ChatContextBuilder
 from app.ai.mcp import load_mcp_tools
 from app.ai.services.chats import ChatStore
-from app.ai.usage import UsageRecorder
+from app.ai.tracing import ai_run_config
 from app.ai.utils import build_chat_model
 from app.enums import AiUsagePurpose
 from app.models import Chat
@@ -18,6 +18,7 @@ from app.schemas import MessageSchema, ToolCallSchema
 
 if TYPE_CHECKING:
     from langchain_core.language_models import BaseChatModel
+    from langchain_core.runnables import RunnableConfig
 
 logger = logging.getLogger(__name__)
 
@@ -70,9 +71,8 @@ def _tool_args(raw: object) -> dict:
     return args
 
 
-def _build_llm(chat: Chat) -> "BaseChatModel":
-    usage = UsageRecorder(chat.chat_model, user_id=chat.user_id, purpose=AiUsagePurpose.chat)
-    return build_chat_model(chat.chat_model, usage)
+def _run_config(chat: Chat) -> "RunnableConfig":
+    return ai_run_config(chat.chat_model, user_id=chat.user_id, purpose=AiUsagePurpose.chat)
 
 
 def _to_lc_history(messages: list[dict[str, str]]) -> list:
@@ -216,13 +216,16 @@ class ChatAgent:
         """Stream the reply, preferring the tool loop. If the agent fails before
         emitting anything we fall back to a plain stream; if it fails mid-stream we
         surface an error instead, so the user never sees duplicated text."""
-        llm = _build_llm(chat)
+        llm = build_chat_model(chat.chat_model)
+        config = _run_config(chat)
         history = _to_lc_history(chat.messages)
 
         if access_token:
             emitted = False
             try:
-                async for event in self._stream_agent(llm, system_prompt, history, access_token):
+                async for event in self._stream_agent(
+                    llm, config, system_prompt, history, access_token
+                ):
                     emitted = True
                     yield event
             except Exception:
@@ -236,18 +239,23 @@ class ChatAgent:
             else:
                 return
 
-        async for event in self._stream_plain(llm, system_prompt, history):
+        async for event in self._stream_plain(llm, config, system_prompt, history):
             yield event
 
     async def _stream_agent(
-        self, llm: "BaseChatModel", system_prompt: str, history: list, access_token: str
+        self,
+        llm: "BaseChatModel",
+        config: "RunnableConfig",
+        system_prompt: str,
+        history: list,
+        access_token: str,
     ) -> AsyncIterator[dict]:
         from langchain.agents import create_agent
 
         tools = await load_mcp_tools(access_token)
         agent = create_agent(llm, tools, system_prompt=system_prompt)
 
-        async for event in agent.astream_events({"messages": history}):
+        async for event in agent.astream_events({"messages": history}, config):
             kind = event.get("event")
             if kind == "on_chat_model_stream":
                 chunk = event.get("data", {}).get("chunk")
@@ -264,11 +272,11 @@ class ChatAgent:
                 yield {"type": "toolResult", "name": event.get("name", "")}
 
     async def _stream_plain(
-        self, llm: "BaseChatModel", system_prompt: str, history: list
+        self, llm: "BaseChatModel", config: "RunnableConfig", system_prompt: str, history: list
     ) -> AsyncIterator[dict]:
         from langchain_core.messages import SystemMessage
 
-        async for chunk in llm.astream([SystemMessage(content=system_prompt), *history]):
+        async for chunk in llm.astream([SystemMessage(content=system_prompt), *history], config):
             text = _extract_text(chunk.content)
             if text:
                 yield {"type": "token", "text": text}
@@ -280,20 +288,26 @@ class ChatAgent:
         without one (or on any MCP failure) it falls back to plain completion."""
         from langchain_core.messages import SystemMessage
 
-        llm = _build_llm(chat)
+        llm = build_chat_model(chat.chat_model)
+        config = _run_config(chat)
         history = _to_lc_history(chat.messages)
 
         if access_token:
             try:
-                return await self._run_agent(llm, system_prompt, history, access_token)
+                return await self._run_agent(llm, config, system_prompt, history, access_token)
             except Exception:
                 logger.exception("MCP agent loop failed; falling back to plain completion")
 
-        response = await llm.ainvoke([SystemMessage(content=system_prompt), *history])
+        response = await llm.ainvoke([SystemMessage(content=system_prompt), *history], config)
         return _extract_text(response.content)
 
     async def _run_agent(
-        self, llm: "BaseChatModel", system_prompt: str, history: list, access_token: str
+        self,
+        llm: "BaseChatModel",
+        config: "RunnableConfig",
+        system_prompt: str,
+        history: list,
+        access_token: str,
     ) -> str:
         """Run the MCP tool loop over the (cached) tools for this bearer, which the
         MCP server executes as that user (per-user isolation)."""
@@ -302,7 +316,7 @@ class ChatAgent:
 
         tools = await load_mcp_tools(access_token)
         agent = create_agent(llm, tools, system_prompt=system_prompt)
-        result = await agent.ainvoke({"messages": history})
+        result = await agent.ainvoke({"messages": history}, config)
 
         # Persist only the final assistant text: the last AIMessage with non-empty
         # content (trailing tool-call AIMessages are empty).

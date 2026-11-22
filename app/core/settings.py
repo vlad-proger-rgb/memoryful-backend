@@ -24,6 +24,7 @@ REQUIRED_SECRETS = frozenset(
         "resend_api_key",
         "s3_access_key_id",
         "s3_secret_access_key",
+        "langsmith_api_key",
     }
 )
 
@@ -163,6 +164,13 @@ class Settings(BaseSettings):
     # OpenAI's Workload Identity Provider and the service account its mapping targets.
     openai_identity_provider_id: str = Field(min_length=1)
     openai_service_account_id: str = Field(min_length=1)
+
+    # LangSmith
+    ai_tracing_enabled: bool = False
+    ai_tracing_agent_id: str = Field(min_length=1)
+    ai_tracing_environment: Literal["local", "development", "staging", "production"]
+    langsmith_api_key: str = Field(min_length=1)
+    langsmith_endpoint: str = "https://api.smith.langchain.com"
 
     @classmethod
     def settings_customise_sources(

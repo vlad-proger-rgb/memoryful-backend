@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.ai.schemas import WeekDigestDraft, bounded_week_digest_draft
-from app.ai.usage import UsageRecorder
+from app.ai.tracing import ai_run_config
 from app.ai.utils import build_chat_model, get_chat_model_for, load_prompt
 from app.core.cache import clear_cache
 from app.core.database import AsyncSessionLocal
@@ -126,8 +126,8 @@ async def generate_week_digest_for_user(
             )
 
         model = await get_chat_model_for(db, user_id=user_id, purpose=AnalysisPurpose.week)
-        usage = UsageRecorder(model, user_id=user_id, purpose=AiUsagePurpose.week)
-        llm = build_chat_model(model, usage)
+        llm = build_chat_model(model)
+        config = ai_run_config(model, user_id=user_id, purpose=AiUsagePurpose.week)
         budget = _section_budget(len(days))
         context = build_week_context(
             week=week,
@@ -145,12 +145,12 @@ async def generate_week_digest_for_user(
         try:
             digest = WeekDigestDraft.model_validate(
                 await llm.with_structured_output(bounded_week_digest_draft(budget)).ainvoke(
-                    messages
+                    messages, config
                 )
             )
         except Exception as e:
             logger.warning("Structured digest failed (%s), parsing the raw reply", e)
-            response = await llm.ainvoke(messages)
+            response = await llm.ainvoke(messages, config)
             raw = str(getattr(response, "content", response))
             try:
                 # Unbounded on purpose: a reply that overshoots is still worth keeping.

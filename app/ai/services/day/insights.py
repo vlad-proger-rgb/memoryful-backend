@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.errors import handle_openai_model_error
 from app.ai.schemas import AIItemList
-from app.ai.usage import UsageRecorder
+from app.ai.tracing import ai_run_config
 from app.ai.utils import build_chat_model, get_chat_model_for, load_prompt
 from app.core.cache import clear_cache
 from app.core.database import AsyncSessionLocal
@@ -71,8 +71,8 @@ async def generate_day_insights(*, user_id: UUID, timestamp: int) -> None:
             return
 
         model = await get_chat_model_for(db, user_id=user_id, purpose=AnalysisPurpose.day)
-        usage = UsageRecorder(model, user_id=user_id, purpose=AiUsagePurpose.day)
-        llm = build_chat_model(model, usage)
+        llm = build_chat_model(model)
+        config = ai_run_config(model, user_id=user_id, purpose=AiUsagePurpose.day)
 
         system_base = load_prompt("system_base.md")
         insights_prompt = load_prompt("insights.md")
@@ -123,11 +123,11 @@ async def generate_day_insights(*, user_id: UUID, timestamp: int) -> None:
             ]
             try:
                 parsed = AIItemList.model_validate(
-                    await llm.with_structured_output(AIItemList).ainvoke(messages)
+                    await llm.with_structured_output(AIItemList).ainvoke(messages, config)
                 )
             except Exception as e:
                 logger.warning("Structured output failed (%s), parsing the raw reply", e)
-                response = await llm.ainvoke(messages)
+                response = await llm.ainvoke(messages, config)
                 parsed = _PARSER.parse(str(getattr(response, "content", response)))
             return [item.model_dump() for item in parsed.items]
 

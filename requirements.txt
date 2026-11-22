@@ -25,6 +25,7 @@ anthropic>=0.117                     # WorkloadIdentityCredentials (Claude auth)
 langchain-ollama>=1.1,<2
 langchain-google-genai>=4.2,<5      # ChatGoogleGenerativeAI (Gemini via Vertex)
 langchain-mcp-adapters>=0.3,<1       # load MCP server tools as LangChain tools (langgraph comes transitively via langchain)
+langsmith>=0.15,<1
 celery
 passlib
 boto3
