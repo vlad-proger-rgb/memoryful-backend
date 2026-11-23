@@ -9,12 +9,19 @@ from sqlalchemy import and_, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.errors import handle_openai_model_error
-from app.ai.schemas import AIItemList
+from app.ai.schemas import AIItemList, AiRunMetadata
 from app.ai.tracing import ai_run_config
 from app.ai.utils import build_chat_model, get_chat_model_for, load_prompt
 from app.core.cache import clear_cache
 from app.core.database import AsyncSessionLocal
-from app.enums import AiUsagePurpose, AnalysisPurpose, CacheNamespace, InsightKind
+from app.enums import (
+    AiRunName,
+    AiRunTrigger,
+    AiUsagePurpose,
+    AnalysisPurpose,
+    CacheNamespace,
+    InsightKind,
+)
 from app.models import Day, Insight
 
 logger = logging.getLogger(__name__)
@@ -59,7 +66,7 @@ async def _replace_items(
     logger.info("Stored %d %s items for user %s on day %s", len(items), kind, user_id, timestamp)
 
 
-async def generate_day_insights(*, user_id: UUID, timestamp: int) -> None:
+async def generate_day_insights(*, user_id: UUID, timestamp: int, trigger: AiRunTrigger) -> None:
     async with AsyncSessionLocal() as db:
         day: Day | None = await db.get(Day, (timestamp, user_id))
         if not day:
@@ -72,13 +79,21 @@ async def generate_day_insights(*, user_id: UUID, timestamp: int) -> None:
 
         model = await get_chat_model_for(db, user_id=user_id, purpose=AnalysisPurpose.day)
         llm = build_chat_model(model)
-        config = ai_run_config(model, user_id=user_id, purpose=AiUsagePurpose.day)
 
         system_base = load_prompt("system_base.md")
         insights_prompt = load_prompt("insights.md")
         suggestions_prompt = load_prompt("suggestions.md")
 
         date = dt.datetime.fromtimestamp(timestamp, tz=dt.UTC).date()
+        config = ai_run_config(
+            AiRunMetadata(
+                model=model,
+                user_id=user_id,
+                purpose=AiUsagePurpose.day,
+                trigger=trigger,
+                day=date,
+            )
+        )
 
         existing = (
             (
@@ -115,7 +130,9 @@ async def generate_day_insights(*, user_id: UUID, timestamp: int) -> None:
 
         await db.commit()
 
-        async def _invoke_items(*, prompt: str, context: str) -> list[dict]:
+        async def _invoke_items(
+            *, name: AiRunName, raw_name: AiRunName, prompt: str, context: str
+        ) -> list[dict]:
             messages: list[BaseMessage] = [
                 SystemMessage(content=system_base),
                 SystemMessage(content=prompt),
@@ -123,16 +140,23 @@ async def generate_day_insights(*, user_id: UUID, timestamp: int) -> None:
             ]
             try:
                 parsed = AIItemList.model_validate(
-                    await llm.with_structured_output(AIItemList).ainvoke(messages, config)
+                    await llm.with_structured_output(AIItemList).ainvoke(
+                        messages, {**config, "run_name": name}
+                    )
                 )
             except Exception as e:
                 logger.warning("Structured output failed (%s), parsing the raw reply", e)
-                response = await llm.ainvoke(messages, config)
+                response = await llm.ainvoke(messages, {**config, "run_name": raw_name})
                 parsed = _PARSER.parse(str(getattr(response, "content", response)))
             return [item.model_dump() for item in parsed.items]
 
         try:
-            insight_items = await _invoke_items(prompt=insights_prompt, context=day_context)
+            insight_items = await _invoke_items(
+                name=AiRunName.day_insights,
+                raw_name=AiRunName.day_insights_raw,
+                prompt=insights_prompt,
+                context=day_context,
+            )
         except OpenAIError as e:
             handle_openai_model_error(e)
 
@@ -155,7 +179,10 @@ async def generate_day_insights(*, user_id: UUID, timestamp: int) -> None:
 
         try:
             suggestion_items = await _invoke_items(
-                prompt=suggestions_prompt, context=suggestions_context
+                name=AiRunName.day_suggestions,
+                raw_name=AiRunName.day_suggestions_raw,
+                prompt=suggestions_prompt,
+                context=suggestions_context,
             )
         except OpenAIError as e:
             handle_openai_model_error(e)

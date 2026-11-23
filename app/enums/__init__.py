@@ -1,4 +1,4 @@
-from .ai import AiUsagePurpose, AnalysisPurpose
+from .ai import AiRunName, AiRunTrigger, AiUsagePurpose, AnalysisPurpose
 from .cache import CacheNamespace
 from .emails import EmailTemplate
 from .font_awesome import IconStyle
@@ -11,6 +11,8 @@ from .storage import StorageUploadIntent
 from .workspace import WorkspacePage
 
 __all__ = [
+    "AiRunName",
+    "AiRunTrigger",
     "AiUsagePurpose",
     "AnalysisPurpose",
     "CacheNamespace",

@@ -15,6 +15,7 @@ from app.ai.schemas import AIItem, AIItemList
 from app.ai.services import completions
 from app.ai.services.completions import ChatAgent
 from app.ai.services.day import insights
+from app.enums import AiRunTrigger
 from app.models import ChatModel, Day, Insight
 
 
@@ -100,7 +101,9 @@ async def test_day_insights_call_the_model_without_a_connection(
     monkeypatch.setattr(insights, "AsyncSessionLocal", lambda: db)
     monkeypatch.setattr(insights, "get_chat_model_for", chat_model_for)
     monkeypatch.setattr(insights, "build_chat_model", lambda _model: llm)
-    await insights.generate_day_insights(user_id=user_id, timestamp=timestamp)
+    await insights.generate_day_insights(
+        user_id=user_id, timestamp=timestamp, trigger=AiRunTrigger.user
+    )
 
     assert llm.holds_connection == [False, False]
     stored = (await db.scalars(select(Insight).where(Insight.user_id == user_id))).all()

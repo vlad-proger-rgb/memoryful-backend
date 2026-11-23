@@ -9,10 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.context import ChatContextBuilder
 from app.ai.mcp import load_mcp_tools
+from app.ai.schemas import AiRunMetadata
 from app.ai.services.chats import ChatStore
 from app.ai.tracing import ai_run_config
 from app.ai.utils import build_chat_model
-from app.enums import AiUsagePurpose
+from app.enums import AiRunName, AiRunTrigger, AiUsagePurpose
 from app.models import Chat
 from app.schemas import MessageSchema, ToolCallSchema
 
@@ -69,10 +70,6 @@ def _tool_args(raw: object) -> dict:
         else:
             args[key] = str(value)
     return args
-
-
-def _run_config(chat: Chat) -> "RunnableConfig":
-    return ai_run_config(chat.chat_model, user_id=chat.user_id, purpose=AiUsagePurpose.chat)
 
 
 def _to_lc_history(messages: list[dict[str, str]]) -> list:
@@ -210,6 +207,16 @@ class ChatAgent:
             "createdAt": assistant_created_at.isoformat(),
         }
 
+    def _run_metadata(self, chat: Chat, *, streamed: bool) -> AiRunMetadata:
+        return AiRunMetadata(
+            model=chat.chat_model,
+            user_id=chat.user_id,
+            purpose=AiUsagePurpose.chat,
+            trigger=AiRunTrigger.user,
+            chat_id=chat.id,
+            streamed=streamed,
+        )
+
     async def _stream_reply(
         self, chat: Chat, system_prompt: str, access_token: str | None
     ) -> AsyncIterator[dict]:
@@ -217,7 +224,8 @@ class ChatAgent:
         emitting anything we fall back to a plain stream; if it fails mid-stream we
         surface an error instead, so the user never sees duplicated text."""
         llm = build_chat_model(chat.chat_model)
-        config = _run_config(chat)
+        metadata = self._run_metadata(chat, streamed=True)
+        config = ai_run_config(metadata)
         history = _to_lc_history(chat.messages)
 
         if access_token:
@@ -236,6 +244,7 @@ class ChatAgent:
                         "message": "The assistant stopped early. Please try again.",
                     }
                     return
+                config = ai_run_config(metadata.model_copy(update={"agent_failed": True}))
             else:
                 return
 
@@ -255,7 +264,9 @@ class ChatAgent:
         tools = await load_mcp_tools(access_token)
         agent = create_agent(llm, tools, system_prompt=system_prompt)
 
-        async for event in agent.astream_events({"messages": history}, config):
+        async for event in agent.astream_events(
+            {"messages": history}, {**config, "run_name": AiRunName.chat}
+        ):
             kind = event.get("event")
             if kind == "on_chat_model_stream":
                 chunk = event.get("data", {}).get("chunk")
@@ -276,7 +287,10 @@ class ChatAgent:
     ) -> AsyncIterator[dict]:
         from langchain_core.messages import SystemMessage
 
-        async for chunk in llm.astream([SystemMessage(content=system_prompt), *history], config):
+        async for chunk in llm.astream(
+            [SystemMessage(content=system_prompt), *history],
+            {**config, "run_name": AiRunName.chat_plain},
+        ):
             text = _extract_text(chunk.content)
             if text:
                 yield {"type": "token", "text": text}
@@ -289,7 +303,8 @@ class ChatAgent:
         from langchain_core.messages import SystemMessage
 
         llm = build_chat_model(chat.chat_model)
-        config = _run_config(chat)
+        metadata = self._run_metadata(chat, streamed=False)
+        config = ai_run_config(metadata)
         history = _to_lc_history(chat.messages)
 
         if access_token:
@@ -297,8 +312,12 @@ class ChatAgent:
                 return await self._run_agent(llm, config, system_prompt, history, access_token)
             except Exception:
                 logger.exception("MCP agent loop failed; falling back to plain completion")
+                config = ai_run_config(metadata.model_copy(update={"agent_failed": True}))
 
-        response = await llm.ainvoke([SystemMessage(content=system_prompt), *history], config)
+        response = await llm.ainvoke(
+            [SystemMessage(content=system_prompt), *history],
+            {**config, "run_name": AiRunName.chat_plain},
+        )
         return _extract_text(response.content)
 
     async def _run_agent(
@@ -316,7 +335,7 @@ class ChatAgent:
 
         tools = await load_mcp_tools(access_token)
         agent = create_agent(llm, tools, system_prompt=system_prompt)
-        result = await agent.ainvoke({"messages": history}, config)
+        result = await agent.ainvoke({"messages": history}, {**config, "run_name": AiRunName.chat})
 
         # Persist only the final assistant text: the last AIMessage with non-empty
         # content (trailing tool-call AIMessages are empty).

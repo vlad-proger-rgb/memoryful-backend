@@ -13,6 +13,7 @@ from app.constants import WEEK_DIGEST_MAX_RETRIES, WEEK_DIGEST_RETRY_COUNTDOWN
 from app.core.celery_app import celery
 from app.core.database import AsyncSessionLocal
 from app.core.dates import day_timestamp
+from app.enums import AiRunTrigger
 from app.models import Day
 
 _celery_async_loop: asyncio.AbstractEventLoop | None = None
@@ -32,10 +33,14 @@ def _run_async(coro: "Coroutine[Any, Any, Any]") -> Any:
 
 
 @celery.task(queue="ai_queue")
-def generate_day_ai(user_id: str, timestamp: int) -> None:
+def generate_day_ai(user_id: str, timestamp: int, trigger: str) -> None:
     from app.ai.services.day import generate_day_insights
 
-    _run_async(generate_day_insights(user_id=UUID(user_id), timestamp=timestamp))
+    _run_async(
+        generate_day_insights(
+            user_id=UUID(user_id), timestamp=timestamp, trigger=AiRunTrigger(trigger)
+        )
+    )
 
 
 async def _enqueue_fallback_for_yesterday() -> None:
@@ -56,7 +61,7 @@ async def _enqueue_fallback_for_yesterday() -> None:
         days = (await db.execute(stmt)).scalars().all()
 
     for day in days:
-        generate_day_ai.delay(str(day.user_id), day.timestamp)
+        generate_day_ai.delay(str(day.user_id), day.timestamp, AiRunTrigger.scheduled)
 
 
 @celery.task(queue="ai_queue")
@@ -65,7 +70,9 @@ def generate_yesterday_ai_fallback() -> None:
 
 
 @celery.task(bind=True, queue="ai_queue", max_retries=WEEK_DIGEST_MAX_RETRIES)
-def generate_week_digest(self: Task, user_id: str, week_start: str, force: bool = False) -> None:
+def generate_week_digest(
+    self: Task, user_id: str, week_start: str, trigger: str, force: bool = False
+) -> None:
     from app.ai.services.week.digest import WeekNotReady, generate_week_digest_for_user
 
     week = week_of(dt.date.fromisoformat(week_start))
@@ -74,6 +81,7 @@ def generate_week_digest(self: Task, user_id: str, week_start: str, force: bool 
             generate_week_digest_for_user(
                 user_id=UUID(user_id),
                 week=week,
+                trigger=AiRunTrigger(trigger),
                 # Daily fallback only covers yesterday; missed AI would block digest forever.
                 allow_incomplete=force or self.request.retries >= WEEK_DIGEST_MAX_RETRIES,
             )
@@ -92,7 +100,7 @@ async def _enqueue_week_digests(week: Week) -> None:
         user_ids = (await db.execute(stmt)).scalars().all()
 
     for user_id in user_ids:
-        generate_week_digest.delay(str(user_id), week.start.isoformat())
+        generate_week_digest.delay(str(user_id), week.start.isoformat(), AiRunTrigger.scheduled)
 
 
 @celery.task(queue="ai_queue")

@@ -8,12 +8,19 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.ai.schemas import WeekDigestDraft, bounded_week_digest_draft
+from app.ai.schemas import AiRunMetadata, WeekDigestDraft, bounded_week_digest_draft
 from app.ai.tracing import ai_run_config
 from app.ai.utils import build_chat_model, get_chat_model_for, load_prompt
 from app.core.cache import clear_cache
 from app.core.database import AsyncSessionLocal
-from app.enums import AiUsagePurpose, AnalysisPurpose, CacheNamespace, InsightKind
+from app.enums import (
+    AiRunName,
+    AiRunTrigger,
+    AiUsagePurpose,
+    AnalysisPurpose,
+    CacheNamespace,
+    InsightKind,
+)
 from app.models import Day, Insight, WeekDigest
 
 from .context import ItemsByDay, build_week_context
@@ -106,7 +113,7 @@ async def _store(
 
 
 async def generate_week_digest_for_user(
-    *, user_id: UUID, week: Week, allow_incomplete: bool = False
+    *, user_id: UUID, week: Week, trigger: AiRunTrigger, allow_incomplete: bool = False
 ) -> bool:
     """Digest one finished week. Returns False if the user wrote nothing that week.
 
@@ -127,7 +134,16 @@ async def generate_week_digest_for_user(
 
         model = await get_chat_model_for(db, user_id=user_id, purpose=AnalysisPurpose.week)
         llm = build_chat_model(model)
-        config = ai_run_config(model, user_id=user_id, purpose=AiUsagePurpose.week)
+        config = ai_run_config(
+            AiRunMetadata(
+                model=model,
+                user_id=user_id,
+                purpose=AiUsagePurpose.week,
+                trigger=trigger,
+                week=week.start,
+                days_missing_ai=len(pending),
+            )
+        )
         budget = _section_budget(len(days))
         context = build_week_context(
             week=week,
@@ -145,12 +161,14 @@ async def generate_week_digest_for_user(
         try:
             digest = WeekDigestDraft.model_validate(
                 await llm.with_structured_output(bounded_week_digest_draft(budget)).ainvoke(
-                    messages, config
+                    messages, {**config, "run_name": AiRunName.week_digest}
                 )
             )
         except Exception as e:
             logger.warning("Structured digest failed (%s), parsing the raw reply", e)
-            response = await llm.ainvoke(messages, config)
+            response = await llm.ainvoke(
+                messages, {**config, "run_name": AiRunName.week_digest_raw}
+            )
             raw = str(getattr(response, "content", response))
             try:
                 # Unbounded on purpose: a reply that overshoots is still worth keeping.

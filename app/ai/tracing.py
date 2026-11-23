@@ -1,10 +1,8 @@
 from functools import cache
 from typing import TYPE_CHECKING
-from uuid import UUID
 
+from app.ai.schemas import AiRunMetadata
 from app.core.settings import get_settings
-from app.enums import AiUsagePurpose
-from app.models import ChatModel
 
 if TYPE_CHECKING:
     from langchain_core.callbacks import BaseCallbackHandler
@@ -26,7 +24,7 @@ def _client() -> "Client":
     )
 
 
-def ai_run_config(model: ChatModel, *, user_id: UUID, purpose: AiUsagePurpose) -> "RunnableConfig":
+def ai_run_config(metadata: AiRunMetadata) -> "RunnableConfig":
     """Callbacks and metadata given at the top of a run reach every model and tool call in it."""
     from langchain_core.tracers.langchain import LangChainTracer
     from langsmith.address import agent_address
@@ -36,13 +34,15 @@ def ai_run_config(model: ChatModel, *, user_id: UUID, purpose: AiUsagePurpose) -
     callbacks: list[BaseCallbackHandler] = []
     # Local mode runs another model under the catalog row, so its prices don't apply.
     if settings.llm_mode != "local":
-        callbacks.append(UsageRecorder(model, user_id=user_id, purpose=purpose))
+        callbacks.append(
+            UsageRecorder(metadata.model, user_id=metadata.user_id, purpose=metadata.purpose)
+        )
     if settings.ai_tracing_enabled:
         address = agent_address(settings.ai_tracing_agent_id, settings.ai_tracing_environment)
         callbacks.append(LangChainTracer(client=_client(), address=address))
     return {
         "callbacks": callbacks,
-        "metadata": {"user_id": str(user_id), "purpose": purpose.value, "model": model.slug},
+        "metadata": metadata.model_dump(mode="json", exclude_none=True),
     }
 
 

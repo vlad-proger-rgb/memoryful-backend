@@ -22,7 +22,7 @@ from app.core.cache import cached, clear_cache
 from app.core.database import get_db
 from app.core.deps import StorageServiceDep, get_current_user
 from app.core.storage.utils import as_key_set
-from app.enums import CacheNamespace
+from app.enums import AiRunTrigger, CacheNamespace
 from app.enums.sorting import DaySortField, SortOrder
 from app.models import City, Day, Insight, Tag, TrackableItem, TrackableProgress
 from app.schemas import (
@@ -473,7 +473,7 @@ async def complete_day(
         await clear_cache(CacheNamespace.days_list, user_id)
         await clear_cache(CacheNamespace.days_detail, user_id)
 
-    generate_day_ai.delay(str(user_id), timestamp)
+    generate_day_ai.delay(str(user_id), timestamp, AiRunTrigger.user)
     return Msg(code=200, msg="Day marked as complete")
 
 
