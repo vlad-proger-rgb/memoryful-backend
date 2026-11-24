@@ -15,6 +15,10 @@ RUN adduser --disabled-password --gecos '' appuser && \
 
 USER appuser
 
+# The LangSmith SDK tags every trace with this as revision_id.
+ARG GIT_SHA
+ENV LANGSMITH_REVISION_ID=$GIT_SHA
+
 # Two children so a login-code email never queues behind a long LLM call
 CMD celery -A app.core.celery_app worker \
     -Q email_queue,ai_queue \

@@ -13,4 +13,8 @@ USER appuser
 
 COPY . .
 
+# The LangSmith SDK tags every trace with this as revision_id.
+ARG GIT_SHA
+ENV LANGSMITH_REVISION_ID=$GIT_SHA
+
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]

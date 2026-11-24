@@ -62,6 +62,7 @@ jobs:
           REG=${{ env.GAR_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GAR_REPOSITORY }}
           docker build \
             -f docker/Dockerfile \
+            --build-arg GIT_SHA=${{ github.sha }} \
             -t $REG/${{ env.IMAGE_NAME }}:${{ github.sha }} \
             -t $REG/${{ env.IMAGE_NAME }}:latest \
             .
@@ -69,6 +70,7 @@ jobs:
           # dependency tree, which starved the 1GB VM and degraded the live site.
           docker build \
             -f docker/Dockerfile.celery \
+            --build-arg GIT_SHA=${{ github.sha }} \
             -t $REG/${{ env.CELERY_IMAGE_NAME }}:${{ github.sha }} \
             -t $REG/${{ env.CELERY_IMAGE_NAME }}:latest \
             .
