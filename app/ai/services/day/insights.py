@@ -66,7 +66,9 @@ async def _replace_items(
     logger.info("Stored %d %s items for user %s on day %s", len(items), kind, user_id, timestamp)
 
 
-async def generate_day_insights(*, user_id: UUID, timestamp: int, trigger: AiRunTrigger) -> None:
+async def generate_day_insights(
+    *, user_id: UUID, timestamp: int, trigger: AiRunTrigger, session_id: UUID | None = None
+) -> None:
     async with AsyncSessionLocal() as db:
         day: Day | None = await db.get(Day, (timestamp, user_id))
         if not day:
@@ -91,6 +93,7 @@ async def generate_day_insights(*, user_id: UUID, timestamp: int, trigger: AiRun
                 user_id=user_id,
                 purpose=AiUsagePurpose.day,
                 trigger=trigger,
+                session_id=session_id,
                 day=date,
             )
         )

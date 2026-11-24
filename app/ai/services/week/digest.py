@@ -113,7 +113,12 @@ async def _store(
 
 
 async def generate_week_digest_for_user(
-    *, user_id: UUID, week: Week, trigger: AiRunTrigger, allow_incomplete: bool = False
+    *,
+    user_id: UUID,
+    week: Week,
+    trigger: AiRunTrigger,
+    session_id: UUID | None = None,
+    allow_incomplete: bool = False,
 ) -> bool:
     """Digest one finished week. Returns False if the user wrote nothing that week.
 
@@ -140,6 +145,7 @@ async def generate_week_digest_for_user(
                 user_id=user_id,
                 purpose=AiUsagePurpose.week,
                 trigger=trigger,
+                session_id=session_id,
                 week=week.start,
                 days_missing_ai=len(pending),
             )

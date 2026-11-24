@@ -1,4 +1,5 @@
 from .ai import AiRunName, AiRunTrigger, AiUsagePurpose, AnalysisPurpose
+from .auth import TokenType
 from .cache import CacheNamespace
 from .emails import EmailTemplate
 from .font_awesome import IconStyle
@@ -25,5 +26,6 @@ __all__ = [
     "RedisPrefix",
     "SortOrder",
     "StorageUploadIntent",
+    "TokenType",
     "WorkspacePage",
 ]

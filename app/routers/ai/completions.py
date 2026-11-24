@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.services.completions import ChatAgent
 from app.core.database import AsyncSessionLocal, get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_session_id
 from app.core.security import oauth2_scheme
 from app.schemas import CompletionCreate, CompletionResponse, Msg
 
@@ -26,6 +26,7 @@ router = APIRouter(
 async def create_completion(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
+    session_id: Annotated[UUID, Depends(get_session_id)],
     data: CompletionCreate,
     # Same bearer get_current_user already validated; captured here so the agent
     # loop can forward it to the MCP server for per-user data isolation.
@@ -37,6 +38,7 @@ async def create_completion(
             chat_id=data.chat_id,
             model_id=data.model_id,
             content=data.content,
+            session_id=session_id,
             access_token=access_token,
         )
     except HTTPException:
@@ -64,6 +66,7 @@ def _sse(event: dict) -> str:
 @router.post("/stream")
 async def stream_completion(
     user_id: Annotated[UUID, Depends(get_current_user())],
+    session_id: Annotated[UUID, Depends(get_session_id)],
     data: CompletionCreate,
     access_token: Annotated[str, Depends(oauth2_scheme)],
 ) -> StreamingResponse:
@@ -79,6 +82,7 @@ async def stream_completion(
                     chat_id=data.chat_id,
                     model_id=data.model_id,
                     content=data.content,
+                    session_id=session_id,
                     access_token=access_token,
                 ):
                     yield _sse(event)

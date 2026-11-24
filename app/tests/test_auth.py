@@ -1,11 +1,13 @@
 """Login, token issuance and the two Redis-backed gates: the login code and the
-`jti` blacklist.
+revoked-session blacklist.
 
 Redis is real here rather than faked, because the login code and the blacklist are
-the behaviour under test. Every key is namespaced by a unique email or jti and
+the behaviour under test. Every key is namespaced by a unique email or session id and
 removed afterwards, so runs do not interfere.
 """
 
+import base64
+import json
 import logging
 from collections.abc import AsyncIterator
 from unittest.mock import patch
@@ -14,6 +16,7 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
+from jose import jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -146,24 +149,41 @@ async def test_trusted_bypass_is_off_outside_development(
     assert not settings.is_trusted_email(email)
 
 
-async def test_blacklisted_token_is_rejected(client: AsyncClient, make_user: MakeUser) -> None:
-    user, headers = await make_user()
-    token, jti = create_token(data={"sub": str(user.id)})
+async def test_a_revoked_sessions_token_is_rejected(
+    client: AsyncClient, make_user: MakeUser
+) -> None:
+    user, _ = await make_user()
+    session_id = uuid4()
+    token = create_token(user_id=user.id, session_id=session_id)
     headers = {"Authorization": f"Bearer {token}"}
 
     assert (await client.get("/auth/me", headers=headers)).status_code == 200
 
-    key = f"{RedisPrefix.blacklisted_token}{jti}"
+    key = f"{RedisPrefix.revoked_session}{session_id}"
     await redis.setex(key, 60, "true")
     try:
         after = await client.get("/auth/me", headers=headers)
-        assert after.status_code == 401, "a blacklisted jti still authenticated"
+        assert after.status_code == 401, "a revoked session's token still authenticated"
     finally:
         await redis.delete(key)
 
 
+async def test_an_access_token_without_a_session_id_is_rejected(
+    client: AsyncClient, make_user: MakeUser
+) -> None:
+    user, _ = await make_user()
+    # The shape tokens had before sessions carried a stable id.
+    legacy = jwt.encode(
+        {"sub": str(user.id), "jti": str(uuid4()), "exp": 9_999_999_999},
+        settings.access_secret_key,
+        ALGORITHM,
+    )
+    response = await client.get("/auth/me", headers={"Authorization": f"Bearer {legacy}"})
+    assert response.status_code == 401
+
+
 async def test_token_for_an_unknown_user_is_rejected(client: AsyncClient) -> None:
-    token, _ = create_token(data={"sub": str(uuid4())})
+    token = create_token(user_id=uuid4(), session_id=uuid4())
     response = await client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 404
 
@@ -173,10 +193,8 @@ async def test_token_signed_with_the_wrong_key_is_rejected(
 ) -> None:
     user, _ = await make_user()
     # The refresh key must not be accepted where the access key is expected.
-    from jose import jwt
-
     forged = jwt.encode(
-        {"sub": str(user.id), "jti": str(uuid4()), "exp": 9_999_999_999},
+        {"sub": str(user.id), "sid": str(uuid4()), "jti": str(uuid4()), "exp": 9_999_999_999},
         settings.refresh_secret_key,
         ALGORITHM,
     )
@@ -189,6 +207,31 @@ async def test_garbage_token_is_rejected(client: AsyncClient) -> None:
     assert response.status_code == 401
 
 
+async def test_an_unsigned_alg_none_token_is_rejected(
+    client: AsyncClient, make_user: MakeUser
+) -> None:
+    user, _ = await make_user()
+
+    def segment(part: dict) -> str:
+        return base64.urlsafe_b64encode(json.dumps(part).encode()).rstrip(b"=").decode()
+
+    claims = {"sub": str(user.id), "sid": str(uuid4()), "exp": 9_999_999_999}
+    unsigned = f"{segment({'alg': 'none', 'typ': 'JWT'})}.{segment(claims)}."
+    response = await client.get("/auth/me", headers={"Authorization": f"Bearer {unsigned}"})
+    assert response.status_code == 401
+
+
+async def test_a_token_without_an_expiry_is_rejected(
+    client: AsyncClient, make_user: MakeUser
+) -> None:
+    user, _ = await make_user()
+    endless = jwt.encode(
+        {"sub": str(user.id), "sid": str(uuid4())}, settings.access_secret_key, ALGORITHM
+    )
+    response = await client.get("/auth/me", headers={"Authorization": f"Bearer {endless}"})
+    assert response.status_code == 401
+
+
 async def test_refresh_rejects_a_missing_token(client: AsyncClient) -> None:
     response = await client.get("/auth/refresh")
     assert response.status_code == 401
@@ -196,7 +239,7 @@ async def test_refresh_rejects_a_missing_token(client: AsyncClient) -> None:
 
 async def test_refresh_rejects_an_access_token(client: AsyncClient, make_user: MakeUser) -> None:
     user, _ = await make_user()
-    access, _ = create_token(data={"sub": str(user.id)})
+    access = create_token(user_id=user.id, session_id=uuid4())
     response = await client.get("/auth/refresh", headers={"Authorization": f"Bearer {access}"})
     assert response.status_code == 401, "an access token was accepted as a refresh token"
 

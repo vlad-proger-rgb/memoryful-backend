@@ -104,6 +104,7 @@ class ChatAgent:
         chat_id: UUID | None,
         model_id: UUID | None,
         content: str,
+        session_id: UUID | None = None,
         access_token: str | None = None,
     ) -> tuple[Chat, MessageSchema]:
         is_new_chat = chat_id is None
@@ -123,7 +124,7 @@ class ChatAgent:
         )
         chat.messages = [*chat.messages, _dump(user_message)]
 
-        reply_text = await self._generate_reply(chat, system_prompt, access_token)
+        reply_text = await self._generate_reply(chat, system_prompt, access_token, session_id)
         assistant_message = MessageSchema(
             role="assistant", content=reply_text, created_at=dt.datetime.now(dt.UTC)
         )
@@ -140,6 +141,7 @@ class ChatAgent:
         chat_id: UUID | None,
         model_id: UUID | None,
         content: str,
+        session_id: UUID | None = None,
         access_token: str | None = None,
     ) -> AsyncIterator[dict]:
         """Same turn as `run_completion`, but yielded as events: a `start`, then
@@ -175,7 +177,7 @@ class ChatAgent:
         segments: list[str] = []
         current: list[str] = []
         tools: list[ToolCallSchema] = []
-        async for event in self._stream_reply(chat, system_prompt, access_token):
+        async for event in self._stream_reply(chat, system_prompt, access_token, session_id):
             if event["type"] == "token":
                 current.append(event["text"])
             elif event["type"] == "toolCall":
@@ -207,26 +209,35 @@ class ChatAgent:
             "createdAt": assistant_created_at.isoformat(),
         }
 
-    def _run_metadata(self, chat: Chat, *, streamed: bool, history_messages: int) -> AiRunMetadata:
+    def _run_metadata(
+        self, chat: Chat, *, session_id: UUID | None, streamed: bool, history_messages: int
+    ) -> AiRunMetadata:
         return AiRunMetadata(
             model=chat.chat_model,
             user_id=chat.user_id,
             purpose=AiUsagePurpose.chat,
             trigger=AiRunTrigger.user,
+            session_id=session_id,
             chat_id=chat.id,
             streamed=streamed,
             history_messages=history_messages,
         )
 
     async def _stream_reply(
-        self, chat: Chat, system_prompt: str, access_token: str | None
+        self,
+        chat: Chat,
+        system_prompt: str,
+        access_token: str | None,
+        session_id: UUID | None,
     ) -> AsyncIterator[dict]:
         """Stream the reply, preferring the tool loop. If the agent fails before
         emitting anything we fall back to a plain stream; if it fails mid-stream we
         surface an error instead, so the user never sees duplicated text."""
         llm = build_chat_model(chat.chat_model)
         history = _to_lc_history(chat.messages)
-        metadata = self._run_metadata(chat, streamed=True, history_messages=len(history))
+        metadata = self._run_metadata(
+            chat, session_id=session_id, streamed=True, history_messages=len(history)
+        )
         config = ai_run_config(metadata)
 
         if access_token:
@@ -297,7 +308,11 @@ class ChatAgent:
                 yield {"type": "token", "text": text}
 
     async def _generate_reply(
-        self, chat: Chat, system_prompt: str, access_token: str | None
+        self,
+        chat: Chat,
+        system_prompt: str,
+        access_token: str | None,
+        session_id: UUID | None,
     ) -> str:
         """Reply to the chat's current history. With a bearer this runs the MCP loop;
         without one (or on any MCP failure) it falls back to plain completion."""
@@ -305,7 +320,9 @@ class ChatAgent:
 
         llm = build_chat_model(chat.chat_model)
         history = _to_lc_history(chat.messages)
-        metadata = self._run_metadata(chat, streamed=False, history_messages=len(history))
+        metadata = self._run_metadata(
+            chat, session_id=session_id, streamed=False, history_messages=len(history)
+        )
         config = ai_run_config(metadata)
 
         if access_token:

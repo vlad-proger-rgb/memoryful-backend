@@ -20,7 +20,7 @@ from sqlalchemy.sql.base import ExecutableOption
 from app.constants import CACHE_TTL_DAYS
 from app.core.cache import cached, clear_cache
 from app.core.database import get_db
-from app.core.deps import StorageServiceDep, get_current_user
+from app.core.deps import StorageServiceDep, get_current_user, get_session_id
 from app.core.storage.utils import as_key_set
 from app.enums import AiRunTrigger, CacheNamespace
 from app.enums.sorting import DaySortField, SortOrder
@@ -461,6 +461,7 @@ async def create_day(
 async def complete_day(
     db: Annotated[AsyncSession, Depends(get_db)],
     user_id: Annotated[UUID, Depends(get_current_user())],
+    session_id: Annotated[UUID, Depends(get_session_id)],
     timestamp: int,
 ) -> Msg[None]:
     day: Day | None = await db.get(Day, (timestamp, user_id))
@@ -473,7 +474,7 @@ async def complete_day(
         await clear_cache(CacheNamespace.days_list, user_id)
         await clear_cache(CacheNamespace.days_detail, user_id)
 
-    generate_day_ai.delay(str(user_id), timestamp, AiRunTrigger.user)
+    generate_day_ai.delay(str(user_id), timestamp, AiRunTrigger.user, session_id=str(session_id))
     return Msg(code=200, msg="Day marked as complete")
 
 

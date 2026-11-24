@@ -60,7 +60,7 @@ Browser ──(1) click button──→ Google
 ```
 
 Steps 6 and 7 are the existing code, called from a second entry point. Sessions,
-`/auth/refresh`, `/auth/logout`, `/auth/sessions`, the `jti` blacklist and the
+`/auth/refresh`, `/auth/logout`, `/auth/sessions`, the revoked-session blacklist and the
 `CacheNamespace.users` cache all keep working untouched — they only ever knew about *our*
 tokens, and they still only see our tokens.
 

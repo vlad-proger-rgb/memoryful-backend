@@ -93,7 +93,7 @@ async def make_user(db: AsyncSession) -> MakeUser:
         user = User(email=f"test-{uuid4().hex}@example.com")
         db.add(user)
         await db.flush()
-        token, _ = create_token(data={"sub": str(user.id)})
+        token = create_token(user_id=user.id, session_id=uuid4())
         return user, {"Authorization": f"Bearer {token}"}
 
     return _make

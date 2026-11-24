@@ -12,7 +12,7 @@ from app.ai.services.week import last_finished_week, week_of
 from app.constants import CACHE_TTL_AI_CONTENT
 from app.core.cache import cached
 from app.core.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_session_id
 from app.enums import AiRunTrigger, CacheNamespace
 from app.models import WeekDigest
 from app.schemas import Msg, WeekDigestInDB
@@ -54,6 +54,7 @@ async def get_week_digests(
 @router.post("/generate", response_model=Msg[None])
 async def request_week_digest(
     user_id: Annotated[UUID, Depends(get_current_user())],
+    session_id: Annotated[UUID, Depends(get_session_id)],
     week_start: dt.date | None = Query(
         None,
         alias="weekStart",
@@ -62,7 +63,13 @@ async def request_week_digest(
 ) -> Msg[None]:
     """Queue a digest by hand, overwriting that week's and skipping the readiness wait."""
     week = week_of(week_start) if week_start else last_finished_week()
-    generate_week_digest.delay(str(user_id), week.start.isoformat(), AiRunTrigger.user, force=True)
+    generate_week_digest.delay(
+        str(user_id),
+        week.start.isoformat(),
+        AiRunTrigger.user,
+        force=True,
+        session_id=str(session_id),
+    )
     return Msg(code=202, msg=f"Digest queued for the week of {week.start.isoformat()}")
 
 

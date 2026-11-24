@@ -33,12 +33,17 @@ def _run_async(coro: "Coroutine[Any, Any, Any]") -> Any:
 
 
 @celery.task(queue="ai_queue")
-def generate_day_ai(user_id: str, timestamp: int, trigger: str) -> None:
+def generate_day_ai(
+    user_id: str, timestamp: int, trigger: str, session_id: str | None = None
+) -> None:
     from app.ai.services.day import generate_day_insights
 
     _run_async(
         generate_day_insights(
-            user_id=UUID(user_id), timestamp=timestamp, trigger=AiRunTrigger(trigger)
+            user_id=UUID(user_id),
+            timestamp=timestamp,
+            trigger=AiRunTrigger(trigger),
+            session_id=UUID(session_id) if session_id else None,
         )
     )
 
@@ -71,7 +76,12 @@ def generate_yesterday_ai_fallback() -> None:
 
 @celery.task(bind=True, queue="ai_queue", max_retries=WEEK_DIGEST_MAX_RETRIES)
 def generate_week_digest(
-    self: Task, user_id: str, week_start: str, trigger: str, force: bool = False
+    self: Task,
+    user_id: str,
+    week_start: str,
+    trigger: str,
+    force: bool = False,
+    session_id: str | None = None,
 ) -> None:
     from app.ai.services.week.digest import WeekNotReady, generate_week_digest_for_user
 
@@ -82,6 +92,7 @@ def generate_week_digest(
                 user_id=UUID(user_id),
                 week=week,
                 trigger=AiRunTrigger(trigger),
+                session_id=UUID(session_id) if session_id else None,
                 # Daily fallback only covers yesterday; missed AI would block digest forever.
                 allow_incomplete=force or self.request.retries >= WEEK_DIGEST_MAX_RETRIES,
             )

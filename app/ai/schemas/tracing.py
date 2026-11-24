@@ -14,6 +14,7 @@ class AiRunMetadata(BaseModel):
     user_id: UUID
     purpose: AiUsagePurpose
     trigger: AiRunTrigger
+    session_id: UUID | None = None
     chat_id: UUID | None = None
     streamed: bool | None = None
     history_messages: int | None = None
