@@ -207,7 +207,7 @@ class ChatAgent:
             "createdAt": assistant_created_at.isoformat(),
         }
 
-    def _run_metadata(self, chat: Chat, *, streamed: bool) -> AiRunMetadata:
+    def _run_metadata(self, chat: Chat, *, streamed: bool, history_messages: int) -> AiRunMetadata:
         return AiRunMetadata(
             model=chat.chat_model,
             user_id=chat.user_id,
@@ -215,6 +215,7 @@ class ChatAgent:
             trigger=AiRunTrigger.user,
             chat_id=chat.id,
             streamed=streamed,
+            history_messages=history_messages,
         )
 
     async def _stream_reply(
@@ -224,9 +225,9 @@ class ChatAgent:
         emitting anything we fall back to a plain stream; if it fails mid-stream we
         surface an error instead, so the user never sees duplicated text."""
         llm = build_chat_model(chat.chat_model)
-        metadata = self._run_metadata(chat, streamed=True)
-        config = ai_run_config(metadata)
         history = _to_lc_history(chat.messages)
+        metadata = self._run_metadata(chat, streamed=True, history_messages=len(history))
+        config = ai_run_config(metadata)
 
         if access_token:
             emitted = False
@@ -303,9 +304,9 @@ class ChatAgent:
         from langchain_core.messages import SystemMessage
 
         llm = build_chat_model(chat.chat_model)
-        metadata = self._run_metadata(chat, streamed=False)
-        config = ai_run_config(metadata)
         history = _to_lc_history(chat.messages)
+        metadata = self._run_metadata(chat, streamed=False, history_messages=len(history))
+        config = ai_run_config(metadata)
 
         if access_token:
             try:

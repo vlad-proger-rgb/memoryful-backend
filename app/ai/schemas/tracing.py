@@ -16,6 +16,7 @@ class AiRunMetadata(BaseModel):
     trigger: AiRunTrigger
     chat_id: UUID | None = None
     streamed: bool | None = None
+    history_messages: int | None = None
     day: dt.date | None = None
     week: dt.date | None = None
     days_missing_ai: int | None = None
