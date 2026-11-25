@@ -1,14 +1,20 @@
 import datetime as dt
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, computed_field, field_serializer
 
 from app.enums import AiRunTrigger, AiUsagePurpose
-from app.models import ChatModel
+
+# app.models requires settings; keep this import type-only.
+if TYPE_CHECKING:
+    from app.models import ChatModel
+else:
+    ChatModel = Any
 
 
 class AiRunMetadata(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True)
+    model_config = ConfigDict(frozen=True)
 
     model: ChatModel
     user_id: UUID
