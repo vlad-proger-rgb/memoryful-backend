@@ -143,6 +143,10 @@ jobs:
       OPENAI_IDENTITY_PROVIDER_ID: idp_ci
       OPENAI_SERVICE_ACCOUNT_ID: svcacct_ci
 
+      AI_TRACING_AGENT_ID: memoryful
+      AI_TRACING_ENVIRONMENT: development
+      LANGSMITH_API_KEY: ci_langsmith_api_key
+
     steps:
       - uses: actions/checkout@v4
 
