@@ -2,7 +2,7 @@ import os
 from functools import lru_cache
 from typing import Any, Literal
 
-from pydantic import Field, ValidationError, field_validator
+from pydantic import Field, ValidationError, field_validator, model_validator
 from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
@@ -167,6 +167,7 @@ class Settings(BaseSettings):
 
     # LangSmith
     ai_tracing_enabled: bool = False
+    ai_tracing_include_content: bool = False
     ai_tracing_agent_id: str = Field(min_length=1)
     ai_tracing_environment: Literal["local", "development", "staging", "production"]
     langsmith_api_key: str = Field(min_length=1)
@@ -193,6 +194,12 @@ class Settings(BaseSettings):
     @classmethod
     def _normalize_llm_mode(cls, value: Any) -> Any:
         return value.strip().lower() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def _trace_content_only_in_development(self) -> "Settings":
+        if self.ai_tracing_include_content and not self.is_development:
+            raise ValueError("AI_TRACING_INCLUDE_CONTENT is only allowed in development")
+        return self
 
     @property
     def is_development(self) -> bool:

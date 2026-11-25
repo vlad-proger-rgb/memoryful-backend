@@ -19,8 +19,8 @@ def _client() -> "Client":
     return Client(
         api_url=settings.langsmith_endpoint,
         api_key=settings.langsmith_api_key,
-        hide_inputs=True,
-        hide_outputs=True,
+        hide_inputs=not settings.ai_tracing_include_content,
+        hide_outputs=not settings.ai_tracing_include_content,
     )
 
 
