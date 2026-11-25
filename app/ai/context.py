@@ -6,14 +6,14 @@ import asyncio
 import logging
 from uuid import UUID
 
-from jinja2 import Environment, FileSystemLoader
-from pydantic import BaseModel
+from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.schemas import UserProfile
 from app.ai.utils import load_prompt, prompts_dir
 from app.constants import CACHE_TTL_USER_DATA
 from app.core.config import redis
-from app.enums import RedisPrefix
+from app.enums import Prompt, RedisPrefix
 from app.models import User
 
 logger = logging.getLogger(__name__)
@@ -24,24 +24,16 @@ _env = Environment(
     autoescape=False,  # noqa: S701  # prompts are not HTML; escaping would corrupt them
     trim_blocks=True,
     lstrip_blocks=True,
+    undefined=StrictUndefined,
 )
 
 
-def render_block(template: str, /, **context: object) -> str:
-    """Render a Jinja2 prompt block and strip surrounding whitespace."""
-    return _env.get_template(template).render(**context).strip()
-
-
-class UserProfile(BaseModel):
-    """Minimal user facts used to personalize chat. Cached, so kept small."""
-
-    first_name: str | None = None
-    age: int | None = None
-    bio: str | None = None
-
-    @property
-    def is_empty(self) -> bool:
-        return not (self.first_name or self.age or self.bio)
+def render_user_profile(profile: UserProfile) -> str:
+    return (
+        _env.get_template("context/user_profile.md.j2")
+        .render(name=profile.first_name, age=profile.age, bio=profile.bio)
+        .strip()
+    )
 
 
 async def get_user_profile(db: AsyncSession, user_id: UUID) -> UserProfile:
@@ -68,7 +60,7 @@ class ChatContextBuilder:
         self.db = db
 
     async def system_prompt(self, user_id: UUID) -> str:
-        base = load_prompt("chat_system.md")
+        base = load_prompt(Prompt.chat_system)
         # Blocks load concurrently; each returns "" when it has nothing to add.
         blocks = await asyncio.gather(
             self._user_profile(user_id),
@@ -79,9 +71,4 @@ class ChatContextBuilder:
         profile = await get_user_profile(self.db, user_id)
         if profile.is_empty:
             return ""
-        return render_block(
-            "context/user_profile.md.j2",
-            name=profile.first_name,
-            age=profile.age,
-            bio=profile.bio,
-        )
+        return render_user_profile(profile)

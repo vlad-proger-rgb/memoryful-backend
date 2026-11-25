@@ -31,3 +31,13 @@ class AiRunName(StrEnum):
 class AiRunTrigger(StrEnum):
     user = "user"
     scheduled = "scheduled"
+
+
+class Prompt(StrEnum):
+    """A plain prompt file under `app/ai/prompts/`."""
+
+    chat_system = "chat_system.md"
+    system_base = "system_base.md"
+    insights = "insights.md"
+    suggestions = "suggestions.md"
+    week_digest = "week_digest.md"

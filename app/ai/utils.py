@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.settings import get_settings
-from app.enums import AnalysisPurpose, Gateway
+from app.enums import AnalysisPurpose, Gateway, Prompt
 from app.models import AiModelPreference, ChatModel
 
 if TYPE_CHECKING:
@@ -25,8 +25,8 @@ def prompts_dir() -> Path:
     return Path(__file__).parent / "prompts"
 
 
-def load_prompt(filename: str) -> str:
-    return (prompts_dir() / filename).read_text(encoding="utf-8").strip()
+def load_prompt(prompt: Prompt) -> str:
+    return (prompts_dir() / prompt).read_text(encoding="utf-8").strip()
 
 
 # Cached ADC credentials; the access token is valid ~1h and refreshed on demand.

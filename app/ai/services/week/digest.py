@@ -20,6 +20,7 @@ from app.enums import (
     AnalysisPurpose,
     CacheNamespace,
     InsightKind,
+    Prompt,
 )
 from app.models import Day, Insight, WeekDigest
 
@@ -159,8 +160,8 @@ async def generate_week_digest_for_user(
             max_sections=budget,
         )
         messages: list[BaseMessage] = [
-            SystemMessage(content=load_prompt("system_base.md")),
-            SystemMessage(content=load_prompt("week_digest.md")),
+            SystemMessage(content=load_prompt(Prompt.system_base)),
+            SystemMessage(content=load_prompt(Prompt.week_digest)),
             HumanMessage(content=context),
         ]
 

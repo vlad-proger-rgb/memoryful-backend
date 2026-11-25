@@ -1,4 +1,4 @@
-from .ai import AiRunName, AiRunTrigger, AiUsagePurpose, AnalysisPurpose
+from .ai import AiRunName, AiRunTrigger, AiUsagePurpose, AnalysisPurpose, Prompt
 from .auth import TokenType
 from .cache import CacheNamespace
 from .emails import EmailTemplate
@@ -22,6 +22,7 @@ __all__ = [
     "Gateway",
     "IconStyle",
     "InsightKind",
+    "Prompt",
     "Provider",
     "RedisPrefix",
     "SortOrder",

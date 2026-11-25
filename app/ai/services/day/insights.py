@@ -21,6 +21,7 @@ from app.enums import (
     AnalysisPurpose,
     CacheNamespace,
     InsightKind,
+    Prompt,
 )
 from app.models import Day, Insight
 
@@ -82,9 +83,9 @@ async def generate_day_insights(
         model = await get_chat_model_for(db, user_id=user_id, purpose=AnalysisPurpose.day)
         llm = build_chat_model(model)
 
-        system_base = load_prompt("system_base.md")
-        insights_prompt = load_prompt("insights.md")
-        suggestions_prompt = load_prompt("suggestions.md")
+        system_base = load_prompt(Prompt.system_base)
+        insights_prompt = load_prompt(Prompt.insights)
+        suggestions_prompt = load_prompt(Prompt.suggestions)
 
         date = dt.datetime.fromtimestamp(timestamp, tz=dt.UTC).date()
         config = ai_run_config(
