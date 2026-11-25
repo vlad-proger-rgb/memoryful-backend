@@ -92,7 +92,8 @@ single key to override. `mcp_server/pytest.ini` is dead: pytest picks the root
   Secret Manager source runs on one gRPC channel and is ranked *below* the environment, so
   `.env.prod` can override any of them. `Settings` sets no `env_file` on purpose — compose
   supplies the environment, and the repo's own `.env` is host tooling holding a production
-  connection string.
+  connection string. A new required setting also goes in the `test (app)` job's `env:` in
+  `.github/workflows/checks.yml`: CI reads no env file and fails at `alembic upgrade head`.
 - **The sources hook is `settings_customise_sources`** — British spelling, as pydantic
   defines it. Spelled with a `z` it is simply a method nobody calls, so Secret Manager drops
   out with no error and local dev still passes, because dev sets everything from `.env.local`.
@@ -159,4 +160,6 @@ choices are open tasks with write-ups.
   the guard anchors on the *command word*, so `cat scripts/deploy-app.sh` passes. What still
   trips it is file *content* pushed through Bash: a heredoc whose lines begin with a denied
   command word parses as that command. Write those files with the Write tool.
-- Never hand-edit `alembic/versions/`; generate a new revision.
+- Generate revisions with `alembic revision`. Editing one by hand is fine when needed, such as
+  adding a data step, as long as Alembic can't tell: never change `revision` or
+  `down_revision`, or a revision that has already run in production.
