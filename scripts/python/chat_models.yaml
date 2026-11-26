@@ -10,8 +10,8 @@
   # models.dev says it takes a temperature; the API answers 400 when given one.
   no_sampling: true
 
-- google-vertex/xai/grok-4.1-fast-non-reasoning
-- google-vertex/xai/grok-4.1-fast-reasoning
+- google-vertex/xai/grok-4.20-non-reasoning
+- google-vertex/xai/grok-4.20-reasoning
 
 - openai/gpt-5.4-nano
 - openai/gpt-5.4-mini
